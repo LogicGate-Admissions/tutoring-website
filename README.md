@@ -1,2 +1,2 @@
 # tutoring-website
-Tutoring website for Apex-Admissions
+Tutoring website for LogicGate Admissions
