@@ -25,6 +25,11 @@ type MatchRequest = {
 }
 
 export default function MatchingSystem() {
+
+  const [view, SetView]  = useState<'student' | 'tutor'>('student');
+  const [currentStudent] = useState("Alex (Test Student)");
+  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
+
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
   const [displayedTutors, setDisplayedTutors] = useState<Tutor[]>([]);
   
