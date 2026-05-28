@@ -77,9 +77,7 @@ export default function MatchingSystem() {
     return () => unsubscribe();
   }, []);
 
-  // ============================================================================
-  // --- NEW FIX: Derived State (Calculates directly on render, no useEffect!) ---
-  // ============================================================================
+
   let displayedTutors = allTutors;
 
   if (selectedSubjects.length > 0) {
@@ -100,7 +98,6 @@ export default function MatchingSystem() {
       tutor.university?.toLowerCase() === selectedUni.toLowerCase()
     );
   }
-  // ============================================================================
 
   // Function to send the request to Firebase 
   const handleRequestMatch = async (tutor: Tutor) => {
