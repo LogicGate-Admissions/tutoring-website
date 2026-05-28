@@ -15,7 +15,7 @@ type Tutor = {
   hourlyRate: number;
 };
 
-// gives object for match request. So spelling mistakes don't matter, we have objective status
+// Blueprint for match request. Types are strictly lowercase 'string'.
 type MatchRequest = {
   id: string;
   tutorId: string;
@@ -25,28 +25,30 @@ type MatchRequest = {
 }
 
 export default function MatchingSystem() {
-
+  // View Toggle State
   const [view, setView]  = useState<'student' | 'tutor'>('student');
+  
+  // Staged variables 
   const [currentStudent] = useState("Alex (Test Student)");
   const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
 
+  // Search & Filter State
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
   const [displayedTutors, setDisplayedTutors] = useState<Tutor[]>([]);
-  
-  // Multi subject selection
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedUni, setSelectedUni] = useState('');
 
-  // Subject clicks
+  // Subject Multi-Select Logic
   const toggleSubject = (subject: string) => {
     setSelectedSubjects(prev => 
       prev.includes(subject) 
-        ? prev.filter(s => s !== subject) // Remove it if it's already selected
-        : [...prev, subject]              // Add it if it's not selected
+        ? prev.filter(s => s !== subject) 
+        : [...prev, subject]              
     );
   };
 
+  // Fetch Tutors
   useEffect(() => {
     async function fetchTutors() {
       const querySnapshot = await getDocs(collection(db, "tutors"));
@@ -61,15 +63,13 @@ export default function MatchingSystem() {
     fetchTutors();
   }, []);
 
-  // Filtering Logic
+  // Filter Tutors
   useEffect(() => {
     let filtered = allTutors;
 
-    // Filter by multiple subjects (OR logic)
     if (selectedSubjects.length > 0) {
       filtered = filtered.filter(tutor => {
         const subjects = tutor.subjects || [];
-        // Returns true if the tutor teaches ANY of the selected subjects
         return subjects.some(sub => selectedSubjects.includes(sub.toLowerCase()));
       });
     }
@@ -92,7 +92,7 @@ export default function MatchingSystem() {
   return (
     <main className="min-h-screen bg-gray-50 text-black">
       
-      {/*Global Header with View Switcher*/}
+      {/* Global Header with View Switcher */}
       <header className="bg-black text-white p-4 flex justify-between items-center shadow-md">
         <h1 className="font-bold text-xl tracking-tight">TutorMatch.</h1>
         <div className="flex gap-2 bg-gray-800 p-1 rounded-lg">
@@ -113,7 +113,7 @@ export default function MatchingSystem() {
 
       <div className="p-8">
         
-        {/* Only show if view is 'student' */}
+        {/* STUDENT VIEW */}
         {view === 'student' && (
           <div className="flex flex-col md:flex-row gap-8">
             <aside className="w-full md:w-1/4 bg-white p-6 rounded-lg shadow-sm border border-gray-200 h-fit">
@@ -138,6 +138,17 @@ export default function MatchingSystem() {
                   <option value="first-principles">First-Principles</option>
                 </select>
               </div>
+
+              <div className="mb-6">
+                <label className="block mb-2 text-sm font-medium">University</label>
+                <select className="w-full border p-2 rounded text-sm" value={selectedUni} onChange={(e) => setSelectedUni(e.target.value)}>
+                  <option value="">Any University</option>
+                  <option value="imperial college london">Imperial College London</option>
+                  <option value="cambridge university">Cambridge University</option>
+                  <option value="ucl">UCL</option>
+                  <option value="university of manchester">University of Manchester</option>
+                </select>
+              </div>
             </aside>
 
             <section className="w-full md:w-3/4 grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -155,7 +166,7 @@ export default function MatchingSystem() {
                     <p className="text-sm mb-6">{tutor.bio}</p>
                   </div>
                   
-                  {/* Updated Action Button */}
+                  {/* Action Button */}
                   <div className="flex gap-2 mt-auto">
                     <button onClick={() => alert("Ready for Commit 2!")} className="bg-black text-white px-4 py-2 rounded text-sm font-medium flex-1">Request Match</button>
                   </div>
@@ -165,7 +176,7 @@ export default function MatchingSystem() {
           </div>
         )}
 
-        {/* Empty Tutor Dashboard */}
+        {/* TUTOR VIEW */}
         {view === 'tutor' && (
           <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-sm border border-gray-200">
             <h2 className="font-bold text-2xl mb-2">Tutor Dashboard</h2>
