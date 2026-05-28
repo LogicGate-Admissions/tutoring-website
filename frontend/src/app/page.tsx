@@ -248,6 +248,24 @@ export default function MatchingSystem() {
                         <button disabled className="bg-red-100 text-red-800 border border-red-300 px-4 py-2 rounded text-sm font-medium flex-1 cursor-not-allowed">Match Declined</button>
                       )}
                     </div>
+
+                    {/* Secondary Action Row (No functionality yet) */}
+                    <div className="flex gap-2">
+                        <button 
+                          type="button" 
+                          onClick={() => alert('Shortlist feature to be implemented!')}
+                          className="flex-1 border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-colors"
+                        >
+                          Shortlist
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => alert('Booking system to be implemented!')}
+                          className="flex-1 border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-colors"
+                        >
+                          Book a Call
+                        </button>
+                      </div>
                   </div>
                 );
               })}
