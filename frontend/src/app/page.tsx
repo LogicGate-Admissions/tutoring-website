@@ -17,16 +17,16 @@ type Tutor = {
 
 // gives object for match request. So spelling mistakes don't matter, we have objective status
 type MatchRequest = {
-  id: String;
-  tutorId: String;
-  tutorName: String; 
-  studentName: String;
+  id: string;
+  tutorId: string;
+  tutorName: string; 
+  studentName: string;
   status: 'pending' | 'accepted' | 'declined';
 }
 
 export default function MatchingSystem() {
 
-  const [view, SetView]  = useState<'student' | 'tutor'>('student');
+  const [view, setView]  = useState<'student' | 'tutor'>('student');
   const [currentStudent] = useState("Alex (Test Student)");
   const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
 
@@ -90,125 +90,90 @@ export default function MatchingSystem() {
   }, [selectedSubjects, selectedStyle, selectedUni, allTutors]);
 
   return (
-    <main className="min-h-screen p-8 bg-gray-50 flex flex-col md:flex-row gap-8 text-black">
+    <main className="min-h-screen bg-gray-50 text-black">
       
-      {/* SIDEBAR: Filters */}
-      <aside className="w-full md:w-1/4 bg-white p-6 rounded-lg shadow-sm h-fit">
-        <h2 className="font-bold text-xl mb-6">Find your match</h2>
-        
-        {/* MULTI-SELECT SUBJECTS UI */}
-        <div className="mb-6">
-          <label className="block mb-3 text-sm font-medium">Subjects (Select Multiple)</label>
-          <div className="flex flex-wrap gap-2">
-            {['math', 'further math', 'physics', 'chemistry', 'biology'].map(sub => (
-              <button
-                key={sub}
-                onClick={() => toggleSubject(sub)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
-                  selectedSubjects.includes(sub)
-                    ? 'bg-black text-white' // Highlighted state
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200' // Unselected state
-                }`}
-              >
-                {sub}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <label className="block mb-2 text-sm font-medium">Learning Style</label>
-          <select 
-            className="w-full border border-gray-300 p-2 rounded bg-white text-black text-sm"
-            value={selectedStyle}
-            onChange={(e) => setSelectedStyle(e.target.value)}
+      {/*Global Header with View Switcher*/}
+      <header className="bg-black text-white p-4 flex justify-between items-center shadow-md">
+        <h1 className="font-bold text-xl tracking-tight">TutorMatch.</h1>
+        <div className="flex gap-2 bg-gray-800 p-1 rounded-lg">
+          <button 
+            onClick={() => setView('student')} 
+            className={`px-4 py-1.5 rounded text-sm font-medium ${view === 'student' ? 'bg-white text-black' : 'text-gray-300'}`}
           >
-            <option value="">Any Style</option>
-            <option value="visual">Visual</option>
-            <option value="socratic">Socratic</option>
-            <option value="past-paper drilling">Past-Paper Drilling</option>
-            <option value="exam technique">Exam Technique</option>
-            <option value="first-principles">First-Principles</option>
-            <option value="highly structured">Highly Structured</option>
-            <option value="neurodivergent friendly">Neurodivergent Friendly</option>
-          </select>
-        </div>
-
-        <div className="mb-6">
-          <label className="block mb-2 text-sm font-medium">University</label>
-          <select 
-            className="w-full border border-gray-300 p-2 rounded bg-white text-black text-sm"
-            value={selectedUni}
-            onChange={(e) => setSelectedUni(e.target.value)}
+            Student View
+          </button>
+          <button 
+            onClick={() => setView('tutor')} 
+            className={`px-4 py-1.5 rounded text-sm font-medium ${view === 'tutor' ? 'bg-white text-black' : 'text-gray-300'}`}
           >
-            <option value="">Any University</option>
-            <option value="imperial college london">Imperial College London</option>
-            <option value="cambridge university">Cambridge University</option>
-            <option value="ucl">UCL</option>
-            <option value="university of manchester">University of Manchester</option>
-          </select>
+            Tutor View
+          </button>
         </div>
-        
-        <button 
-          onClick={() => { 
-            setSelectedSubjects([]); 
-            setSelectedStyle(''); 
-            setSelectedUni(''); 
-          }}
-          className="w-full border border-gray-300 px-4 py-2 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
-        >
-          Clear Filters
-        </button>
-      </aside>
+      </header>
 
-      {/* MAIN CONTENT: Tutor Grid */}
-      <section className="w-full md:w-3/4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {displayedTutors.map((tutor) => (
-            <div key={tutor.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-bold text-xl">{tutor.name}</h3>
-                  <span className="font-bold text-lg text-green-700">£{tutor.hourlyRate}/hr</span>
-                </div>
-                
-                <p className="text-sm font-semibold text-gray-500 mb-3">{tutor.university}</p>
-                
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {tutor.subjects?.map(subject => (
-                    <span key={subject} className="bg-green-100 text-green-800 text-xs px-2.5 py-1 rounded-full font-medium">
-                      {subject}
-                    </span>
-                  ))}
-                  {tutor.learningStyles?.map(style => (
-                    <span key={style} className="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full font-medium">
-                      {style}
-                    </span>
-                  ))}
-                </div>
-                
-                <p className="text-sm mb-6 text-gray-700 leading-relaxed">{tutor.bio}</p>
-              </div>
+      <div className="p-8">
+        
+        {/* Only show if view is 'student' */}
+        {view === 'student' && (
+          <div className="flex flex-col md:flex-row gap-8">
+            <aside className="w-full md:w-1/4 bg-white p-6 rounded-lg shadow-sm border border-gray-200 h-fit">
+              <h2 className="font-bold text-xl mb-6">Find your match</h2>
               
-              <div className="flex gap-3 mt-auto">
-                <button 
-                  onClick={() => alert("Booking system coming in Milestone 3!")}
-                  className="bg-black text-white px-4 py-2 rounded text-sm font-medium w-full hover:bg-gray-800 transition-colors"
-                >
-                  Book Consultation
-                </button>
+              <div className="mb-6">
+                <label className="block mb-3 text-sm font-medium">Subjects</label>
+                <div className="flex flex-wrap gap-2">
+                  {['math', 'physics', 'chemistry', 'biology'].map(sub => (
+                    <button key={sub} onClick={() => toggleSubject(sub)} className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${selectedSubjects.includes(sub) ? 'bg-black text-white' : 'bg-gray-100 hover:bg-gray-200'}`}>{sub}</button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
 
-          {displayedTutors.length === 0 && (
-            <div className="col-span-1 lg:col-span-2 flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-gray-200 rounded-lg">
-              <p className="text-gray-500 font-medium mb-2">No tutors found matching your criteria.</p>
-              <p className="text-gray-400 text-sm">Try clearing some filters or selecting different options.</p>
-            </div>
-          )}
-        </div>
-      </section>
+              <div className="mb-6">
+                <label className="block mb-2 text-sm font-medium">Learning Style</label>
+                <select className="w-full border p-2 rounded text-sm" value={selectedStyle} onChange={(e) => setSelectedStyle(e.target.value)}>
+                  <option value="">Any Style</option>
+                  <option value="visual">Visual</option>
+                  <option value="socratic">Socratic</option>
+                  <option value="past-paper drilling">Past-Paper Drilling</option>
+                  <option value="first-principles">First-Principles</option>
+                </select>
+              </div>
+            </aside>
+
+            <section className="w-full md:w-3/4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {displayedTutors.map((tutor) => (
+                <div key={tutor.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-bold text-xl">{tutor.name}</h3>
+                      <span className="font-bold text-green-700">£{tutor.hourlyRate}/hr</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-4">{tutor.university}</p>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {tutor.learningStyles?.map(style => <span key={style} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{style}</span>)}
+                    </div>
+                    <p className="text-sm mb-6">{tutor.bio}</p>
+                  </div>
+                  
+                  {/* Updated Action Button */}
+                  <div className="flex gap-2 mt-auto">
+                    <button onClick={() => alert("Ready for Commit 2!")} className="bg-black text-white px-4 py-2 rounded text-sm font-medium flex-1">Request Match</button>
+                  </div>
+                </div>
+              ))}
+            </section>
+          </div>
+        )}
+
+        {/* Empty Tutor Dashboard */}
+        {view === 'tutor' && (
+          <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+            <h2 className="font-bold text-2xl mb-2">Tutor Dashboard</h2>
+            <p className="text-gray-500 mb-8">Incoming student requests will appear here.</p>
+          </div>
+        )}
+
+      </div>
     </main>
   );
 }
