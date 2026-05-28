@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import ChoiceButton from '../components/onboarding/ChoiceButton';
 import StepTabs from '../components/onboarding/StepTabs';
+import Link from 'next/link';
 import {
   admissionsTests,
   categories,
@@ -302,16 +303,16 @@ export default function OnboardingSubjectsPage() {
         </div>
 
         <div className="mt-14 flex justify-end pb-24">
-          <button
-            type="button"
+          <Link
+            href="/time"
             className="rounded-xl border-2 border-emerald-500 bg-white px-10 py-3 text-xl font-medium text-slate-950 transition hover:bg-emerald-50"
           >
             Next →
-          </button>
+          </Link>
         </div>
       </section>
 
-      <StepTabs />
+      <StepTabs activeStep="subjects" />
     </main>
   );
 }
