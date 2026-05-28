@@ -28,13 +28,12 @@ export default function MatchingSystem() {
   // View Toggle State
   const [view, setView]  = useState<'student' | 'tutor'>('student');
   
-  // Staged variables 
+  // User & Request State 
   const [currentStudent] = useState("Alex (Test Student)");
   const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
 
-  // Search & Filter State
+  // Search & Filter State (Notice displayedTutors is gone from here!)
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
-  const [displayedTutors, setDisplayedTutors] = useState<Tutor[]>([]);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedUni, setSelectedUni] = useState('');
@@ -48,7 +47,7 @@ export default function MatchingSystem() {
     );
   };
 
-  // Fetch Tutors
+  // Fetch Tutors (Runs once on load)
   useEffect(() => {
     async function fetchTutors() {
       const querySnapshot = await getDocs(collection(db, "tutors"));
@@ -58,7 +57,6 @@ export default function MatchingSystem() {
       })) as Tutor[];
 
       setAllTutors(fetchedTutors);
-      setDisplayedTutors(fetchedTutors);
     }
     fetchTutors();
   }, []);
@@ -79,31 +77,30 @@ export default function MatchingSystem() {
     return () => unsubscribe();
   }, []);
 
-  // Filter Tutors
-  useEffect(() => {
-    let filtered = allTutors;
+  // ============================================================================
+  // --- NEW FIX: Derived State (Calculates directly on render, no useEffect!) ---
+  // ============================================================================
+  let displayedTutors = allTutors;
 
-    if (selectedSubjects.length > 0) {
-      filtered = filtered.filter(tutor => {
-        const subjects = tutor.subjects || [];
-        return subjects.some(sub => selectedSubjects.includes(sub.toLowerCase()));
-      });
-    }
+  if (selectedSubjects.length > 0) {
+    displayedTutors = displayedTutors.filter(tutor => {
+      const subjects = tutor.subjects || [];
+      return subjects.some(sub => selectedSubjects.includes(sub.toLowerCase()));
+    });
+  }
 
-    if (selectedStyle) {
-      filtered = filtered.filter(tutor => 
-        tutor.learningStyles?.some(style => style.toLowerCase() === selectedStyle.toLowerCase())
-      );
-    }
+  if (selectedStyle) {
+    displayedTutors = displayedTutors.filter(tutor => 
+      tutor.learningStyles?.some(style => style.toLowerCase() === selectedStyle.toLowerCase())
+    );
+  }
 
-    if (selectedUni) {
-      filtered = filtered.filter(tutor => 
-        tutor.university?.toLowerCase() === selectedUni.toLowerCase()
-      );
-    }
-
-    setDisplayedTutors(filtered);
-  }, [selectedSubjects, selectedStyle, selectedUni, allTutors]);
+  if (selectedUni) {
+    displayedTutors = displayedTutors.filter(tutor => 
+      tutor.university?.toLowerCase() === selectedUni.toLowerCase()
+    );
+  }
+  // ============================================================================
 
   // Function to send the request to Firebase 
   const handleRequestMatch = async (tutor: Tutor) => {
