@@ -216,7 +216,19 @@ export default function MatchingSystem() {
                       </div>
                       <p className="text-sm text-gray-500 mb-4">{tutor.university}</p>
                       <div className="flex flex-wrap gap-2 mb-4">
-                        {tutor.learningStyles?.map(style => <span key={style} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{style}</span>)}
+                        {/* Map over subjects and make them Green */}
+                        {tutor.subjects?.map(subject => (
+                          <span key={subject} className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium capitalize">
+                            {subject}
+                          </span>
+                        ))}
+                        
+                        {/* Map over learning styles and make them Blue */}
+                        {tutor.learningStyles?.map(style => (
+                          <span key={style} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium">
+                            {style}
+                          </span>
+                        ))}
                       </div>
                       <p className="text-sm mb-6">{tutor.bio}</p>
                     </div>
