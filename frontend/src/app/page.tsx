@@ -193,6 +193,18 @@ export default function MatchingSystem() {
                   <option value="university of manchester">University of Manchester</option>
                 </select>
               </div>
+
+              {/* Clear Filters Button */}
+              <button 
+                onClick={() => {
+                  setSelectedSubjects([]);
+                  setSelectedStyle('');
+                  setSelectedUni('');
+                }}
+                className="w-full border border-gray-300 bg-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-colors mt-2"
+              >
+                Clear Filters
+              </button>
             </aside>
 
             <section className="w-full md:w-3/4 grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -277,7 +289,6 @@ export default function MatchingSystem() {
             </div>
           </div>
         )}
-
       </div>
     </main>
   );
