@@ -1,4 +1,5 @@
-import { subjectColourClasses, Tutor } from '../../lib/tutorOptions';
+import { subjectColourClasses } from '../../lib/tutorOptions';
+import type { Tutor } from '../../lib/tutorOptions';
 
 type TutorCardProps = {
   tutor: Tutor;
@@ -21,6 +22,7 @@ function subjectColour(subject: string) {
 function levelColour(level: string) {
   if (['A-level', 'GCSE', 'IB'].includes(level)) return 'bg-cyan-500';
   if (['TMUA', 'MAT', 'STEP', 'ESAT'].includes(level)) return 'bg-purple-500';
+
   return 'bg-slate-400';
 }
 
@@ -29,6 +31,7 @@ function styleColour(style: string) {
   if (style === 'Past-paper drilling') return 'bg-pink-500';
   if (style === 'Step-by-step examples') return 'bg-emerald-500';
   if (style === 'Socratic questioning') return 'bg-orange-500';
+
   return 'bg-slate-400';
 }
 
@@ -39,7 +42,10 @@ export default function TutorCard({ tutor, selected, onClick }: TutorCardProps) 
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') onClick();
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
       }}
       className={`cursor-pointer rounded-[1.75rem] border-2 border-slate-950 bg-white p-6 transition hover:-translate-y-1 hover:shadow-[8px_8px_0_#0f172a] ${
         selected
@@ -58,6 +64,7 @@ export default function TutorCard({ tutor, selected, onClick }: TutorCardProps) 
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold">{tutor.name}</h2>
+
               <p className="mt-1 text-sm font-semibold text-slate-500">
                 {tutor.university}
               </p>
@@ -124,6 +131,7 @@ export default function TutorCard({ tutor, selected, onClick }: TutorCardProps) 
       <div className="mt-5 flex items-center justify-between gap-4">
         <div>
           <p className="text-lg font-black">★ {tutor.rating}</p>
+
           <p className="text-xs font-semibold text-slate-500">
             {tutor.reviewCount} reviews
           </p>

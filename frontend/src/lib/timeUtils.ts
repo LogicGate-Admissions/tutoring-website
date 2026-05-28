@@ -1,4 +1,4 @@
-import { Day, TimeBlock } from './timeOptions';
+import type { Day, TimeBlock } from './timeOptions';
 
 export function makeId() {
   return crypto.randomUUID();
@@ -100,14 +100,16 @@ export function mergeBlockIntoBlocks(blocks: TimeBlock[], newBlock: TimeBlock) {
     day: newBlock.day,
     from: minutesToTime(mergedStart),
     to: minutesToTime(mergedEnd),
-    source: mergeableBlocks.some((block) => block.source === 'manual') ? 'manual' : newBlock.source,
+    source: mergeableBlocks.some((block) => block.source === 'manual')
+      ? 'manual'
+      : newBlock.source,
   };
 
   return [...untouchedBlocks, mergedBlock];
 }
 
 export function mergeAllBlocks(blocks: TimeBlock[]) {
-  return blocks
+  return [...blocks]
     .sort((a, b) => {
       if (a.day !== b.day) {
         return a.day.localeCompare(b.day);

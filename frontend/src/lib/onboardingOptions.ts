@@ -1,10 +1,5 @@
 export type Category = 'A-level' | 'GCSE' | 'University admissions' | 'Other';
 
-export type Option = {
-  label: string;
-  value: string;
-};
-
 export const categories: Category[] = [
   'A-level',
   'GCSE',
@@ -12,68 +7,34 @@ export const categories: Category[] = [
   'Other',
 ];
 
-export const otherQualifications: Option[] = [
-  { label: 'IB', value: 'IB' },
-  { label: 'IGCSE', value: 'IGCSE' },
-  { label: 'IAL', value: 'IAL' },
-  { label: 'Scottish Highers', value: 'Scottish Highers' },
+export const otherQualifications = [
+  'IB',
+  'IGCSE',
+  'IAL',
+  'Scottish Highers',
 ];
 
-export const subjectOptions: Record<string, Option[]> = {
+export const subjectOptions: Record<string, string[]> = {
   'A-level': [
-    { label: 'Maths', value: 'Maths' },
-    { label: 'Physics', value: 'Physics' },
-    { label: 'Chemistry', value: 'Chemistry' },
-    { label: 'Biology', value: 'Biology' },
-    { label: 'Further Maths', value: 'Further Maths' },
-    { label: 'Computer Science', value: 'Computer Science' },
+    'Maths',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Further Maths',
+    'Computer Science',
   ],
 
   GCSE: [
-    { label: 'Maths', value: 'Maths' },
-    { label: 'English', value: 'English' },
-    { label: 'Physics', value: 'Physics' },
-    { label: 'Chemistry', value: 'Chemistry' },
-    { label: 'Biology', value: 'Biology' },
-    { label: 'Computer Science', value: 'Computer Science' },
-  ],
-
-  IB: [
-    { label: 'Maths AA HL', value: 'Maths AA HL' },
-    { label: 'Physics HL', value: 'Physics HL' },
-    { label: 'Chemistry HL', value: 'Chemistry HL' },
-    { label: 'Biology HL', value: 'Biology HL' },
-    { label: 'Economics HL', value: 'Economics HL' },
-    { label: 'Computer Sci HL', value: 'Computer Sci HL' },
-  ],
-
-  IGCSE: [
-    { label: 'Maths', value: 'Maths' },
-    { label: 'English', value: 'English' },
-    { label: 'Physics', value: 'Physics' },
-    { label: 'Chemistry', value: 'Chemistry' },
-    { label: 'Biology', value: 'Biology' },
-    { label: 'Computer Science', value: 'Computer Science' },
-  ],
-
-  IAL: [
-    { label: 'Maths', value: 'Maths' },
-    { label: 'Physics', value: 'Physics' },
-    { label: 'Chemistry', value: 'Chemistry' },
-    { label: 'Biology', value: 'Biology' },
-    { label: 'Further Maths', value: 'Further Maths' },
-  ],
-
-  'Scottish Highers': [
-    { label: 'Maths', value: 'Maths' },
-    { label: 'Physics', value: 'Physics' },
-    { label: 'Chemistry', value: 'Chemistry' },
-    { label: 'Biology', value: 'Biology' },
-    { label: 'Computing Science', value: 'Computing Science' },
+    'Maths',
+    'English',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Computer Science',
   ],
 };
 
-export const moreSubjectOptions = {
+export const moreSubjectOptions: Record<string, string[]> = {
   'A-level': [
     'English Literature',
     'English Language',
@@ -91,6 +52,7 @@ export const moreSubjectOptions = {
     'Art',
     'Music',
   ],
+
   GCSE: [
     'English Literature',
     'English Language',
@@ -102,11 +64,11 @@ export const moreSubjectOptions = {
     'Spanish',
     'German',
     'Business',
-    'Computer Science',
     'Design Technology',
     'Art',
     'Music',
   ],
+
   'University admissions': [
     'STEP',
     'ESAT',
@@ -119,25 +81,38 @@ export const moreSubjectOptions = {
     'Interview preparation',
     'Personal statement',
   ],
+
   Other: [
     'IB Maths',
     'IB Physics',
     'IB Chemistry',
     'IB Biology',
+    'IB Economics',
+    'IB Computer Science',
     'IGCSE Maths',
+    'IGCSE English',
     'IGCSE Physics',
+    'IGCSE Chemistry',
+    'IGCSE Biology',
     'IAL Maths',
+    'IAL Physics',
+    'IAL Chemistry',
+    'IAL Biology',
     'Scottish Highers Maths',
+    'Scottish Highers Physics',
+    'Scottish Highers Chemistry',
+    'Scottish Highers Biology',
+    'Scottish Highers Computing Science',
   ],
 };
 
-export const admissionsTests: Option[] = [
-  { label: 'TMUA', value: 'TMUA' },
-  { label: 'MAT', value: 'MAT' },
-  { label: 'STEP', value: 'STEP' },
-  { label: 'ESAT', value: 'ESAT' },
-  { label: 'UCAT', value: 'UCAT' },
-  { label: 'LNAT', value: 'LNAT' },
-  { label: 'ENGAA', value: 'ENGAA' },
-  { label: 'TSA', value: 'TSA' },
+export const admissionsTests = [
+  'TMUA',
+  'MAT',
+  'STEP',
+  'ESAT',
+  'UCAT',
+  'LNAT',
+  'ENGAA',
+  'TSA',
 ];

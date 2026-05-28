@@ -31,7 +31,7 @@ export default function PreferencesOnboardingPage() {
     const search = universitySearch.trim().toLowerCase();
 
     if (!search) {
-      return universities.slice(0, 5);
+      return universities;
     }
 
     return universities.filter((university) =>
@@ -56,7 +56,6 @@ export default function PreferencesOnboardingPage() {
 
   const handleUniversityToggle = (universityValue: string) => {
     setNoUniversityPreference(false);
-
     setSelectedUniversities((current) => toggleValue(current, universityValue));
   };
 

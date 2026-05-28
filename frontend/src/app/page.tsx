@@ -115,7 +115,9 @@ export default function SubjectsOnboardingPage() {
   ]);
 
   const visibleSubjectSections = useMemo(() => {
-    return selectedCategories.filter((category) => category !== 'University admissions');
+    return selectedCategories.filter(
+      (category) => category !== 'University admissions' && category !== 'Other'
+    );
   }, [selectedCategories]);
 
   const selectedSummary = [
