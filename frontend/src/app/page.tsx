@@ -15,6 +15,15 @@ type Tutor = {
   hourlyRate: number;
 };
 
+// gives object for match request. So spelling mistakes don't matter, we have objective status
+type MatchRequest = {
+  id: String;
+  tutorId: String;
+  tutorName: String; 
+  studentName: String;
+  status: 'pending' | 'accepted' | 'declined';
+}
+
 export default function MatchingSystem() {
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
   const [displayedTutors, setDisplayedTutors] = useState<Tutor[]>([]);
