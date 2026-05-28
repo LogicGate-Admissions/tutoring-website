@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, onSnapshot, query } from 'firebase/firestore';
 import { db } from '../lib/firebase'; 
 
 type Tutor = {
@@ -63,6 +63,27 @@ export default function MatchingSystem() {
     fetchTutors();
   }, []);
 
+  // Real-time listener for Match Requests
+  useEffect(() => {
+    // We query the matchRequests collection
+    const q = query(collection(db, "matchRequests"));
+    
+    // onSnapshot listens for ANY changes in real-time
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const requests = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as MatchRequest[];
+      
+      // Update the state
+      setMatchRequests(requests);
+    });
+
+    // Cleanup function so the browser doesn't crash if we leave the page
+    return () => unsubscribe();
+  }, []);
+
+
   // Filter Tutors
   useEffect(() => {
     let filtered = allTutors;
@@ -73,9 +94,6 @@ export default function MatchingSystem() {
         return subjects.some(sub => selectedSubjects.includes(sub.toLowerCase()));
       });
     }
-
-
-
 
     if (selectedStyle) {
       filtered = filtered.filter(tutor => 
@@ -208,7 +226,40 @@ export default function MatchingSystem() {
         {view === 'tutor' && (
           <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-sm border border-gray-200">
             <h2 className="font-bold text-2xl mb-2">Tutor Dashboard</h2>
-            <p className="text-gray-500 mb-8">Incoming student requests will appear here.</p>
+            <p className="text-gray-500 mb-8">Manage your incoming student match requests.</p>
+            
+            {/* Displaying live requests */}
+            <div className="flex flex-col gap-4">
+              {matchRequests.length === 0 && (
+                <p className="text-gray-500 italic">No incoming requests yet.</p>
+              )}
+
+              {matchRequests.map(req => (
+                <div key={req.id} className="border border-gray-200 p-4 rounded-lg flex justify-between items-center bg-gray-50">
+                  <div>
+                    <p className="font-medium">Student: <span className="font-bold">{req.studentName}</span></p>
+                    <p className="text-sm text-gray-500">Requested Tutor: {req.tutorName}</p>
+                    <p className="text-sm mt-1">
+                      Status: 
+                      <span className={`ml-2 font-semibold ${
+                        req.status === 'pending' ? 'text-yellow-600' : 
+                        req.status === 'accepted' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {req.status.toUpperCase()}
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Show action buttons only if pending */}
+                  {req.status === 'pending' && (
+                    <div className="flex gap-2">
+                      <button onClick={() => alert("Ready for Commit 4!")} className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800 transition-colors">Accept</button>
+                      <button onClick={() => alert("Ready for Commit 4!")} className="border border-gray-300 px-4 py-2 rounded text-sm font-medium hover:bg-gray-100 transition-colors">Decline</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
