@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase'; 
 
 type Tutor = {
@@ -15,7 +15,7 @@ type Tutor = {
   hourlyRate: number;
 };
 
-// Blueprint for match request. Types are strictly lowercase 'string'.
+// Blueprint for match request
 type MatchRequest = {
   id: string;
   tutorId: string;
@@ -74,6 +74,9 @@ export default function MatchingSystem() {
       });
     }
 
+
+
+
     if (selectedStyle) {
       filtered = filtered.filter(tutor => 
         tutor.learningStyles?.some(style => style.toLowerCase() === selectedStyle.toLowerCase())
@@ -88,6 +91,26 @@ export default function MatchingSystem() {
 
     setDisplayedTutors(filtered);
   }, [selectedSubjects, selectedStyle, selectedUni, allTutors]);
+
+  // Function to send the request to Firebase 
+  const handleRequestMatch = async (tutor: Tutor) => {
+    // Safety check: if the tutor has no ID, don't try to send it
+    if (!tutor.id) return; 
+    
+    try {
+      // addDoc creates a new entry in a collection called "matchRequests"
+      await addDoc(collection(db, "matchRequests"), {
+        tutorId: tutor.id,
+        tutorName: tutor.name,
+        studentName: currentStudent, 
+        status: 'pending'            // request starts as pending
+      });
+      alert(`Match request sent to ${tutor.name}!`);
+    } catch (error) {
+      console.error("Error sending request:", error);
+      alert("Failed to send request.");
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gray-50 text-black">
@@ -168,7 +191,12 @@ export default function MatchingSystem() {
                   
                   {/* Action Button */}
                   <div className="flex gap-2 mt-auto">
-                    <button onClick={() => alert("Ready for Commit 2!")} className="bg-black text-white px-4 py-2 rounded text-sm font-medium flex-1">Request Match</button>
+                    <button 
+                      onClick={() => handleRequestMatch(tutor)} 
+                      className="bg-black text-white px-4 py-2 rounded text-sm font-medium flex-1 hover:bg-gray-800 transition-colors"
+                    >
+                      Request Match
+                    </button>
                   </div>
                 </div>
               ))}
