@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, onSnapshot, query } from 'firebase/firestore';
+import { collection, getDocs, addDoc, onSnapshot, query, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase'; 
 
 type Tutor = {
@@ -65,24 +65,19 @@ export default function MatchingSystem() {
 
   // Real-time listener for Match Requests
   useEffect(() => {
-    // We query the matchRequests collection
     const q = query(collection(db, "matchRequests"));
     
-    // onSnapshot listens for ANY changes in real-time
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const requests = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as MatchRequest[];
       
-      // Update the state
       setMatchRequests(requests);
     });
 
-    // Cleanup function so the browser doesn't crash if we leave the page
     return () => unsubscribe();
   }, []);
-
 
   // Filter Tutors
   useEffect(() => {
@@ -112,21 +107,29 @@ export default function MatchingSystem() {
 
   // Function to send the request to Firebase 
   const handleRequestMatch = async (tutor: Tutor) => {
-    // Safety check: if the tutor has no ID, don't try to send it
     if (!tutor.id) return; 
     
     try {
-      // addDoc creates a new entry in a collection called "matchRequests"
       await addDoc(collection(db, "matchRequests"), {
         tutorId: tutor.id,
         tutorName: tutor.name,
         studentName: currentStudent, 
-        status: 'pending'            // request starts as pending
+        status: 'pending'            
       });
-      alert(`Match request sent to ${tutor.name}!`);
     } catch (error) {
       console.error("Error sending request:", error);
       alert("Failed to send request.");
+    }
+  };
+
+  // Function to Accept or Decline a match 
+  const handleResolveMatch = async (requestId: string, newStatus: 'accepted' | 'declined') => {
+    try {
+      const requestRef = doc(db, "matchRequests", requestId);
+      await updateDoc(requestRef, { status: newStatus });
+    } catch (error) {
+      console.error("Error updating document: ", error);
+      alert("Failed to update match status.");
     }
   };
 
@@ -193,31 +196,43 @@ export default function MatchingSystem() {
             </aside>
 
             <section className="w-full md:w-3/4 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {displayedTutors.map((tutor) => (
-                <div key={tutor.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-xl">{tutor.name}</h3>
-                      <span className="font-bold text-green-700">£{tutor.hourlyRate}/hr</span>
+              {displayedTutors.map((tutor) => {
+                
+                // Check if the student has a live request with this tutor
+                const existingRequest = matchRequests.find(r => r.tutorId === tutor.id && r.studentName === currentStudent);
+
+                return (
+                  <div key={tutor.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-bold text-xl">{tutor.name}</h3>
+                        <span className="font-bold text-green-700">£{tutor.hourlyRate}/hr</span>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-4">{tutor.university}</p>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {tutor.learningStyles?.map(style => <span key={style} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{style}</span>)}
+                      </div>
+                      <p className="text-sm mb-6">{tutor.bio}</p>
                     </div>
-                    <p className="text-sm text-gray-500 mb-4">{tutor.university}</p>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {tutor.learningStyles?.map(style => <span key={style} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{style}</span>)}
+                    
+                    {/* Dynamic Buttons based on status*/}
+                    <div className="flex gap-2 mt-auto">
+                      {!existingRequest && (
+                        <button onClick={() => handleRequestMatch(tutor)} className="bg-black text-white px-4 py-2 rounded text-sm font-medium flex-1 hover:bg-gray-800 transition-colors">Request Match</button>
+                      )}
+                      {existingRequest?.status === 'pending' && (
+                        <button disabled className="bg-yellow-100 text-yellow-800 border border-yellow-300 px-4 py-2 rounded text-sm font-medium flex-1 cursor-not-allowed">Request Pending...</button>
+                      )}
+                      {existingRequest?.status === 'accepted' && (
+                        <button disabled className="bg-green-100 text-green-800 border border-green-300 px-4 py-2 rounded text-sm font-medium flex-1 cursor-not-allowed">✓ Match Accepted!</button>
+                      )}
+                      {existingRequest?.status === 'declined' && (
+                        <button disabled className="bg-red-100 text-red-800 border border-red-300 px-4 py-2 rounded text-sm font-medium flex-1 cursor-not-allowed">Match Declined</button>
+                      )}
                     </div>
-                    <p className="text-sm mb-6">{tutor.bio}</p>
                   </div>
-                  
-                  {/* Action Button */}
-                  <div className="flex gap-2 mt-auto">
-                    <button 
-                      onClick={() => handleRequestMatch(tutor)} 
-                      className="bg-black text-white px-4 py-2 rounded text-sm font-medium flex-1 hover:bg-gray-800 transition-colors"
-                    >
-                      Request Match
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </section>
           </div>
         )}
@@ -250,11 +265,11 @@ export default function MatchingSystem() {
                     </p>
                   </div>
 
-                  {/* Show action buttons only if pending */}
+                  {/* Connect the buttons to the resolve function */}
                   {req.status === 'pending' && (
                     <div className="flex gap-2">
-                      <button onClick={() => alert("Ready for Commit 4!")} className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800 transition-colors">Accept</button>
-                      <button onClick={() => alert("Ready for Commit 4!")} className="border border-gray-300 px-4 py-2 rounded text-sm font-medium hover:bg-gray-100 transition-colors">Decline</button>
+                      <button onClick={() => handleResolveMatch(req.id, 'accepted')} className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800 transition-colors">Accept</button>
+                      <button onClick={() => handleResolveMatch(req.id, 'declined')} className="border border-gray-300 px-4 py-2 rounded text-sm font-medium hover:bg-gray-100 transition-colors">Decline</button>
                     </div>
                   )}
                 </div>
