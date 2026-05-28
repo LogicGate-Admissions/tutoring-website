@@ -130,7 +130,7 @@ export default function PreferencesOnboardingPage() {
                   </div>
                 </label>
 
-                <div className="mt-5 grid gap-3">
+                <div className="mt-5 grid max-h-72 gap-3 overflow-auto pr-2">
                   {filteredUniversities.map((university) => (
                     <ChoiceButton
                       key={university.value}

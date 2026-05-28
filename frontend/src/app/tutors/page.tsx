@@ -6,30 +6,34 @@ import TutorCard from '../../components/tutors/TutorCard';
 import TutorFilters from '../../components/tutors/TutorFilters';
 import { sortOptions, Tutor, tutors } from '../../lib/tutorOptions';
 
-type RequestStatus = 'none' | 'pending' | 'accepted';
+const onboardingSubjects = ['Maths', 'Physics', 'Further Maths', 'TMUA', 'MAT'];
+const onboardingLearningStyles = ['Visual explanations', 'Past-paper drilling'];
+const onboardingUniversities = ['Imperial College London', 'University of Cambridge'];
 
-function tutorMatchesSubject(tutor: Tutor, selectedSubject: string) {
-  if (selectedSubject === 'All') {
-    return true;
-  }
-
-  return tutor.subjects.includes(selectedSubject);
+function toggleValue(values: string[], value: string) {
+  return values.includes(value)
+    ? values.filter((existing) => existing !== value)
+    : [...values, value];
 }
 
-function tutorMatchesStyle(tutor: Tutor, selectedStyle: string) {
-  if (selectedStyle === 'Any Style') {
-    return true;
-  }
+function tutorMatchesSubjects(tutor: Tutor, selectedSubjects: string[]) {
+  if (selectedSubjects.length === 0) return true;
 
-  return tutor.learningStyles.includes(selectedStyle);
+  return selectedSubjects.some(
+    (subject) => tutor.subjects.includes(subject) || tutor.levels.includes(subject)
+  );
 }
 
-function tutorMatchesUniversity(tutor: Tutor, selectedUniversity: string) {
-  if (selectedUniversity === 'Any University') {
-    return true;
-  }
+function tutorMatchesStyles(tutor: Tutor, selectedStyles: string[]) {
+  if (selectedStyles.length === 0) return true;
 
-  return tutor.university === selectedUniversity;
+  return selectedStyles.some((style) => tutor.learningStyles.includes(style));
+}
+
+function tutorMatchesUniversities(tutor: Tutor, selectedUniversities: string[]) {
+  if (selectedUniversities.length === 0) return true;
+
+  return selectedUniversities.includes(tutor.university);
 }
 
 function sortTutors(tutorsToSort: Tutor[], sort: string) {
@@ -51,34 +55,49 @@ function sortTutors(tutorsToSort: Tutor[], sort: string) {
 }
 
 export default function TutorsPage() {
-  const [selectedSubject, setSelectedSubject] = useState('All');
-  const [selectedStyle, setSelectedStyle] = useState('Any Style');
-  const [selectedUniversity, setSelectedUniversity] = useState('Any University');
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>(onboardingSubjects);
+  const [selectedStyles, setSelectedStyles] = useState<string[]>(onboardingLearningStyles);
+  const [selectedUniversities, setSelectedUniversities] =
+    useState<string[]>(onboardingUniversities);
+
   const [sort, setSort] = useState('Top Rated');
-  const [requests, setRequests] = useState<Record<string, RequestStatus>>({});
+  const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
 
   const displayedTutors = useMemo(() => {
     const filteredTutors = tutors.filter(
       (tutor) =>
-        tutorMatchesSubject(tutor, selectedSubject) &&
-        tutorMatchesStyle(tutor, selectedStyle) &&
-        tutorMatchesUniversity(tutor, selectedUniversity)
+        tutorMatchesSubjects(tutor, selectedSubjects) &&
+        tutorMatchesStyles(tutor, selectedStyles) &&
+        tutorMatchesUniversities(tutor, selectedUniversities)
     );
 
     return sortTutors(filteredTutors, sort);
-  }, [selectedSubject, selectedStyle, selectedUniversity, sort]);
+  }, [selectedSubjects, selectedStyles, selectedUniversities, sort]);
+
+  const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
+
+  const basedOnSummary = [
+    selectedSubjects.length > 0 ? selectedSubjects.join(', ') : 'Any subject',
+    selectedStyles.length > 0 ? selectedStyles.join(', ') : 'Any learning style',
+    selectedUniversities.length > 0 ? selectedUniversities.join(', ') : 'Any university',
+  ].join(' · ');
 
   const handleClearFilters = () => {
-    setSelectedSubject('All');
-    setSelectedStyle('Any Style');
-    setSelectedUniversity('Any University');
+    setSelectedSubjects([]);
+    setSelectedStyles([]);
+    setSelectedUniversities([]);
+    setSelectedTutorId(null);
   };
 
-  const handleRequestMatch = (tutorId: string) => {
-    setRequests((current) => ({
-      ...current,
-      [tutorId]: 'pending',
-    }));
+  const handleOnboardFilters = () => {
+    setSelectedSubjects(onboardingSubjects);
+    setSelectedStyles(onboardingLearningStyles);
+    setSelectedUniversities(onboardingUniversities);
+    setSelectedTutorId(null);
+  };
+
+  const handleTutorClick = (tutorId: string) => {
+    setSelectedTutorId((current) => (current === tutorId ? null : tutorId));
   };
 
   return (
@@ -94,8 +113,8 @@ export default function TutorsPage() {
               Find a tutor
             </h1>
 
-            <p className="mt-4 max-w-3xl text-base font-medium text-slate-600">
-              Based on: A-level · Maths · Weekday evenings · Visual explanations
+            <p className="mt-4 max-w-4xl text-base font-medium text-slate-600">
+              Based on: {basedOnSummary}
             </p>
           </div>
 
@@ -109,13 +128,20 @@ export default function TutorsPage() {
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[300px_1fr]">
           <TutorFilters
-            selectedSubject={selectedSubject}
-            selectedStyle={selectedStyle}
-            selectedUniversity={selectedUniversity}
-            onSubjectChange={setSelectedSubject}
-            onStyleChange={setSelectedStyle}
-            onUniversityChange={setSelectedUniversity}
+            selectedSubjects={selectedSubjects}
+            selectedStyles={selectedStyles}
+            selectedUniversities={selectedUniversities}
+            onSubjectToggle={(subject) =>
+              setSelectedSubjects((current) => toggleValue(current, subject))
+            }
+            onStyleToggle={(style) =>
+              setSelectedStyles((current) => toggleValue(current, style))
+            }
+            onUniversityToggle={(university) =>
+              setSelectedUniversities((current) => toggleValue(current, university))
+            }
             onClear={handleClearFilters}
+            onOnboardFilters={handleOnboardFilters}
           />
 
           <section>
@@ -149,15 +175,122 @@ export default function TutorsPage() {
               </div>
             )}
 
-            <div className="grid gap-6 xl:grid-cols-2">
-              {displayedTutors.map((tutor) => (
-                <TutorCard
-                  key={tutor.id}
-                  tutor={tutor}
-                  requestStatus={requests[tutor.id] ?? 'none'}
-                  onRequest={() => handleRequestMatch(tutor.id)}
-                />
-              ))}
+            <div
+              className={`grid gap-6 ${
+                selectedTutor ? 'xl:grid-cols-[1fr_390px]' : 'xl:grid-cols-1'
+              }`}
+            >
+              <div className={`grid gap-6 ${selectedTutor ? '' : 'xl:grid-cols-2'}`}>
+                {displayedTutors.map((tutor) => (
+                  <TutorCard
+                    key={tutor.id}
+                    tutor={tutor}
+                    selected={selectedTutor?.id === tutor.id}
+                    onClick={() => handleTutorClick(tutor.id)}
+                  />
+                ))}
+              </div>
+
+              {selectedTutor && (
+                <aside className="sticky top-6 h-fit rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
+                  <div
+                    className={`flex h-28 w-28 items-center justify-center rounded-3xl border-2 border-slate-950 ${selectedTutor.avatarColour} text-4xl font-black shadow-[4px_4px_0_#0f172a]`}
+                  >
+                    {selectedTutor.name
+                      .split(' ')
+                      .map((part) => part[0])
+                      .join('')}
+                  </div>
+
+                  <h2 className="mt-5 text-3xl font-black">{selectedTutor.name}</h2>
+
+                  <p className="mt-1 text-sm font-bold text-slate-500">
+                    Education: {selectedTutor.university}
+                  </p>
+
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                        Rating
+                      </p>
+                      <p className="mt-1 text-xl font-black">★ {selectedTutor.rating}</p>
+                    </div>
+
+                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                        Price
+                      </p>
+                      <p className="mt-1 text-xl font-black">
+                        £{selectedTutor.hourlyRate}/hr
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 space-y-4 text-sm">
+                    <div>
+                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
+                        Teaches
+                      </p>
+                      <p className="mt-1 font-bold">
+                        {selectedTutor.subjects.join(' · ')}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
+                        Levels
+                      </p>
+                      <p className="mt-1 font-bold">{selectedTutor.levels.join(' · ')}</p>
+                    </div>
+
+                    <div>
+                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
+                        Learning style
+                      </p>
+                      <p className="mt-1 font-bold">
+                        {selectedTutor.learningStyles.join(' · ')}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
+                        Next slot
+                      </p>
+                      <p className="mt-1 font-bold">Available today · 18:00–19:00</p>
+                    </div>
+
+                    <div>
+                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
+                        About
+                      </p>
+                      <p className="mt-1 leading-6 text-slate-700">{selectedTutor.bio}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-3">
+                    <button
+                      type="button"
+                      className="w-full rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200"
+                    >
+                      Message
+                    </button>
+
+                    <button
+                      type="button"
+                      className="w-full rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
+                    >
+                      Shortlist
+                    </button>
+
+                    <button
+                      type="button"
+                      className="w-full rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
+                    >
+                      Book Trial Session
+                    </button>
+                  </div>
+                </aside>
+              )}
             </div>
           </section>
         </div>

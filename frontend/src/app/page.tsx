@@ -1,18 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import ChoiceButton from '../components/onboarding/ChoiceButton';
 import StepTabs from '../components/onboarding/StepTabs';
-import Link from 'next/link';
 import {
   admissionsTests,
   categories,
-  Category,
+  moreSubjectOptions,
   otherQualifications,
   subjectOptions,
 } from '../lib/onboardingOptions';
-
-type SelectedSubjects = Record<string, string[]>;
 
 function toggleValue(values: string[], value: string) {
   return values.includes(value)
@@ -20,115 +18,135 @@ function toggleValue(values: string[], value: string) {
     : [...values, value];
 }
 
-function getDefaultSubjects(section: string) {
-  return subjectOptions[section].slice(0, 2).map((option) => option.value);
+function MoreSubjectPicker({
+  title,
+  options,
+  selectedSubjects,
+  onToggle,
+}: {
+  title: string;
+  options: string[];
+  selectedSubjects: string[];
+  onToggle: (subject: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredOptions = options.filter((option) =>
+    option.toLowerCase().includes(search.trim().toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-50"
+      >
+        More {title} options
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-12 z-30 w-80 rounded-[1.25rem] border-2 border-slate-950 bg-white p-4 shadow-[6px_6px_0_#0f172a]">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="font-bold">More {title}</p>
+
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-lg border-2 border-slate-950 px-2 text-sm font-black hover:bg-slate-50"
+            >
+              ×
+            </button>
+          </div>
+
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search..."
+            className="mb-3 w-full rounded-xl border-2 border-slate-950 px-3 py-2 text-sm font-semibold outline-none"
+          />
+
+          <div className="max-h-56 space-y-2 overflow-auto">
+            {filteredOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => onToggle(option)}
+                className={`block w-full rounded-xl border-2 border-slate-950 px-3 py-2 text-left text-sm font-bold transition ${
+                  selectedSubjects.includes(option)
+                    ? 'bg-cyan-100'
+                    : 'bg-white hover:bg-slate-50'
+                }`}
+              >
+                {option} {selectedSubjects.includes(option) && '✓'}
+              </button>
+            ))}
+
+            {filteredOptions.length === 0 && (
+              <p className="rounded-xl border-2 border-slate-950 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-500">
+                No matches found.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
-export default function OnboardingSubjectsPage() {
-  const [selectedCategories, setSelectedCategories] = useState<Category[]>([
+export default function SubjectsOnboardingPage() {
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([
     'A-level',
     'University admissions',
   ]);
 
   const [selectedOtherQualifications, setSelectedOtherQualifications] = useState<string[]>([]);
 
-  const [selectedSubjects, setSelectedSubjects] = useState<SelectedSubjects>({
-    'A-level': ['Maths', 'Physics'],
-    GCSE: [],
-    IB: ['Maths AA HL', 'Physics HL'],
-    IGCSE: [],
-    IAL: [],
-    'Scottish Highers': [],
-  });
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([
+    'Maths',
+    'Further Maths',
+    'Physics',
+  ]);
 
   const [selectedAdmissionsTests, setSelectedAdmissionsTests] = useState<string[]>([
     'TMUA',
     'MAT',
   ]);
 
-  const selectedStudySections = useMemo(() => {
-    const sections: string[] = [];
+  const visibleSubjectSections = useMemo(() => {
+    return selectedCategories.filter((category) => category !== 'University admissions');
+  }, [selectedCategories]);
 
-    if (selectedCategories.includes('A-level')) {
-      sections.push('A-level');
-    }
+  const selectedSummary = [
+    ...selectedCategories,
+    ...selectedOtherQualifications,
+    ...selectedSubjects,
+    ...selectedAdmissionsTests,
+  ];
 
-    if (selectedCategories.includes('GCSE')) {
-      sections.push('GCSE');
-    }
-
-    if (selectedCategories.includes('Other')) {
-      sections.push(...selectedOtherQualifications);
-    }
-
-    return sections;
-  }, [selectedCategories, selectedOtherQualifications]);
-
-  const hasAdmissions = selectedCategories.includes('University admissions');
-
-  const handleCategoryToggle = (category: Category) => {
-    setSelectedCategories((current) => {
-      const next = toggleValue(current, category) as Category[];
-
-      if (next.length === 0) {
-        return current;
-      }
-
-      return next;
-    });
-
-    if (category === 'A-level' && !selectedCategories.includes('A-level')) {
-      addDefaultSubjects('A-level');
-    }
-
-    if (category === 'GCSE' && !selectedCategories.includes('GCSE')) {
-      addDefaultSubjects('GCSE');
-    }
-
-    if (category === 'Other' && !selectedCategories.includes('Other')) {
-      selectedOtherQualifications.forEach(addDefaultSubjects);
-    }
-
-    if (
-      category === 'University admissions' &&
-      !selectedCategories.includes('University admissions')
-    ) {
-      setSelectedAdmissionsTests((current) => (current.length > 0 ? current : ['TMUA']));
-    }
+  const handleCategoryToggle = (category: string) => {
+    setSelectedCategories((current) => toggleValue(current, category));
   };
 
   const handleOtherQualificationToggle = (qualification: string) => {
     setSelectedOtherQualifications((current) => toggleValue(current, qualification));
-
-    if (!selectedOtherQualifications.includes(qualification)) {
-      addDefaultSubjects(qualification);
-    }
   };
 
-  const addDefaultSubjects = (section: string) => {
-    setSelectedSubjects((current) => ({
-      ...current,
-      [section]: current[section]?.length > 0 ? current[section] : getDefaultSubjects(section),
-    }));
+  const handleSubjectToggle = (subject: string) => {
+    setSelectedSubjects((current) => toggleValue(current, subject));
   };
 
-  const handleSubjectToggle = (section: string, subject: string) => {
-    setSelectedSubjects((current) => ({
-      ...current,
-      [section]: toggleValue(current[section] ?? [], subject),
-    }));
+  const handleAdmissionsTestToggle = (test: string) => {
+    setSelectedAdmissionsTests((current) => toggleValue(current, test));
   };
-
-  const selectedSubjectTags = selectedStudySections.flatMap((section) =>
-    (selectedSubjects[section] ?? []).map((subject) => `${section}: ${subject}`)
-  );
 
   return (
     <main className="min-h-screen bg-[#f7fbff] px-4 py-4 text-slate-950 sm:px-8 lg:px-12">
       <section className="mx-auto min-h-[calc(100vh-32px)] max-w-7xl rounded-[2rem] border-2 border-slate-950 bg-white px-5 py-6 shadow-[0_24px_80px_rgba(15,23,42,0.10)] sm:px-8 lg:px-12">
         <header className="flex items-start justify-between gap-6">
           <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-            What are you studying for?
+            What do you need help with?
           </h1>
 
           <button
@@ -142,13 +160,13 @@ export default function OnboardingSubjectsPage() {
         <div className="mt-12 grid gap-10 lg:grid-cols-[1fr_360px]">
           <div className="space-y-10">
             <section>
-              <h2 className="mb-4 text-xl font-bold">Choose one or more categories</h2>
+              <h2 className="mb-4 text-xl font-bold">Level or qualification</h2>
 
               <div className="flex flex-wrap gap-4">
                 {categories.map((category) => (
                   <ChoiceButton
                     key={category}
-                    label={category === 'Other' ? 'Other ▾' : category}
+                    label={category}
                     selected={selectedCategories.includes(category)}
                     onClick={() => handleCategoryToggle(category)}
                   />
@@ -156,58 +174,84 @@ export default function OnboardingSubjectsPage() {
               </div>
 
               {selectedCategories.includes('Other') && (
-                <div className="mt-5 rounded-[1.5rem] border-2 border-slate-950 bg-slate-50 p-4">
-                  <h3 className="mb-3 text-sm font-bold text-slate-600">
-                    Other qualifications
-                  </h3>
+                <div className="mt-5 rounded-[1.75rem] border-2 border-slate-950 bg-slate-50 p-5 shadow-[6px_6px_0_#0f172a]">
+                  <h3 className="text-lg font-bold">Other qualifications</h3>
 
-                  <div className="flex flex-wrap gap-3">
+                  <p className="mt-2 text-sm font-medium text-slate-600">
+                    Choose one if it applies, or leave this blank and just select subjects below.
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-3">
                     {otherQualifications.map((qualification) => (
                       <ChoiceButton
-                        key={qualification.value}
-                        label={qualification.label}
-                        selected={selectedOtherQualifications.includes(qualification.value)}
-                        onClick={() => handleOtherQualificationToggle(qualification.value)}
-                        className="text-sm"
+                        key={qualification}
+                        label={qualification}
+                        selected={selectedOtherQualifications.includes(qualification)}
+                        onClick={() => handleOtherQualificationToggle(qualification)}
                       />
                     ))}
+                  </div>
+
+                  <div className="mt-5">
+                    <MoreSubjectPicker
+                      title="Other"
+                      options={moreSubjectOptions.Other ?? []}
+                      selectedSubjects={selectedSubjects}
+                      onToggle={handleSubjectToggle}
+                    />
                   </div>
                 </div>
               )}
             </section>
 
-            {selectedStudySections.map((section) => (
-              <section key={section}>
-                <h2 className="mb-4 text-xl font-bold">Subjects for {section}</h2>
+            {visibleSubjectSections.map((category) => (
+              <section key={category}>
+                <h2 className="mb-4 text-xl font-bold">{category} subjects</h2>
 
-                <div className="flex max-w-3xl flex-wrap gap-4">
-                  {subjectOptions[section].map((subject) => (
+                <div className="flex flex-wrap gap-4">
+                  {(subjectOptions[category] ?? []).map((subject) => (
                     <ChoiceButton
-                      key={subject.value}
-                      label={subject.label}
-                      selected={(selectedSubjects[section] ?? []).includes(subject.value)}
-                      onClick={() => handleSubjectToggle(section, subject.value)}
+                      key={subject}
+                      label={subject}
+                      selected={selectedSubjects.includes(subject)}
+                      onClick={() => handleSubjectToggle(subject)}
                     />
                   ))}
+                </div>
+
+                <div className="mt-5">
+                  <MoreSubjectPicker
+                    title={category}
+                    options={moreSubjectOptions[category] ?? []}
+                    selectedSubjects={selectedSubjects}
+                    onToggle={handleSubjectToggle}
+                  />
                 </div>
               </section>
             ))}
 
-            {hasAdmissions && (
+            {selectedCategories.includes('University admissions') && (
               <section>
                 <h2 className="mb-4 text-xl font-bold">Admissions tests</h2>
 
-                <div className="flex max-w-3xl flex-wrap gap-4">
+                <div className="flex flex-wrap gap-4">
                   {admissionsTests.map((test) => (
                     <ChoiceButton
-                      key={test.value}
-                      label={test.label}
-                      selected={selectedAdmissionsTests.includes(test.value)}
-                      onClick={() =>
-                        setSelectedAdmissionsTests((current) => toggleValue(current, test.value))
-                      }
+                      key={test}
+                      label={test}
+                      selected={selectedAdmissionsTests.includes(test)}
+                      onClick={() => handleAdmissionsTestToggle(test)}
                     />
                   ))}
+                </div>
+
+                <div className="mt-5">
+                  <MoreSubjectPicker
+                    title="admissions"
+                    options={moreSubjectOptions['University admissions'] ?? []}
+                    selectedSubjects={selectedAdmissionsTests}
+                    onToggle={handleAdmissionsTestToggle}
+                  />
                 </div>
               </section>
             )}
@@ -218,9 +262,13 @@ export default function OnboardingSubjectsPage() {
 
             <div className="mt-5 space-y-5 text-sm">
               <div>
-                <p className="font-semibold text-slate-500">Categories</p>
+                <p className="font-semibold text-slate-500">Level</p>
 
                 <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedCategories.length === 0 && (
+                    <span className="text-slate-500">No level selected yet</span>
+                  )}
+
                   {selectedCategories.map((category) => (
                     <span
                       key={category}
@@ -232,35 +280,37 @@ export default function OnboardingSubjectsPage() {
                 </div>
               </div>
 
-              {selectedCategories.includes('Other') && (
-                <div>
-                  <p className="font-semibold text-slate-500">Other qualifications</p>
+              <div>
+                <p className="font-semibold text-slate-500">Other qualifications</p>
 
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {selectedOtherQualifications.map((qualification) => (
-                      <span
-                        key={qualification}
-                        className="rounded-lg border-2 border-slate-950 bg-purple-100 px-3 py-1 font-semibold"
-                      >
-                        {qualification}
-                      </span>
-                    ))}
-                  </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedOtherQualifications.length === 0 && (
+                    <span className="text-slate-500">None selected</span>
+                  )}
+
+                  {selectedOtherQualifications.map((qualification) => (
+                    <span
+                      key={qualification}
+                      className="rounded-lg border-2 border-slate-950 bg-white px-3 py-1 font-semibold"
+                    >
+                      {qualification}
+                    </span>
+                  ))}
                 </div>
-              )}
+              </div>
 
               <div>
                 <p className="font-semibold text-slate-500">Subjects</p>
 
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedSubjectTags.length === 0 && (
+                  {selectedSubjects.length === 0 && (
                     <span className="text-slate-500">No subjects selected yet</span>
                   )}
 
-                  {selectedSubjectTags.map((subject) => (
+                  {selectedSubjects.map((subject) => (
                     <span
                       key={subject}
-                      className="rounded-lg border-2 border-slate-950 bg-blue-100 px-3 py-1 font-semibold"
+                      className="rounded-lg border-2 border-slate-950 bg-green-100 px-3 py-1 font-semibold"
                     >
                       {subject}
                     </span>
@@ -268,26 +318,34 @@ export default function OnboardingSubjectsPage() {
                 </div>
               </div>
 
-              {hasAdmissions && (
-                <div>
-                  <p className="font-semibold text-slate-500">Admissions tests</p>
+              <div>
+                <p className="font-semibold text-slate-500">Admissions tests</p>
 
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {selectedAdmissionsTests.length === 0 && (
-                      <span className="text-slate-500">No tests selected yet</span>
-                    )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedAdmissionsTests.length === 0 && (
+                    <span className="text-slate-500">None selected</span>
+                  )}
 
-                    {selectedAdmissionsTests.map((test) => (
-                      <span
-                        key={test}
-                        className="rounded-lg border-2 border-slate-950 bg-green-100 px-3 py-1 font-semibold"
-                      >
-                        {test}
-                      </span>
-                    ))}
-                  </div>
+                  {selectedAdmissionsTests.map((test) => (
+                    <span
+                      key={test}
+                      className="rounded-lg border-2 border-slate-950 bg-purple-100 px-3 py-1 font-semibold"
+                    >
+                      {test}
+                    </span>
+                  ))}
                 </div>
-              )}
+              </div>
+
+              <div className="rounded-[1.25rem] border-2 border-slate-950 bg-white p-4">
+                <p className="font-bold">Matching summary</p>
+
+                <p className="mt-2 text-slate-600">
+                  {selectedSummary.length === 0
+                    ? 'No filters selected yet. Tutors will not be narrowed down by subject.'
+                    : 'Tutors will be matched using these subject and level choices.'}
+                </p>
+              </div>
             </div>
           </aside>
         </div>

@@ -10,6 +10,7 @@ export type Tutor = {
   reviewCount: number;
   bio: string;
   tags: string[];
+  avatarColour: string;
 };
 
 export const tutors: Tutor[] = [
@@ -25,6 +26,7 @@ export const tutors: Tutor[] = [
     reviewCount: 38,
     bio: 'Maths tutor focused on admissions preparation, visual explanations and building exam confidence through repeated practice.',
     tags: ['First Principles', 'Visual', 'TMUA'],
+    avatarColour: 'bg-cyan-100',
   },
   {
     id: 'samuel-chen',
@@ -38,6 +40,7 @@ export const tutors: Tutor[] = [
     reviewCount: 29,
     bio: 'Helps students reason from first principles and work through difficult problems without just giving away the answer.',
     tags: ['Socratic', 'STEP', 'Problem Solving'],
+    avatarColour: 'bg-purple-100',
   },
   {
     id: 'aisha-khan',
@@ -51,6 +54,7 @@ export const tutors: Tutor[] = [
     reviewCount: 41,
     bio: 'Patient science tutor who breaks down difficult topics into clear examples before moving into exam questions.',
     tags: ['Step-by-step', 'Past Papers', 'Science'],
+    avatarColour: 'bg-green-100',
   },
   {
     id: 'daniel-wright',
@@ -64,6 +68,7 @@ export const tutors: Tutor[] = [
     reviewCount: 22,
     bio: 'Computer science and maths tutor who uses diagrams, traces and worked examples to explain abstract ideas clearly.',
     tags: ['Visual', 'CS', 'Worked Examples'],
+    avatarColour: 'bg-orange-100',
   },
   {
     id: 'elena-rossi',
@@ -77,6 +82,7 @@ export const tutors: Tutor[] = [
     reviewCount: 17,
     bio: 'Admissions-focused tutor for students preparing for maths-heavy applications and interview-style problem solving.',
     tags: ['MAT', 'Socratic', 'Admissions'],
+    avatarColour: 'bg-pink-100',
   },
   {
     id: 'james-owen',
@@ -90,19 +96,44 @@ export const tutors: Tutor[] = [
     reviewCount: 33,
     bio: 'Friendly biology and chemistry tutor who helps students organise scattered revision into clear topic-by-topic progress.',
     tags: ['Visual', 'GCSE', 'Revision Plan'],
+    avatarColour: 'bg-yellow-100',
   },
 ];
 
-export const subjectFilters = [
+export const onboardingSubjectFilters = [
   'All',
   'Maths',
   'Physics',
-  'Biology',
-  'Chemistry',
-  'Computer Science',
+  'Further Maths',
+  'TMUA',
+  'MAT',
 ];
 
-export const learningStyleFilters = [
+export const allSubjectFilters = [
+  'All',
+  'Maths',
+  'Further Maths',
+  'Physics',
+  'Chemistry',
+  'Biology',
+  'Computer Science',
+  'English',
+  'Economics',
+  'TMUA',
+  'MAT',
+  'STEP',
+  'ESAT',
+  'UCAT',
+  'LNAT',
+];
+
+export const onboardingLearningStyleFilters = [
+  'Any Style',
+  'Visual explanations',
+  'Past-paper drilling',
+];
+
+export const allLearningStyleFilters = [
   'Any Style',
   'Visual explanations',
   'Past-paper drilling',
@@ -126,3 +157,20 @@ export const sortOptions = [
   'Highest Price',
   'Most Reviews',
 ];
+
+export const subjectColourClasses: Record<string, string> = {
+  Maths: 'bg-blue-500',
+  'Further Maths': 'bg-indigo-500',
+  Physics: 'bg-cyan-500',
+  Chemistry: 'bg-emerald-500',
+  Biology: 'bg-green-500',
+  'Computer Science': 'bg-purple-500',
+  English: 'bg-orange-500',
+  Economics: 'bg-yellow-500',
+  TMUA: 'bg-pink-500',
+  MAT: 'bg-rose-500',
+  STEP: 'bg-red-500',
+  ESAT: 'bg-teal-500',
+  UCAT: 'bg-lime-500',
+  LNAT: 'bg-amber-500',
+};
