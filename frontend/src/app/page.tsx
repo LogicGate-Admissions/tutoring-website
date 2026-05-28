@@ -1,319 +1,317 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, onSnapshot, query, updateDoc, doc } from 'firebase/firestore';
-import { db } from '../lib/firebase'; 
+import { useMemo, useState } from 'react';
+import ChoiceButton from '../components/onboarding/ChoiceButton';
+import StepTabs from '../components/onboarding/StepTabs';
+import {
+  admissionsTests,
+  categories,
+  Category,
+  otherQualifications,
+  subjectOptions,
+} from '../lib/onboardingOptions';
 
-type Tutor = {
-  id?: string;
-  name: string;
-  university: string;
-  bio: string;
-  subjects: string[];
-  levels: string[];
-  learningStyles: string[];
-  hourlyRate: number;
-};
+type SelectedSubjects = Record<string, string[]>;
 
-// Blueprint for match request
-type MatchRequest = {
-  id: string;
-  tutorId: string;
-  tutorName: string; 
-  studentName: string;
-  status: 'pending' | 'accepted' | 'declined';
+function toggleValue(values: string[], value: string) {
+  return values.includes(value)
+    ? values.filter((existing) => existing !== value)
+    : [...values, value];
 }
 
-export default function MatchingSystem() {
-  // View Toggle State
-  const [view, setView]  = useState<'student' | 'tutor'>('student');
-  
-  // User & Request State 
-  const [currentStudent] = useState("Alex (Test Student)");
-  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
+function getDefaultSubjects(section: string) {
+  return subjectOptions[section].slice(0, 2).map((option) => option.value);
+}
 
-  // Search & Filter State (Notice displayedTutors is gone from here!)
-  const [allTutors, setAllTutors] = useState<Tutor[]>([]);
-  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
-  const [selectedStyle, setSelectedStyle] = useState('');
-  const [selectedUni, setSelectedUni] = useState('');
+export default function OnboardingSubjectsPage() {
+  const [selectedCategories, setSelectedCategories] = useState<Category[]>([
+    'A-level',
+    'University admissions',
+  ]);
 
-  // Subject Multi-Select Logic
-  const toggleSubject = (subject: string) => {
-    setSelectedSubjects(prev => 
-      prev.includes(subject) 
-        ? prev.filter(s => s !== subject) 
-        : [...prev, subject]              
-    );
-  };
+  const [selectedOtherQualifications, setSelectedOtherQualifications] = useState<string[]>([
+    'IB',
+  ]);
 
-  // Fetch Tutors (Runs once on load)
-  useEffect(() => {
-    async function fetchTutors() {
-      const querySnapshot = await getDocs(collection(db, "tutors"));
-      const fetchedTutors = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Tutor[];
+  const [selectedSubjects, setSelectedSubjects] = useState<SelectedSubjects>({
+    'A-level': ['Maths', 'Physics'],
+    GCSE: [],
+    IB: ['Maths AA HL', 'Physics HL'],
+    IGCSE: [],
+    IAL: [],
+    'Scottish Highers': [],
+  });
 
-      setAllTutors(fetchedTutors);
+  const [selectedAdmissionsTests, setSelectedAdmissionsTests] = useState<string[]>([
+    'TMUA',
+    'MAT',
+  ]);
+
+  const selectedStudySections = useMemo(() => {
+    const sections: string[] = [];
+
+    if (selectedCategories.includes('A-level')) {
+      sections.push('A-level');
     }
-    fetchTutors();
-  }, []);
 
-  // Real-time listener for Match Requests
-  useEffect(() => {
-    const q = query(collection(db, "matchRequests"));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const requests = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as MatchRequest[];
-      
-      setMatchRequests(requests);
+    if (selectedCategories.includes('GCSE')) {
+      sections.push('GCSE');
+    }
+
+    if (selectedCategories.includes('Other')) {
+      sections.push(...selectedOtherQualifications);
+    }
+
+    return sections;
+  }, [selectedCategories, selectedOtherQualifications]);
+
+  const hasAdmissions = selectedCategories.includes('University admissions');
+
+  const handleCategoryToggle = (category: Category) => {
+    setSelectedCategories((current) => {
+      const next = toggleValue(current, category) as Category[];
+
+      if (next.length === 0) {
+        return current;
+      }
+
+      return next;
     });
 
-    return () => unsubscribe();
-  }, []);
+    if (category === 'A-level' && !selectedCategories.includes('A-level')) {
+      addDefaultSubjects('A-level');
+    }
 
+    if (category === 'GCSE' && !selectedCategories.includes('GCSE')) {
+      addDefaultSubjects('GCSE');
+    }
 
-  let displayedTutors = allTutors;
+    if (category === 'Other' && !selectedCategories.includes('Other')) {
+      selectedOtherQualifications.forEach(addDefaultSubjects);
+    }
 
-  if (selectedSubjects.length > 0) {
-    displayedTutors = displayedTutors.filter(tutor => {
-      const subjects = tutor.subjects || [];
-      return subjects.some(sub => selectedSubjects.includes(sub.toLowerCase()));
+    if (
+      category === 'University admissions' &&
+      !selectedCategories.includes('University admissions')
+    ) {
+      setSelectedAdmissionsTests((current) => (current.length > 0 ? current : ['TMUA']));
+    }
+  };
+
+  const handleOtherQualificationToggle = (qualification: string) => {
+    setSelectedOtherQualifications((current) => {
+      const next = toggleValue(current, qualification);
+
+      if (next.length === 0) {
+        return current;
+      }
+
+      return next;
     });
-  }
 
-  if (selectedStyle) {
-    displayedTutors = displayedTutors.filter(tutor => 
-      tutor.learningStyles?.some(style => style.toLowerCase() === selectedStyle.toLowerCase())
-    );
-  }
-
-  if (selectedUni) {
-    displayedTutors = displayedTutors.filter(tutor => 
-      tutor.university?.toLowerCase() === selectedUni.toLowerCase()
-    );
-  }
-
-  // Function to send the request to Firebase 
-  const handleRequestMatch = async (tutor: Tutor) => {
-    if (!tutor.id) return; 
-    
-    try {
-      await addDoc(collection(db, "matchRequests"), {
-        tutorId: tutor.id,
-        tutorName: tutor.name,
-        studentName: currentStudent, 
-        status: 'pending'            
-      });
-    } catch (error) {
-      console.error("Error sending request:", error);
-      alert("Failed to send request.");
+    if (!selectedOtherQualifications.includes(qualification)) {
+      addDefaultSubjects(qualification);
     }
   };
 
-  // Function to Accept or Decline a match 
-  const handleResolveMatch = async (requestId: string, newStatus: 'accepted' | 'declined') => {
-    try {
-      const requestRef = doc(db, "matchRequests", requestId);
-      await updateDoc(requestRef, { status: newStatus });
-    } catch (error) {
-      console.error("Error updating document: ", error);
-      alert("Failed to update match status.");
-    }
+  const addDefaultSubjects = (section: string) => {
+    setSelectedSubjects((current) => ({
+      ...current,
+      [section]: current[section]?.length > 0 ? current[section] : getDefaultSubjects(section),
+    }));
   };
+
+  const handleSubjectToggle = (section: string, subject: string) => {
+    setSelectedSubjects((current) => ({
+      ...current,
+      [section]: toggleValue(current[section] ?? [], subject),
+    }));
+  };
+
+  const selectedSubjectTags = selectedStudySections.flatMap((section) =>
+    (selectedSubjects[section] ?? []).map((subject) => `${section}: ${subject}`)
+  );
 
   return (
-    <main className="min-h-screen bg-gray-50 text-black">
-      
-      {/* Global Header with View Switcher */}
-      <header className="bg-black text-white p-4 flex justify-between items-center shadow-md">
-        <h1 className="font-bold text-xl tracking-tight">TutorMatch.</h1>
-        <div className="flex gap-2 bg-gray-800 p-1 rounded-lg">
-          <button 
-            onClick={() => setView('student')} 
-            className={`px-4 py-1.5 rounded text-sm font-medium ${view === 'student' ? 'bg-white text-black' : 'text-gray-300'}`}
-          >
-            Student View
-          </button>
-          <button 
-            onClick={() => setView('tutor')} 
-            className={`px-4 py-1.5 rounded text-sm font-medium ${view === 'tutor' ? 'bg-white text-black' : 'text-gray-300'}`}
-          >
-            Tutor View
-          </button>
-        </div>
-      </header>
+    <main className="min-h-screen bg-[#f7fbff] px-4 py-4 text-slate-950 sm:px-8 lg:px-12">
+      <section className="mx-auto min-h-[calc(100vh-32px)] max-w-7xl rounded-[2rem] border-2 border-slate-950 bg-white px-5 py-6 shadow-[0_24px_80px_rgba(15,23,42,0.10)] sm:px-8 lg:px-12">
+        <header className="flex items-start justify-between gap-6">
+          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
+            What are you studying for?
+          </h1>
 
-      <div className="p-8">
-        
-        {/* STUDENT VIEW */}
-        {view === 'student' && (
-          <div className="flex flex-col md:flex-row gap-8">
-            <aside className="w-full md:w-1/4 bg-white p-6 rounded-lg shadow-sm border border-gray-200 h-fit">
-              <h2 className="font-bold text-xl mb-6">Find your match</h2>
-              
-              <div className="mb-6">
-                <label className="block mb-3 text-sm font-medium">Subjects</label>
-                <div className="flex flex-wrap gap-2">
-                  {['math', 'physics', 'chemistry', 'biology'].map(sub => (
-                    <button key={sub} onClick={() => toggleSubject(sub)} className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${selectedSubjects.includes(sub) ? 'bg-black text-white' : 'bg-gray-100 hover:bg-gray-200'}`}>{sub}</button>
+          <button
+            type="button"
+            className="rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-50"
+          >
+            Change preferences
+          </button>
+        </header>
+
+        <div className="mt-12 grid gap-10 lg:grid-cols-[1fr_360px]">
+          <div className="space-y-10">
+            <section>
+              <h2 className="mb-4 text-xl font-bold">Choose one or more categories</h2>
+
+              <div className="flex flex-wrap gap-4">
+                {categories.map((category) => (
+                  <ChoiceButton
+                    key={category}
+                    label={category === 'Other' ? 'Other ▾' : category}
+                    selected={selectedCategories.includes(category)}
+                    onClick={() => handleCategoryToggle(category)}
+                  />
+                ))}
+              </div>
+
+              {selectedCategories.includes('Other') && (
+                <div className="mt-5 rounded-[1.5rem] border-2 border-slate-950 bg-slate-50 p-4">
+                  <h3 className="mb-3 text-sm font-bold text-slate-600">
+                    Other qualifications
+                  </h3>
+
+                  <div className="flex flex-wrap gap-3">
+                    {otherQualifications.map((qualification) => (
+                      <ChoiceButton
+                        key={qualification.value}
+                        label={qualification.label}
+                        selected={selectedOtherQualifications.includes(qualification.value)}
+                        onClick={() => handleOtherQualificationToggle(qualification.value)}
+                        className="text-sm"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {selectedStudySections.map((section) => (
+              <section key={section}>
+                <h2 className="mb-4 text-xl font-bold">Subjects for {section}</h2>
+
+                <div className="flex max-w-3xl flex-wrap gap-4">
+                  {subjectOptions[section].map((subject) => (
+                    <ChoiceButton
+                      key={subject.value}
+                      label={subject.label}
+                      selected={(selectedSubjects[section] ?? []).includes(subject.value)}
+                      onClick={() => handleSubjectToggle(section, subject.value)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            {hasAdmissions && (
+              <section>
+                <h2 className="mb-4 text-xl font-bold">Admissions tests</h2>
+
+                <div className="flex max-w-3xl flex-wrap gap-4">
+                  {admissionsTests.map((test) => (
+                    <ChoiceButton
+                      key={test.value}
+                      label={test.label}
+                      selected={selectedAdmissionsTests.includes(test.value)}
+                      onClick={() =>
+                        setSelectedAdmissionsTests((current) => toggleValue(current, test.value))
+                      }
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+
+          <aside className="h-fit rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
+            <h2 className="text-xl font-bold">Your selections</h2>
+
+            <div className="mt-5 space-y-5 text-sm">
+              <div>
+                <p className="font-semibold text-slate-500">Categories</p>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedCategories.map((category) => (
+                    <span
+                      key={category}
+                      className="rounded-lg border-2 border-slate-950 bg-cyan-100 px-3 py-1 font-semibold"
+                    >
+                      {category}
+                    </span>
                   ))}
                 </div>
               </div>
 
-              <div className="mb-6">
-                <label className="block mb-2 text-sm font-medium">Learning Style</label>
-                <select className="w-full border p-2 rounded text-sm" value={selectedStyle} onChange={(e) => setSelectedStyle(e.target.value)}>
-                  <option value="">Any Style</option>
-                  <option value="visual">Visual</option>
-                  <option value="socratic">Socratic</option>
-                  <option value="past-paper drilling">Past-Paper Drilling</option>
-                  <option value="first-principles">First-Principles</option>
-                </select>
-              </div>
+              {selectedCategories.includes('Other') && (
+                <div>
+                  <p className="font-semibold text-slate-500">Other qualifications</p>
 
-              <div className="mb-6">
-                <label className="block mb-2 text-sm font-medium">University</label>
-                <select className="w-full border p-2 rounded text-sm" value={selectedUni} onChange={(e) => setSelectedUni(e.target.value)}>
-                  <option value="">Any University</option>
-                  <option value="imperial college london">Imperial College London</option>
-                  <option value="cambridge university">Cambridge University</option>
-                  <option value="ucl">UCL</option>
-                  <option value="university of manchester">University of Manchester</option>
-                </select>
-              </div>
-
-              {/* Clear Filters Button */}
-              <button 
-                onClick={() => {
-                  setSelectedSubjects([]);
-                  setSelectedStyle('');
-                  setSelectedUni('');
-                }}
-                className="w-full border border-gray-300 bg-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-colors mt-2"
-              >
-                Clear Filters
-              </button>
-            </aside>
-
-            <section className="w-full md:w-3/4 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {displayedTutors.map((tutor) => {
-                
-                // Check if the student has a live request with this tutor
-                const existingRequest = matchRequests.find(r => r.tutorId === tutor.id && r.studentName === currentStudent);
-
-                return (
-                  <div key={tutor.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col justify-between">
-                    <div>
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-bold text-xl">{tutor.name}</h3>
-                        <span className="font-bold text-green-700">£{tutor.hourlyRate}/hr</span>
-                      </div>
-                      <p className="text-sm text-gray-500 mb-4">{tutor.university}</p>
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {/* Map over subjects and make them Green */}
-                        {tutor.subjects?.map(subject => (
-                          <span key={subject} className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium capitalize">
-                            {subject}
-                          </span>
-                        ))}
-                        
-                        {/* Map over learning styles and make them Blue */}
-                        {tutor.learningStyles?.map(style => (
-                          <span key={style} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium">
-                            {style}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="text-sm mb-6">{tutor.bio}</p>
-                    </div>
-                    
-                    {/* Dynamic Buttons based on status*/}
-                    <div className="flex gap-2 mt-auto">
-                      {!existingRequest && (
-                        <button onClick={() => handleRequestMatch(tutor)} className="bg-black text-white px-4 py-2 rounded text-sm font-medium flex-1 hover:bg-gray-800 transition-colors">Request Match</button>
-                      )}
-                      {existingRequest?.status === 'pending' && (
-                        <button disabled className="bg-yellow-100 text-yellow-800 border border-yellow-300 px-4 py-2 rounded text-sm font-medium flex-1 cursor-not-allowed">Request Pending...</button>
-                      )}
-                      {existingRequest?.status === 'accepted' && (
-                        <button disabled className="bg-green-100 text-green-800 border border-green-300 px-4 py-2 rounded text-sm font-medium flex-1 cursor-not-allowed">✓ Match Accepted!</button>
-                      )}
-                      {existingRequest?.status === 'declined' && (
-                        <button disabled className="bg-red-100 text-red-800 border border-red-300 px-4 py-2 rounded text-sm font-medium flex-1 cursor-not-allowed">Match Declined</button>
-                      )}
-                    </div>
-
-                    {/* Secondary Action Row (No functionality yet) */}
-                    <div className="flex gap-2">
-                        <button 
-                          type="button" 
-                          onClick={() => alert('Shortlist feature to be implemented!')}
-                          className="flex-1 border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-colors"
-                        >
-                          Shortlist
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => alert('Booking system to be implemented!')}
-                          className="flex-1 border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded text-sm font-medium hover:bg-gray-50 transition-colors"
-                        >
-                          Book a Call
-                        </button>
-                      </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedOtherQualifications.map((qualification) => (
+                      <span
+                        key={qualification}
+                        className="rounded-lg border-2 border-slate-950 bg-purple-100 px-3 py-1 font-semibold"
+                      >
+                        {qualification}
+                      </span>
+                    ))}
                   </div>
-                );
-              })}
-            </section>
-          </div>
-        )}
-
-        {/* TUTOR VIEW */}
-        {view === 'tutor' && (
-          <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="font-bold text-2xl mb-2">Tutor Dashboard</h2>
-            <p className="text-gray-500 mb-8">Manage your incoming student match requests.</p>
-            
-            {/* Displaying live requests */}
-            <div className="flex flex-col gap-4">
-              {matchRequests.length === 0 && (
-                <p className="text-gray-500 italic">No incoming requests yet.</p>
+                </div>
               )}
 
-              {matchRequests.map(req => (
-                <div key={req.id} className="border border-gray-200 p-4 rounded-lg flex justify-between items-center bg-gray-50">
-                  <div>
-                    <p className="font-medium">Student: <span className="font-bold">{req.studentName}</span></p>
-                    <p className="text-sm text-gray-500">Requested Tutor: {req.tutorName}</p>
-                    <p className="text-sm mt-1">
-                      Status: 
-                      <span className={`ml-2 font-semibold ${
-                        req.status === 'pending' ? 'text-yellow-600' : 
-                        req.status === 'accepted' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {req.status.toUpperCase()}
-                      </span>
-                    </p>
-                  </div>
+              <div>
+                <p className="font-semibold text-slate-500">Subjects</p>
 
-                  {/* Connect the buttons to the resolve function */}
-                  {req.status === 'pending' && (
-                    <div className="flex gap-2">
-                      <button onClick={() => handleResolveMatch(req.id, 'accepted')} className="bg-black text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800 transition-colors">Accept</button>
-                      <button onClick={() => handleResolveMatch(req.id, 'declined')} className="border border-gray-300 px-4 py-2 rounded text-sm font-medium hover:bg-gray-100 transition-colors">Decline</button>
-                    </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedSubjectTags.length === 0 && (
+                    <span className="text-slate-500">No subjects selected yet</span>
                   )}
+
+                  {selectedSubjectTags.map((subject) => (
+                    <span
+                      key={subject}
+                      className="rounded-lg border-2 border-slate-950 bg-blue-100 px-3 py-1 font-semibold"
+                    >
+                      {subject}
+                    </span>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {hasAdmissions && (
+                <div>
+                  <p className="font-semibold text-slate-500">Admissions tests</p>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedAdmissionsTests.length === 0 && (
+                      <span className="text-slate-500">No tests selected yet</span>
+                    )}
+
+                    {selectedAdmissionsTests.map((test) => (
+                      <span
+                        key={test}
+                        className="rounded-lg border-2 border-slate-950 bg-green-100 px-3 py-1 font-semibold"
+                      >
+                        {test}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
-      </div>
+          </aside>
+        </div>
+
+        <div className="mt-14 flex justify-end pb-24">
+          <button
+            type="button"
+            className="rounded-xl border-2 border-emerald-500 bg-white px-10 py-3 text-xl font-medium text-slate-950 transition hover:bg-emerald-50"
+          >
+            Next →
+          </button>
+        </div>
+      </section>
+
+      <StepTabs />
     </main>
   );
 }
