@@ -30,9 +30,7 @@ export default function OnboardingSubjectsPage() {
     'University admissions',
   ]);
 
-  const [selectedOtherQualifications, setSelectedOtherQualifications] = useState<string[]>([
-    'IB',
-  ]);
+  const [selectedOtherQualifications, setSelectedOtherQualifications] = useState<string[]>([]);
 
   const [selectedSubjects, setSelectedSubjects] = useState<SelectedSubjects>({
     'A-level': ['Maths', 'Physics'],
@@ -100,15 +98,7 @@ export default function OnboardingSubjectsPage() {
   };
 
   const handleOtherQualificationToggle = (qualification: string) => {
-    setSelectedOtherQualifications((current) => {
-      const next = toggleValue(current, qualification);
-
-      if (next.length === 0) {
-        return current;
-      }
-
-      return next;
-    });
+    setSelectedOtherQualifications((current) => toggleValue(current, qualification));
 
     if (!selectedOtherQualifications.includes(qualification)) {
       addDefaultSubjects(qualification);
@@ -305,7 +295,7 @@ export default function OnboardingSubjectsPage() {
         <div className="mt-14 flex justify-end pb-24">
           <Link
             href="/time"
-            className="rounded-xl border-2 border-emerald-500 bg-white px-10 py-3 text-xl font-medium text-slate-950 transition hover:bg-emerald-50"
+            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium transition hover:bg-slate-50"
           >
             Next →
           </Link>
