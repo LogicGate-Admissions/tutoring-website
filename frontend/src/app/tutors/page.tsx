@@ -1,11 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import TutorCard from '../../components/tutors/TutorCard';
 import TutorFilters from '../../components/tutors/TutorFilters';
+import { db } from '../../lib/firebase';
 import { createTrialRequest } from '../../lib/trialRequests';
 import { sortOptions, tutors } from '../../lib/tutorOptions';
+import type { TrialRequestStatus } from '../../lib/trialRequests';
 import type { Tutor } from '../../lib/tutorOptions';
 
 const onboardingSubjects = ['Maths', 'Physics', 'Further Maths', 'TMUA', 'MAT'];
@@ -36,8 +39,32 @@ export default function TutorsPage() {
 
   const [sortBy, setSortBy] = useState('Best match');
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
-  const [requestedTutorIds, setRequestedTutorIds] = useState<string[]>([]);
-  const [isBooking, setIsBooking] = useState(false);
+  const [trialRequestStatuses, setTrialRequestStatuses] = useState<
+    Record<string, TrialRequestStatus>
+  >({});
+
+  const [bookingTutorId, setBookingTutorId] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState('');
+
+  useEffect(() => {
+    const requestsQuery = query(collection(db, 'trialSessionRequests'));
+
+    const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
+      const nextStatuses: Record<string, TrialRequestStatus> = {};
+
+      snapshot.docs.forEach((requestDoc) => {
+        const data = requestDoc.data();
+
+        if (data.studentName === 'Alex Student' && typeof data.tutorId === 'string') {
+          nextStatuses[data.tutorId] = data.status as TrialRequestStatus;
+        }
+      });
+
+      setTrialRequestStatuses(nextStatuses);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const filteredTutors = useMemo(() => {
     const matches = tutors.filter((tutor) => {
@@ -127,10 +154,24 @@ export default function TutorsPage() {
     setSelectedTutorId(null);
   };
 
-  const handleBookTrialSession = async (tutor: Tutor) => {
-    if (isBooking || requestedTutorIds.includes(tutor.id)) return;
+  const trialButtonLabel = (tutor: Tutor) => {
+    const status = trialRequestStatuses[tutor.id];
 
-    setIsBooking(true);
+    if (bookingTutorId === tutor.id) return 'Sending...';
+    if (status === 'pending') return 'Request sent — awaiting response';
+    if (status === 'accepted') return 'Accepted by tutor';
+    if (status === 'rejected') return 'Rejected by tutor';
+
+    return 'Book Trial Session';
+  };
+
+  const handleBookTrialSession = async (tutor: Tutor) => {
+    const existingStatus = trialRequestStatuses[tutor.id];
+
+    if (bookingTutorId || existingStatus) return;
+
+    setBookingTutorId(tutor.id);
+    setRequestError('');
 
     try {
       await createTrialRequest({
@@ -144,16 +185,15 @@ export default function TutorsPage() {
         message: 'I would like to book a trial session and see if this is a good fit.',
       });
 
-      setRequestedTutorIds((current) =>
-        current.includes(tutor.id) ? current : [...current, tutor.id]
-      );
-
-      alert(`Trial session request sent to ${tutor.name}.`);
+      setTrialRequestStatuses((current) => ({
+        ...current,
+        [tutor.id]: 'pending',
+      }));
     } catch (error) {
       console.error('Failed to create trial request:', error);
-      alert('Could not send the trial request. Check Firebase setup and Firestore rules.');
+      setRequestError('Could not send trial request. Check Firebase rules and environment variables.');
     } finally {
-      setIsBooking(false);
+      setBookingTutorId(null);
     }
   };
 
@@ -409,16 +449,27 @@ export default function TutorsPage() {
 
                     <button
                       type="button"
-                      disabled={isBooking || requestedTutorIds.includes(selectedTutor.id)}
+                      disabled={bookingTutorId === selectedTutor.id || Boolean(trialRequestStatuses[selectedTutor.id])}
                       onClick={() => handleBookTrialSession(selectedTutor)}
-                      className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-200"
+                      className={`rounded-xl border-2 border-slate-950 px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition disabled:cursor-not-allowed ${
+                        trialRequestStatuses[selectedTutor.id] === 'accepted'
+                          ? 'bg-green-100'
+                          : trialRequestStatuses[selectedTutor.id] === 'rejected'
+                            ? 'bg-red-100'
+                            : trialRequestStatuses[selectedTutor.id] === 'pending'
+                              ? 'bg-yellow-100'
+                              : 'bg-cyan-100 hover:bg-cyan-200'
+                      }`}
                     >
-                      {requestedTutorIds.includes(selectedTutor.id)
-                        ? 'Trial Session Requested'
-                        : isBooking
-                          ? 'Sending...'
-                          : 'Book Trial Session'}
+                      {trialButtonLabel(selectedTutor)}
                     </button>
+                    
+                    {requestError && (
+                      <p className="rounded-xl border-2 border-red-700 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                        {requestError}
+                      </p>
+                    )}
+
                   </div>
                 </aside>
               )}
