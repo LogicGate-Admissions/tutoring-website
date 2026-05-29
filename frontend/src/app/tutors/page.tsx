@@ -293,7 +293,7 @@ export default function TutorsPage() {
               </div>
 
               {selectedTutor && (
-                <aside className="sticky top-4 h-fit max-h-[calc(100vh-2rem)] overflow-auto rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
+                <aside className="sticky top-4 h-fit max-h-[calc(100vh-6rem)] overflow-auto rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
                   <h2 className="text-2xl font-bold">{selectedTutor.name}</h2>
 
                   <p className="mt-2 text-sm font-bold text-slate-500">
@@ -477,10 +477,10 @@ export default function TutorsPage() {
           </section>
         </div>
 
-        <div className="sticky bottom-4 z-30 mt-14 flex justify-start pb-4">
+        <div className="pointer-events-none sticky bottom-4 z-30 mt-14 flex justify-start pb-4">
           <Link
             href="/preferences"
-            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium shadow-[4px_4px_0_#0f172a] transition hover:bg-slate-50"
+            className="pointer-events-auto rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium shadow-[4px_4px_0_#0f172a] transition hover:bg-slate-50"
           >
             ← Back
           </Link>
