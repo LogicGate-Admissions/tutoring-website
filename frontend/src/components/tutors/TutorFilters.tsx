@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   allLearningStyleFilters,
   allLevelFilters,
@@ -230,16 +230,19 @@ export default function TutorFilters({
   onOnboardFilters,
 }: TutorFiltersProps) {
   const [openMore, setOpenMore] = useState<OpenMore>(null);
-  
-  const [minPriceInput, setMinPriceInput] = useState(String(minPrice));
-  const [maxPriceInput, setMaxPriceInput] = useState(String(maxPrice));
+  const minPriceInputRef = useRef<HTMLInputElement | null>(null);
+  const maxPriceInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    setMinPriceInput(String(minPrice));
+    if (minPriceInputRef.current) {
+      minPriceInputRef.current.value = String(minPrice);
+    }
   }, [minPrice]);
 
   useEffect(() => {
-    setMaxPriceInput(String(maxPrice));
+    if (maxPriceInputRef.current) {
+      maxPriceInputRef.current.value = String(maxPrice);
+    }
   }, [maxPrice]);
 
   const visibleSubjects = ['Maths', 'Physics', 'Further Maths', 'TMUA', 'MAT'];
@@ -254,30 +257,38 @@ export default function TutorFilters({
     (university) => university !== 'Any University'
   );
 
-const commitMinPrice = (value: string) => {
-  const parsed = Number(value);
+  const commitMinPrice = (value: string) => {
+    const parsed = Number(value);
 
-  if (value.trim() === '' || Number.isNaN(parsed)) {
-    setMinPriceInput(String(minPrice));
-    return;
-  }
+    if (value.trim() === '' || Number.isNaN(parsed)) {
+      if (minPriceInputRef.current) {
+        minPriceInputRef.current.value = String(minPrice);
+      }
+      return;
+    }
 
-  const nextMin = Math.min(clampPrice(parsed), maxPrice);
-  onMinPriceChange(nextMin);
-  setMinPriceInput(String(nextMin));
-};
+    const nextMin = Math.min(clampPrice(parsed), maxPrice);
+    onMinPriceChange(nextMin);
+    if (minPriceInputRef.current) {
+      minPriceInputRef.current.value = String(nextMin);
+    }
+  };
 
   const commitMaxPrice = (value: string) => {
     const parsed = Number(value);
 
     if (value.trim() === '' || Number.isNaN(parsed)) {
-      setMaxPriceInput(String(maxPrice));
+      if (maxPriceInputRef.current) {
+        maxPriceInputRef.current.value = String(maxPrice);
+      }
       return;
     }
 
     const nextMax = Math.max(clampPrice(parsed), minPrice);
     onMaxPriceChange(nextMax);
-    setMaxPriceInput(String(nextMax));
+    if (maxPriceInputRef.current) {
+      maxPriceInputRef.current.value = String(nextMax);
+    }
   };
 
   const handleMinSliderChange = (value: number) => {
@@ -331,15 +342,15 @@ const commitMinPrice = (value: string) => {
                 <div className="mt-1 flex items-center gap-1 rounded-xl border-2 border-slate-950 bg-white px-3 py-2">
                   <span className="font-black">£</span>
                   <input
+                    ref={minPriceInputRef}
                     type="number"
                     min={0}
                     max={100}
-                    value={minPriceInput}
-                    onChange={(event) => setMinPriceInput(event.target.value)}
-                    onBlur={() => commitMinPrice(minPriceInput)}
+                    defaultValue={minPrice}
+                    onBlur={(event) => commitMinPrice(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') {
-                        commitMinPrice(minPriceInput);
+                        commitMinPrice(event.currentTarget.value);
                       }
                     }}
                     className="w-12 bg-transparent text-sm font-bold outline-none"
@@ -352,15 +363,15 @@ const commitMinPrice = (value: string) => {
                 <div className="mt-1 flex items-center gap-1 rounded-xl border-2 border-slate-950 bg-white px-3 py-2">
                   <span className="font-black">£</span>
                   <input
+                    ref={maxPriceInputRef}
                     type="number"
                     min={0}
                     max={100}
-                    value={maxPriceInput}
-                    onChange={(event) => setMaxPriceInput(event.target.value)}
-                    onBlur={() => commitMaxPrice(maxPriceInput)}
+                    defaultValue={maxPrice}
+                    onBlur={(event) => commitMaxPrice(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') {
-                        commitMaxPrice(maxPriceInput);
+                        commitMaxPrice(event.currentTarget.value);
                       }
                     }}
                     className="w-12 bg-transparent text-sm font-bold outline-none"
