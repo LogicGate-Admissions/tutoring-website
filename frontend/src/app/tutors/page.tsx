@@ -1,14 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import TutorCard from '../../components/tutors/TutorCard';
 import TutorFilters from '../../components/tutors/TutorFilters';
+import { db } from '../../lib/firebase';
 import { createTrialRequest } from '../../lib/trialRequests';
 import { sortOptions, tutors } from '../../lib/tutorOptions';
+import type { TrialRequestStatus } from '../../lib/trialRequests';
 import type { Tutor } from '../../lib/tutorOptions';
 
 const onboardingSubjects = ['Maths', 'Physics', 'Further Maths', 'TMUA', 'MAT'];
+const onboardingLevels = ['A-level', 'University admissions'];
 const onboardingLearningStyles = ['Visual explanations', 'Past-paper drilling'];
 const onboardingUniversities = ['Imperial College London', 'University of Cambridge'];
 
@@ -18,115 +22,183 @@ function toggleValue(values: string[], value: string) {
     : [...values, value];
 }
 
-function tutorMatchesSubjects(tutor: Tutor, selectedSubjects: string[]) {
-  if (selectedSubjects.length === 0) return true;
-
-  return selectedSubjects.some(
-    (subject) => tutor.subjects.includes(subject) || tutor.levels.includes(subject)
-  );
-}
-
-function tutorMatchesStyles(tutor: Tutor, selectedStyles: string[]) {
-  if (selectedStyles.length === 0) return true;
-
-  return selectedStyles.some((style) => tutor.learningStyles.includes(style));
-}
-
-function tutorMatchesUniversities(tutor: Tutor, selectedUniversities: string[]) {
-  if (selectedUniversities.length === 0) return true;
-
-  return selectedUniversities.includes(tutor.university);
-}
-
-function sortTutors(tutorsToSort: Tutor[], sort: string) {
-  const sortedTutors = [...tutorsToSort];
-
-  if (sort === 'Lowest Price') {
-    return sortedTutors.sort((a, b) => a.hourlyRate - b.hourlyRate);
-  }
-
-  if (sort === 'Highest Price') {
-    return sortedTutors.sort((a, b) => b.hourlyRate - a.hourlyRate);
-  }
-
-  if (sort === 'Most Reviews') {
-    return sortedTutors.sort((a, b) => b.reviewCount - a.reviewCount);
-  }
-
-  return sortedTutors.sort((a, b) => b.rating - a.rating);
+function hasAllSelected(values: string[], selectedValues: string[]) {
+  if (selectedValues.length === 0) return true;
+  return selectedValues.every((selectedValue) => values.includes(selectedValue));
 }
 
 export default function TutorsPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>(onboardingSubjects);
+  const [selectedLevels, setSelectedLevels] = useState<string[]>(onboardingLevels);
   const [selectedStyles, setSelectedStyles] = useState<string[]>(onboardingLearningStyles);
   const [selectedUniversities, setSelectedUniversities] =
     useState<string[]>(onboardingUniversities);
 
-  const [sort, setSort] = useState('Top Rated');
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(40);
+
+  const [sortBy, setSortBy] = useState('Best match');
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
-  const [requestedTutorIds, setRequestedTutorIds] = useState<string[]>([]);
-  const [isBooking, setIsBooking] = useState(false);
+  const [trialRequestStatuses, setTrialRequestStatuses] = useState<
+    Record<string, TrialRequestStatus>
+  >({});
 
-  const displayedTutors = useMemo(() => {
-    const filteredTutors = tutors.filter(
-      (tutor) =>
-        tutorMatchesSubjects(tutor, selectedSubjects) &&
-        tutorMatchesStyles(tutor, selectedStyles) &&
-        tutorMatchesUniversities(tutor, selectedUniversities)
-    );
+  const [bookingTutorId, setBookingTutorId] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState('');
 
-    return sortTutors(filteredTutors, sort);
-  }, [selectedSubjects, selectedStyles, selectedUniversities, sort]);
+  useEffect(() => {
+    const requestsQuery = query(collection(db, 'trialSessionRequests'));
 
-  const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
+    const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
+      const nextStatuses: Record<string, TrialRequestStatus> = {};
 
-  const basedOnSummary = [
-    selectedSubjects.length > 0 ? selectedSubjects.join(', ') : 'Any subject',
-    selectedStyles.length > 0 ? selectedStyles.join(', ') : 'Any learning style',
-    selectedUniversities.length > 0 ? selectedUniversities.join(', ') : 'Any university',
-  ].join(' · ');
+      snapshot.docs.forEach((requestDoc) => {
+        const data = requestDoc.data();
+
+        if (data.studentName === 'Alex Student' && typeof data.tutorId === 'string') {
+          nextStatuses[data.tutorId] = data.status as TrialRequestStatus;
+        }
+      });
+
+      setTrialRequestStatuses(nextStatuses);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const filteredTutors = useMemo(() => {
+    const matches = tutors.filter((tutor) => {
+      const matchesSubject = hasAllSelected(tutor.subjects, selectedSubjects);
+      const matchesLevel = hasAllSelected(tutor.levels, selectedLevels);
+      const matchesStyle = hasAllSelected(tutor.learningStyles, selectedStyles);
+      const matchesUniversity =
+        selectedUniversities.length === 0 ||
+        selectedUniversities.includes(tutor.university);
+
+      const matchesPrice =
+        tutor.pricePerHour >= minPrice && tutor.pricePerHour <= maxPrice;
+
+      return (
+        matchesSubject &&
+        matchesLevel &&
+        matchesStyle &&
+        matchesUniversity &&
+        matchesPrice
+      );
+    });
+
+    return [...matches].sort((a, b) => {
+      if (sortBy === 'Highest rated') return b.rating - a.rating;
+      if (sortBy === 'Lowest price') return a.pricePerHour - b.pricePerHour;
+      if (sortBy === 'Highest price') return b.pricePerHour - a.pricePerHour;
+
+      const aScore =
+        a.subjects.filter((subject) => selectedSubjects.includes(subject)).length +
+        a.levels.filter((level) => selectedLevels.includes(level)).length +
+        a.learningStyles.filter((style) => selectedStyles.includes(style)).length +
+        (selectedUniversities.includes(a.university) ? 1 : 0);
+
+      const bScore =
+        b.subjects.filter((subject) => selectedSubjects.includes(subject)).length +
+        b.levels.filter((level) => selectedLevels.includes(level)).length +
+        b.learningStyles.filter((style) => selectedStyles.includes(style)).length +
+        (selectedUniversities.includes(b.university) ? 1 : 0);
+
+      return bScore - aScore || b.rating - a.rating;
+    });
+  }, [
+    selectedSubjects,
+    selectedLevels,
+    selectedStyles,
+    selectedUniversities,
+    minPrice,
+    maxPrice,
+    sortBy,
+  ]);
+
+  const selectedTutor = filteredTutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
+  const selectedTutorSubjects = selectedTutor
+    ? selectedSubjects.length > 0
+      ? selectedTutor.subjects.filter((subject) => selectedSubjects.includes(subject))
+      : []
+    : [];
+
+  const handleSubjectToggle = (subject: string) => {
+    setSelectedSubjects((current) => toggleValue(current, subject));
+  };
+
+  const handleLevelToggle = (level: string) => {
+    setSelectedLevels((current) => toggleValue(current, level));
+  };
+
+  const handleStyleToggle = (style: string) => {
+    setSelectedStyles((current) => toggleValue(current, style));
+  };
+
+  const handleUniversityToggle = (university: string) => {
+    setSelectedUniversities((current) => toggleValue(current, university));
+  };
 
   const handleClearFilters = () => {
     setSelectedSubjects([]);
+    setSelectedLevels([]);
     setSelectedStyles([]);
     setSelectedUniversities([]);
+    setMinPrice(0);
+    setMaxPrice(100);
     setSelectedTutorId(null);
   };
 
   const handleOnboardFilters = () => {
     setSelectedSubjects(onboardingSubjects);
+    setSelectedLevels(onboardingLevels);
     setSelectedStyles(onboardingLearningStyles);
     setSelectedUniversities(onboardingUniversities);
+    setMinPrice(0);
+    setMaxPrice(40);
     setSelectedTutorId(null);
   };
 
-  const handleTutorClick = (tutorId: string) => {
-    setSelectedTutorId((current) => (current === tutorId ? null : tutorId));
+  const trialButtonLabel = (tutor: Tutor) => {
+    const status = trialRequestStatuses[tutor.id];
+
+    if (bookingTutorId === tutor.id) return 'Sending...';
+    if (status === 'pending') return 'Request sent — awaiting response';
+    if (status === 'accepted') return 'Accepted by tutor';
+    if (status === 'rejected') return 'Rejected by tutor';
+
+    return 'Book Trial Session';
   };
 
   const handleBookTrialSession = async (tutor: Tutor) => {
-    try {
-      setIsBooking(true);
+    const existingStatus = trialRequestStatuses[tutor.id];
 
+    if (bookingTutorId || existingStatus) return;
+
+    setBookingTutorId(tutor.id);
+    setRequestError('');
+
+    try {
       await createTrialRequest({
         tutorId: tutor.id,
         tutorName: tutor.name,
         studentName: 'Alex Student',
         subject: selectedSubjects[0] ?? tutor.subjects[0] ?? 'Any subject',
-        level: tutor.levels[0] ?? 'A-level',
-        learningStyle: selectedStyles[0] ?? 'Any learning style',
+        level: selectedLevels[0] ?? tutor.levels[0] ?? 'Any level',
+        learningStyle: selectedStyles[0] ?? tutor.learningStyles[0] ?? 'Any learning style',
         preferredTime: 'Weekday evening',
         message: 'I would like to book a trial session and see if this is a good fit.',
       });
 
-      setRequestedTutorIds((current) =>
-        current.includes(tutor.id) ? current : [...current, tutor.id]
-      );
+      setTrialRequestStatuses((current) => ({
+        ...current,
+        [tutor.id]: 'pending',
+      }));
     } catch (error) {
-      console.error(error);
-      alert('Could not book trial session. Check Firebase is configured.');
+      console.error('Failed to create trial request:', error);
+      setRequestError('Could not send trial request. Check Firebase rules and environment variables.');
     } finally {
-      setIsBooking(false);
+      setBookingTutorId(null);
     }
   };
 
@@ -135,212 +207,280 @@ export default function TutorsPage() {
       <section className="mx-auto min-h-[calc(100vh-32px)] max-w-7xl rounded-[2rem] border-2 border-slate-950 bg-white px-5 py-6 shadow-[0_24px_80px_rgba(15,23,42,0.10)] sm:px-8 lg:px-12">
         <header className="flex flex-wrap items-start justify-between gap-6">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">
-              Tutor Matching
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-slate-500">
+              Tutor matching
             </p>
 
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">
-              Find a tutor
+            <h1 className="mt-2 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
+              Matched tutors.
             </h1>
+          </div>
 
-            <p className="mt-4 max-w-4xl text-base font-medium text-slate-600">
-              Based on: {basedOnSummary}
-            </p>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/tutor-dashboard"
+              className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200"
+            >
+              Tutor View
+            </Link>
 
             <Link
               href="/preferences"
-              className="mt-5 inline-flex rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-50"
+              className="rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
             >
-              Change preferences
+              Edit Onboarding
             </Link>
           </div>
-
-          <Link
-            href="/tutor-dashboard"
-            className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200"
-          >
-            Tutor View
-          </Link>
         </header>
 
-        <div className="mt-10 grid gap-10 lg:grid-cols-[300px_1fr]">
+        <div className="mt-10 grid gap-8 lg:grid-cols-[320px_1fr]">
           <TutorFilters
             selectedSubjects={selectedSubjects}
+            selectedLevels={selectedLevels}
             selectedStyles={selectedStyles}
             selectedUniversities={selectedUniversities}
-            onSubjectToggle={(subject) =>
-              setSelectedSubjects((current) => toggleValue(current, subject))
-            }
-            onStyleToggle={(style) =>
-              setSelectedStyles((current) => toggleValue(current, style))
-            }
-            onUniversityToggle={(university) =>
-              setSelectedUniversities((current) => toggleValue(current, university))
-            }
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onSubjectToggle={handleSubjectToggle}
+            onLevelToggle={handleLevelToggle}
+            onStyleToggle={handleStyleToggle}
+            onUniversityToggle={handleUniversityToggle}
+            onMinPriceChange={setMinPrice}
+            onMaxPriceChange={setMaxPrice}
             onClear={handleClearFilters}
             onOnboardFilters={handleOnboardFilters}
           />
 
           <section>
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-              <p className="text-lg font-bold">
-                {displayedTutors.length} tutor{displayedTutors.length === 1 ? '' : 's'} found
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+              <p className="text-sm font-bold text-slate-500">
+                Showing {filteredTutors.length} tutor{filteredTutors.length === 1 ? '' : 's'}
               </p>
 
-              <label className="flex items-center gap-3 text-sm font-bold">
-                Sort:
-                <select
-                  value={sort}
-                  onChange={(event) => setSort(event.target.value)}
-                  className="rounded-xl border-2 border-slate-950 bg-white px-4 py-2 font-semibold"
-                >
-                  {sortOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                className="rounded-xl border-2 border-slate-950 bg-white px-4 py-2 text-sm font-bold shadow-[3px_3px_0_#0f172a] outline-none"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
             </div>
 
-            {displayedTutors.length === 0 && (
-              <div className="rounded-[1.75rem] border-2 border-slate-950 bg-slate-50 p-8 text-center shadow-[6px_6px_0_#0f172a]">
-                <h2 className="text-2xl font-bold">No tutors match those filters yet.</h2>
-                <p className="mt-2 font-medium text-slate-600">
-                  Try clearing filters or changing your preferences.
-                </p>
-              </div>
-            )}
-
             <div
-              className={`grid items-start gap-6 ${
+              className={`grid gap-6 ${
                 selectedTutor ? 'xl:grid-cols-[1fr_390px]' : 'xl:grid-cols-1'
               }`}
             >
               <div className={`grid gap-6 ${selectedTutor ? '' : 'xl:grid-cols-2'}`}>
-                {displayedTutors.map((tutor) => (
+                {filteredTutors.map((tutor) => (
                   <TutorCard
                     key={tutor.id}
                     tutor={tutor}
-                    selected={selectedTutor?.id === tutor.id}
-                    onClick={() => handleTutorClick(tutor.id)}
+                    selected={selectedTutorId === tutor.id}
+                    onClick={() =>
+                      setSelectedTutorId((current) =>
+                        current === tutor.id ? null : tutor.id
+                      )
+                    }
                   />
                 ))}
+
+                {filteredTutors.length === 0 && (
+                  <div className="rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-8 shadow-[6px_6px_0_#0f172a]">
+                    <h2 className="text-2xl font-bold">No tutors found</h2>
+                    <p className="mt-3 text-slate-600">
+                      Try widening the subject, level, university, style or price filters.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {selectedTutor && (
-                <aside className="sticky top-6 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
-                  <div className="flex items-start justify-between gap-4">
-                    <div
-                      className={`flex h-28 w-28 items-center justify-center rounded-3xl border-2 border-slate-950 ${selectedTutor.avatarColour} text-4xl font-black shadow-[4px_4px_0_#0f172a]`}
-                    >
-                      {selectedTutor.name
-                        .split(' ')
-                        .map((part) => part[0])
-                        .join('')}
-                    </div>
+                <aside className="sticky top-4 h-fit max-h-[calc(100vh-6rem)] overflow-auto rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
+                  <h2 className="text-2xl font-bold">{selectedTutor.name}</h2>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTutorId(null)}
-                      className="rounded-xl border-2 border-slate-950 bg-white px-4 py-2 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
-                    >
-                      Close profile
-                    </button>
-                  </div>
-
-                  <h2 className="mt-5 text-3xl font-black">{selectedTutor.name}</h2>
-
-                  <p className="mt-1 text-sm font-bold text-slate-500">
-                    Education: {selectedTutor.university}
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    {selectedTutor.degree}
                   </p>
 
-                  <div className="mt-5 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-                        Rating
-                      </p>
-                      <p className="mt-1 text-xl font-black">★ {selectedTutor.rating}</p>
-                    </div>
+                  <p className="mt-1 text-sm font-bold text-slate-500">
+                    {selectedTutor.university}
+                  </p>
 
-                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-                        Price
-                      </p>
-                      <p className="mt-1 text-xl font-black">
-                        £{selectedTutor.hourlyRate}/hr
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 space-y-4 text-sm">
-                    <div>
-                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
-                        Teaches
-                      </p>
-                      <p className="mt-1 font-bold">
-                        {selectedTutor.subjects.join(' · ')}
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3 text-center">
+                      <p className="text-lg font-black">★ {selectedTutor.rating}</p>
+                      <p className="mt-1 text-[11px] font-bold text-slate-500">
+                        {selectedTutor.reviews} reviews
                       </p>
                     </div>
 
-                    <div>
-                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
-                        Levels
-                      </p>
-                      <p className="mt-1 font-bold">{selectedTutor.levels.join(' · ')}</p>
-                    </div>
-
-                    <div>
-                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
-                        Learning style
-                      </p>
-                      <p className="mt-1 font-bold">
-                        {selectedTutor.learningStyles.join(' · ')}
+                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3 text-center">
+                      <p className="text-lg font-black">{selectedTutor.numberOfStudents}</p>
+                      <p className="mt-1 text-[11px] font-bold text-slate-500">
+                        students
                       </p>
                     </div>
 
-                    <div>
-                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
-                        Next slot
+                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3 text-center">
+                      <p className="text-lg font-black">£{selectedTutor.pricePerHour}</p>
+                      <p className="mt-1 text-[11px] font-bold text-slate-500">
+                        per hour
                       </p>
-                      <p className="mt-1 font-bold">Available today · 18:00–19:00</p>
-                    </div>
-
-                    <div>
-                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
-                        About
-                      </p>
-                      <p className="mt-1 leading-6 text-slate-700">{selectedTutor.bio}</p>
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-3 pb-2">
+                  <div className="mt-5 rounded-[1.25rem] border-2 border-slate-950 bg-white p-4">
+                    <p className="font-bold">About me</p>
+
+                    <p className="mt-3 text-sm leading-6 text-slate-700">
+                      {selectedTutor.bio}
+                    </p>
+                  </div>
+
+                  <div className="mt-5 rounded-[1.25rem] border-2 border-slate-950 bg-white p-4">
+                    <p className="font-bold">Match details</p>
+
+                    <div className="mt-4 space-y-4 text-sm">
+                      <div>
+                        <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                          Levels
+                        </p>
+
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTutor.levels.map((level) => (
+                            <span
+                              key={level}
+                              className="rounded-lg border-2 border-slate-950 bg-cyan-100 px-3 py-1 font-bold"
+                            >
+                              {level}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                          Subjects
+                        </p>
+
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTutorSubjects.map((subject) => (
+                            <span
+                              key={subject}
+                              className="rounded-lg border-2 border-slate-950 bg-green-100 px-3 py-1 font-bold"
+                            >
+                              {subject} · {selectedTutor.rating} ★
+                            </span>
+                          ))}
+
+                          {selectedTutorSubjects.length === 0 && (
+                            <span className="rounded-lg border-2 border-slate-950 bg-green-100 px-3 py-1 font-bold">
+                              No selected subjects
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                          Learning styles
+                        </p>
+
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTutor.learningStyles.map((style) => (
+                            <span
+                              key={style}
+                              className="rounded-lg border-2 border-slate-950 bg-purple-100 px-3 py-1 font-bold"
+                            >
+                              {style}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                          Availability
+                        </p>
+
+                        <span className="rounded-lg border-2 border-slate-950 bg-white px-3 py-1 font-bold">
+                          {selectedTutor.availability}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-[1.25rem] border-2 border-slate-950 bg-white p-4">
+                    <p className="font-bold">Hobbies</p>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedTutor.hobbies.map((hobby) => (
+                        <span
+                          key={hobby}
+                          className="rounded-lg border-2 border-slate-950 bg-yellow-100 px-3 py-1 text-sm font-bold"
+                        >
+                          {hobby}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-[1.25rem] border-2 border-slate-950 bg-white p-4">
+                    <p className="font-bold">Personality</p>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedTutor.personality.map((trait) => (
+                        <span
+                          key={trait}
+                          className="rounded-lg border-2 border-slate-950 bg-pink-100 px-3 py-1 text-sm font-bold"
+                        >
+                          {trait}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-3">
                     <button
                       type="button"
-                      className="w-full rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
+                      className="rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
                     >
                       Message
                     </button>
 
                     <button
                       type="button"
-                      className="w-full rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
+                      className="rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
                     >
                       Shortlist
                     </button>
 
                     <button
                       type="button"
+                      disabled={bookingTutorId === selectedTutor.id || Boolean(trialRequestStatuses[selectedTutor.id])}
                       onClick={() => handleBookTrialSession(selectedTutor)}
-                      disabled={isBooking || requestedTutorIds.includes(selectedTutor.id)}
-                      className="w-full rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-green-100"
+                      className={`rounded-xl border-2 border-slate-950 px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition disabled:cursor-not-allowed ${
+                        trialRequestStatuses[selectedTutor.id] === 'accepted'
+                          ? 'bg-green-100'
+                          : trialRequestStatuses[selectedTutor.id] === 'rejected'
+                            ? 'bg-red-100'
+                            : trialRequestStatuses[selectedTutor.id] === 'pending'
+                              ? 'bg-yellow-100'
+                              : 'bg-cyan-100 hover:bg-cyan-200'
+                      }`}
                     >
-                      {requestedTutorIds.includes(selectedTutor.id)
-                        ? 'Trial Session Requested'
-                        : isBooking
-                          ? 'Sending...'
-                          : 'Book Trial Session'}
+                      {trialButtonLabel(selectedTutor)}
                     </button>
+                    
+                    {requestError && (
+                      <p className="rounded-xl border-2 border-red-700 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                        {requestError}
+                      </p>
+                    )}
+
                   </div>
                 </aside>
               )}
@@ -348,20 +488,13 @@ export default function TutorsPage() {
           </section>
         </div>
 
-        <div className="mt-14 flex justify-between pb-6">
+        <div className="pointer-events-none sticky bottom-4 z-30 mt-14 flex justify-start pb-4">
           <Link
             href="/preferences"
-            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium transition hover:bg-slate-50"
+            className="pointer-events-auto rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium shadow-[4px_4px_0_#0f172a] transition hover:bg-slate-50"
           >
             ← Back
           </Link>
-
-          <button
-            type="button"
-            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium transition hover:bg-slate-50"
-          >
-            Finish
-          </button>
         </div>
       </section>
     </main>

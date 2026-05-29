@@ -32,6 +32,41 @@ export const subjectOptions: Record<string, string[]> = {
     'Biology',
     'Computer Science',
   ],
+
+  IB: [
+    'Maths AA HL',
+    'Maths AI HL',
+    'Physics HL',
+    'Chemistry HL',
+    'Biology HL',
+    'Economics HL',
+    'Computer Science HL',
+  ],
+
+  IGCSE: [
+    'Maths',
+    'English',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Computer Science',
+  ],
+
+  IAL: [
+    'Maths',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Further Maths',
+  ],
+
+  'Scottish Highers': [
+    'Maths',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Computing Science',
+  ],
 };
 
 export const moreSubjectOptions: Record<string, string[]> = {
@@ -69,6 +104,52 @@ export const moreSubjectOptions: Record<string, string[]> = {
     'Music',
   ],
 
+  IB: [
+    'English Literature HL',
+    'History HL',
+    'Geography HL',
+    'Psychology HL',
+    'Business Management HL',
+    'Global Politics HL',
+    'French HL',
+    'Spanish HL',
+  ],
+
+  IGCSE: [
+    'English Literature',
+    'English Language',
+    'Combined Science',
+    'History',
+    'Geography',
+    'Business',
+    'Economics',
+    'French',
+    'Spanish',
+    'German',
+    'Art',
+    'Music',
+  ],
+
+  IAL: [
+    'Economics',
+    'Business',
+    'Psychology',
+    'English Literature',
+    'History',
+    'Geography',
+  ],
+
+  'Scottish Highers': [
+    'English',
+    'History',
+    'Geography',
+    'Business Management',
+    'Economics',
+    'French',
+    'Spanish',
+    'Art and Design',
+  ],
+
   'University admissions': [
     'STEP',
     'ESAT',
@@ -80,29 +161,6 @@ export const moreSubjectOptions: Record<string, string[]> = {
     'NSAA',
     'Interview preparation',
     'Personal statement',
-  ],
-
-  Other: [
-    'IB Maths',
-    'IB Physics',
-    'IB Chemistry',
-    'IB Biology',
-    'IB Economics',
-    'IB Computer Science',
-    'IGCSE Maths',
-    'IGCSE English',
-    'IGCSE Physics',
-    'IGCSE Chemistry',
-    'IGCSE Biology',
-    'IAL Maths',
-    'IAL Physics',
-    'IAL Chemistry',
-    'IAL Biology',
-    'Scottish Highers Maths',
-    'Scottish Highers Physics',
-    'Scottish Highers Chemistry',
-    'Scottish Highers Biology',
-    'Scottish Highers Computing Science',
   ],
 };
 

@@ -1,35 +1,35 @@
 import Link from 'next/link';
 
-type Step = 'subjects' | 'time' | 'preferences';
-
 type StepTabsProps = {
-  activeStep?: Step;
+  activeStep: 'subjects' | 'time' | 'preferences';
 };
 
-const steps: { id: Step; label: string; href: string }[] = [
+const steps = [
   { id: 'subjects', label: 'Subjects', href: '/' },
   { id: 'time', label: 'Time', href: '/time' },
   { id: 'preferences', label: 'Preferences', href: '/preferences' },
-];
+] as const;
 
-export default function StepTabs({ activeStep = 'subjects' }: StepTabsProps) {
+export default function StepTabs({ activeStep }: StepTabsProps) {
   return (
-    <nav className="fixed bottom-6 left-1/2 z-20 w-[min(720px,calc(100%-32px))] -translate-x-1/2 rounded-[2rem] border-2 border-slate-950 bg-white px-5 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.12)]">
-      <div className="grid grid-cols-3 gap-3 text-center text-sm font-semibold text-slate-950">
-        {steps.map((step) => (
+    <nav className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 gap-3 rounded-2xl border-2 border-slate-950 bg-white px-4 py-3 shadow-[6px_6px_0_#0f172a]">
+      {steps.map((step) => {
+        const active = step.id === activeStep;
+
+        return (
           <Link
             key={step.id}
             href={step.href}
-            className={`rounded-full px-4 py-2 transition ${
-              activeStep === step.id
-                ? 'bg-cyan-100 ring-2 ring-slate-950'
-                : 'text-slate-500 hover:bg-slate-50'
+            className={`rounded-xl border-2 border-slate-950 px-5 py-2 text-sm font-bold transition ${
+              active
+                ? 'bg-cyan-100 shadow-[3px_3px_0_#0f172a]'
+                : 'bg-white hover:bg-slate-50'
             }`}
           >
             {step.label}
           </Link>
-        ))}
-      </div>
+        );
+      })}
     </nav>
   );
 }

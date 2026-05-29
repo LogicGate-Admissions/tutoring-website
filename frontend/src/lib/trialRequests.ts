@@ -1,10 +1,4 @@
-import {
-  addDoc,
-  collection,
-  doc,
-  serverTimestamp,
-  updateDoc,
-} from 'firebase/firestore';
+import { addDoc, collection, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 export type TrialRequestStatus = 'pending' | 'accepted' | 'rejected';
@@ -51,8 +45,5 @@ export async function updateTrialRequestStatus(
   status: TrialRequestStatus
 ) {
   const requestRef = doc(db, 'trialSessionRequests', requestId);
-
-  await updateDoc(requestRef, {
-    status,
-  });
+  await updateDoc(requestRef, { status });
 }

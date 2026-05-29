@@ -1,112 +1,138 @@
 export type Tutor = {
   id: string;
   name: string;
+  headline: string;
   university: string;
+  degree: string;
   subjects: string[];
   levels: string[];
   learningStyles: string[];
-  hourlyRate: number;
+  pricePerHour: number;
   rating: number;
-  reviewCount: number;
+  reviews: number;
+  numberOfStudents: number;
+  availability: string;
   bio: string;
+  hobbies: string[];
+  personality: string[];
   tags: string[];
-  avatarColour: string;
 };
 
 export const tutors: Tutor[] = [
   {
     id: 'maya-patel',
     name: 'Maya Patel',
+    headline: 'Imperial Maths student focused on exam technique',
     university: 'Imperial College London',
-    subjects: ['Maths', 'Further Maths', 'Physics'],
-    levels: ['A-level', 'TMUA', 'MAT'],
-    learningStyles: ['Visual explanations', 'Past-paper drilling'],
-    hourlyRate: 32,
+    degree: 'Mathematics BSc',
+    subjects: ['Maths', 'Further Maths', 'TMUA', 'MAT'],
+    levels: ['A-level', 'University admissions'],
+    learningStyles: ['Past-paper drilling', 'Step-by-step examples'],
+    pricePerHour: 32,
     rating: 4.9,
-    reviewCount: 38,
-    bio: 'Maths tutor focused on admissions preparation, visual explanations and building exam confidence through repeated practice.',
-    tags: ['First Principles', 'Visual', 'TMUA'],
-    avatarColour: 'bg-cyan-100',
+    reviews: 42,
+    numberOfStudents: 18,
+    availability: 'Weekday evenings',
+    bio: 'I help students turn unclear topics into repeatable exam methods, especially for calculus, algebra and admissions-style problem solving.',
+    hobbies: ['Chess', 'Bouldering', 'Logic puzzles'],
+    personality: ['Patient', 'Structured', 'Calm under pressure'],
+    tags: ['Exam technique', 'Admissions', 'Maths'],
   },
   {
-    id: 'samuel-chen',
-    name: 'Samuel Chen',
+    id: 'daniel-chen',
+    name: 'Daniel Chen',
+    headline: 'Cambridge engineer using visual explanations',
     university: 'University of Cambridge',
-    subjects: ['Maths', 'Physics'],
-    levels: ['A-level', 'STEP', 'MAT'],
-    learningStyles: ['Socratic questioning', 'Step-by-step examples'],
-    hourlyRate: 35,
+    degree: 'Engineering MEng',
+    subjects: ['Physics', 'Maths', 'ESAT', 'ENGAA'],
+    levels: ['A-level', 'University admissions'],
+    learningStyles: ['Visual explanations', 'Socratic questioning'],
+    pricePerHour: 35,
     rating: 4.8,
-    reviewCount: 29,
-    bio: 'Helps students reason from first principles and work through difficult problems without just giving away the answer.',
-    tags: ['Socratic', 'STEP', 'Problem Solving'],
-    avatarColour: 'bg-purple-100',
+    reviews: 36,
+    numberOfStudents: 14,
+    availability: 'Weekend mornings',
+    bio: 'I use sketches, diagrams and guided questioning to help students understand mechanics and problem-solving rather than memorising steps.',
+    hobbies: ['Sketching', 'Cycling', 'Robotics'],
+    personality: ['Encouraging', 'Curious', 'Visual thinker'],
+    tags: ['Physics', 'Visual', 'Engineering'],
   },
   {
-    id: 'aisha-khan',
-    name: 'Aisha Khan',
-    university: 'University College London',
-    subjects: ['Chemistry', 'Biology'],
-    levels: ['A-level', 'GCSE'],
-    learningStyles: ['Step-by-step examples', 'Past-paper drilling'],
-    hourlyRate: 27,
-    rating: 4.7,
-    reviewCount: 41,
-    bio: 'Patient science tutor who breaks down difficult topics into clear examples before moving into exam questions.',
-    tags: ['Step-by-step', 'Past Papers', 'Science'],
-    avatarColour: 'bg-green-100',
-  },
-  {
-    id: 'daniel-wright',
-    name: 'Daniel Wright',
-    university: 'University of Warwick',
-    subjects: ['Computer Science', 'Maths'],
-    levels: ['A-level', 'GCSE'],
-    learningStyles: ['Visual explanations', 'Step-by-step examples'],
-    hourlyRate: 25,
-    rating: 4.6,
-    reviewCount: 22,
-    bio: 'Computer science and maths tutor who uses diagrams, traces and worked examples to explain abstract ideas clearly.',
-    tags: ['Visual', 'CS', 'Worked Examples'],
-    avatarColour: 'bg-orange-100',
-  },
-  {
-    id: 'elena-rossi',
-    name: 'Elena Rossi',
+    id: 'sophie-williams',
+    name: 'Sophie Williams',
+    headline: 'Oxford biology tutor for structured revision',
     university: 'University of Oxford',
-    subjects: ['Maths', 'Physics'],
-    levels: ['IB', 'A-level', 'MAT'],
-    learningStyles: ['Past-paper drilling', 'Socratic questioning'],
-    hourlyRate: 36,
-    rating: 5.0,
-    reviewCount: 17,
-    bio: 'Admissions-focused tutor for students preparing for maths-heavy applications and interview-style problem solving.',
-    tags: ['MAT', 'Socratic', 'Admissions'],
-    avatarColour: 'bg-pink-100',
-  },
-  {
-    id: 'james-owen',
-    name: 'James Owen',
-    university: 'University of Manchester',
+    degree: 'Biology BA',
     subjects: ['Biology', 'Chemistry'],
     levels: ['GCSE', 'A-level'],
-    learningStyles: ['Visual explanations', 'Step-by-step examples'],
-    hourlyRate: 24,
-    rating: 4.5,
-    reviewCount: 33,
-    bio: 'Friendly biology and chemistry tutor who helps students organise scattered revision into clear topic-by-topic progress.',
-    tags: ['Visual', 'GCSE', 'Revision Plan'],
-    avatarColour: 'bg-yellow-100',
+    learningStyles: ['Step-by-step examples', 'Past-paper drilling'],
+    pricePerHour: 28,
+    rating: 4.7,
+    reviews: 29,
+    numberOfStudents: 21,
+    availability: 'After school',
+    bio: 'I focus on breaking down mark schemes, building revision routines and helping students explain scientific ideas clearly.',
+    hobbies: ['Gardening', 'Reading', 'Running'],
+    personality: ['Friendly', 'Organised', 'Supportive'],
+    tags: ['Biology', 'Revision', 'GCSE'],
   },
-];
-
-export const onboardingSubjectFilters = [
-  'All',
-  'Maths',
-  'Physics',
-  'Further Maths',
-  'TMUA',
-  'MAT',
+  {
+    id: 'amina-hussain',
+    name: 'Amina Hussain',
+    headline: 'UCL medical student supporting UCAT and sciences',
+    university: 'University College London',
+    degree: 'Medicine MBBS',
+    subjects: ['Chemistry', 'Biology', 'UCAT'],
+    levels: ['GCSE', 'A-level', 'University admissions'],
+    learningStyles: ['Past-paper drilling', 'Timed practice'],
+    pricePerHour: 30,
+    rating: 4.9,
+    reviews: 51,
+    numberOfStudents: 24,
+    availability: 'Weekday evenings',
+    bio: 'I help students prepare for science exams and admissions tests with realistic timed practice and clear feedback.',
+    hobbies: ['Netball', 'Cooking', 'Podcasts'],
+    personality: ['Motivating', 'Focused', 'Warm'],
+    tags: ['Medicine', 'UCAT', 'Science'],
+  },
+  {
+    id: 'leo-martin',
+    name: 'Leo Martin',
+    headline: 'Warwick computer science tutor for coding confidence',
+    university: 'University of Warwick',
+    degree: 'Computer Science BSc',
+    subjects: ['Computer Science', 'Maths'],
+    levels: ['GCSE', 'A-level', 'IB'],
+    learningStyles: ['Interactive coding', 'Step-by-step examples'],
+    pricePerHour: 25,
+    rating: 4.6,
+    reviews: 24,
+    numberOfStudents: 12,
+    availability: 'Weekend evenings',
+    bio: 'I teach programming and algorithms by building small examples together, then gradually increasing difficulty.',
+    hobbies: ['Gaming', 'Hackathons', 'Football'],
+    personality: ['Relaxed', 'Practical', 'Clear'],
+    tags: ['Coding', 'Algorithms', 'Confidence'],
+  },
+  {
+    id: 'ella-thompson',
+    name: 'Ella Thompson',
+    headline: 'LSE economics tutor for essay structure and maths',
+    university: 'London School of Economics',
+    degree: 'Economics BSc',
+    subjects: ['Economics', 'Maths'],
+    levels: ['A-level', 'IB', 'IAL'],
+    learningStyles: ['Socratic questioning', 'Essay planning'],
+    pricePerHour: 27,
+    rating: 4.8,
+    reviews: 33,
+    numberOfStudents: 16,
+    availability: 'Weekday evenings',
+    bio: 'I help students connect economic theory with strong essay structure, diagrams and quantitative reasoning.',
+    hobbies: ['Debating', 'Photography', 'Tennis'],
+    personality: ['Thoughtful', 'Analytical', 'Direct'],
+    tags: ['Economics', 'Essays', 'A-level'],
+  },
 ];
 
 export const allSubjectFilters = [
@@ -117,7 +143,6 @@ export const allSubjectFilters = [
   'Chemistry',
   'Biology',
   'Computer Science',
-  'English',
   'Economics',
   'TMUA',
   'MAT',
@@ -125,12 +150,18 @@ export const allSubjectFilters = [
   'ESAT',
   'UCAT',
   'LNAT',
+  'ENGAA',
 ];
 
-export const onboardingLearningStyleFilters = [
-  'Any Style',
-  'Visual explanations',
-  'Past-paper drilling',
+export const allLevelFilters = [
+  'Any Level',
+  'A-level',
+  'GCSE',
+  'University admissions',
+  'IB',
+  'IGCSE',
+  'IAL',
+  'Scottish Highers',
 ];
 
 export const allLearningStyleFilters = [
@@ -139,6 +170,9 @@ export const allLearningStyleFilters = [
   'Past-paper drilling',
   'Step-by-step examples',
   'Socratic questioning',
+  'Timed practice',
+  'Interactive coding',
+  'Essay planning',
 ];
 
 export const universityFilters = [
@@ -170,25 +204,16 @@ export const universityFilters = [
 ];
 
 export const sortOptions = [
-  'Top Rated',
-  'Lowest Price',
-  'Highest Price',
-  'Most Reviews',
+  'Best match',
+  'Highest rated',
+  'Lowest price',
+  'Highest price',
 ];
 
-export const subjectColourClasses: Record<string, string> = {
-  Maths: 'bg-blue-500',
-  'Further Maths': 'bg-indigo-500',
-  Physics: 'bg-cyan-500',
-  Chemistry: 'bg-emerald-500',
-  Biology: 'bg-green-500',
-  'Computer Science': 'bg-purple-500',
-  English: 'bg-orange-500',
-  Economics: 'bg-yellow-500',
-  TMUA: 'bg-pink-500',
-  MAT: 'bg-rose-500',
-  STEP: 'bg-red-500',
-  ESAT: 'bg-teal-500',
-  UCAT: 'bg-lime-500',
-  LNAT: 'bg-amber-500',
-};
+export const subjectColourClasses = [
+  'bg-cyan-100',
+  'bg-green-100',
+  'bg-purple-100',
+  'bg-yellow-100',
+  'bg-pink-100',
+];

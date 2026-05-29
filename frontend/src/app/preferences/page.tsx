@@ -228,17 +228,17 @@ export default function PreferencesOnboardingPage() {
           </aside>
         </div>
 
-        <div className="mt-14 flex justify-between pb-24">
+        <div className="sticky bottom-4 z-30 mt-14 flex justify-between pb-4">
           <Link
             href="/time"
-            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium transition hover:bg-slate-50"
+            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium shadow-[4px_4px_0_#0f172a] transition hover:bg-slate-50"
           >
             ← Back
           </Link>
 
           <Link
             href="/tutors"
-            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium transition hover:bg-slate-50"
+            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium shadow-[4px_4px_0_#0f172a] transition hover:bg-slate-50"
           >
             See tutors →
           </Link>
