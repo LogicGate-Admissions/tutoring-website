@@ -3,22 +3,29 @@
 import { useMemo, useState } from 'react';
 import {
   allLearningStyleFilters,
+  allLevelFilters,
   allSubjectFilters,
   universityFilters,
 } from '../../lib/tutorOptions';
 
 type TutorFiltersProps = {
   selectedSubjects: string[];
+  selectedLevels: string[];
   selectedStyles: string[];
   selectedUniversities: string[];
+  minPrice: number;
+  maxPrice: number;
   onSubjectToggle: (subject: string) => void;
+  onLevelToggle: (level: string) => void;
   onStyleToggle: (style: string) => void;
   onUniversityToggle: (university: string) => void;
+  onMinPriceChange: (price: number) => void;
+  onMaxPriceChange: (price: number) => void;
   onClear: () => void;
   onOnboardFilters: () => void;
 };
 
-type OpenMore = 'subject' | 'style' | 'university' | null;
+type OpenMore = 'subject' | 'level' | 'style' | 'university' | null;
 
 function FilterChip({
   label,
@@ -67,11 +74,7 @@ function SearchableMore({
 
   const filteredOptions = useMemo(() => {
     const query = search.trim().toLowerCase();
-
-    if (!query) {
-      return options;
-    }
-
+    if (!query) return options;
     return options.filter((option) => option.toLowerCase().includes(query));
   }, [options, search]);
 
@@ -188,42 +191,67 @@ function FilterSection({
           />
         ))}
 
-        <SearchableMore
-          title={searchTitle}
-          placeholder={searchPlaceholder}
-          options={hiddenOptions}
-          selectedValues={selectedValues}
-          open={openMore === moreKey}
-          onOpen={() => setOpenMore(moreKey)}
-          onClose={() => setOpenMore(null)}
-          onToggle={onToggle}
-        />
+        {hiddenOptions.length > 0 && (
+          <SearchableMore
+            title={searchTitle}
+            placeholder={searchPlaceholder}
+            options={hiddenOptions}
+            selectedValues={selectedValues}
+            open={openMore === moreKey}
+            onOpen={() => setOpenMore(moreKey)}
+            onClose={() => setOpenMore(null)}
+            onToggle={onToggle}
+          />
+        )}
       </div>
     </div>
   );
 }
 
+function clampPrice(value: number) {
+  if (Number.isNaN(value)) return 0;
+  return Math.max(0, Math.min(100, value));
+}
+
 export default function TutorFilters({
   selectedSubjects,
+  selectedLevels,
   selectedStyles,
   selectedUniversities,
+  minPrice,
+  maxPrice,
   onSubjectToggle,
+  onLevelToggle,
   onStyleToggle,
   onUniversityToggle,
+  onMinPriceChange,
+  onMaxPriceChange,
   onClear,
   onOnboardFilters,
 }: TutorFiltersProps) {
   const [openMore, setOpenMore] = useState<OpenMore>(null);
 
   const visibleSubjects = ['Maths', 'Physics', 'Further Maths', 'TMUA', 'MAT'];
+  const visibleLevels = ['A-level', 'GCSE', 'University admissions'];
   const visibleStyles = ['Visual explanations', 'Past-paper drilling'];
   const visibleUniversities = ['Imperial College London', 'University of Cambridge'];
 
   const subjectOptions = allSubjectFilters.filter((subject) => subject !== 'All');
+  const levelOptions = allLevelFilters.filter((level) => level !== 'Any Level');
   const styleOptions = allLearningStyleFilters.filter((style) => style !== 'Any Style');
   const universityOptions = universityFilters.filter(
     (university) => university !== 'Any University'
   );
+
+  const handleMinPriceChange = (value: number) => {
+    const nextMin = Math.min(clampPrice(value), maxPrice);
+    onMinPriceChange(nextMin);
+  };
+
+  const handleMaxPriceChange = (value: number) => {
+    const nextMax = Math.max(clampPrice(value), minPrice);
+    onMaxPriceChange(nextMax);
+  };
 
   return (
     <aside className="h-fit rounded-[1.75rem] border-2 border-slate-950 bg-white p-6 shadow-[6px_6px_0_#0f172a]">
@@ -242,6 +270,81 @@ export default function TutorFilters({
           searchTitle="More subjects"
           searchPlaceholder="Search subjects..."
         />
+
+        <FilterSection
+          title="Level"
+          visibleOptions={visibleLevels}
+          allOptions={levelOptions}
+          selectedValues={selectedLevels}
+          onToggle={onLevelToggle}
+          moreKey="level"
+          openMore={openMore}
+          setOpenMore={setOpenMore}
+          searchTitle="More levels"
+          searchPlaceholder="Search levels..."
+        />
+
+        <div>
+          <p className="mb-2 text-sm font-bold text-slate-500">Price per hour</p>
+
+          <div className="rounded-[1.25rem] border-2 border-slate-950 bg-[#f7fbff] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-xs font-bold text-slate-500">
+                Min
+                <div className="mt-1 flex items-center gap-1 rounded-xl border-2 border-slate-950 bg-white px-3 py-2">
+                  <span className="font-black">£</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={minPrice}
+                    onChange={(event) => handleMinPriceChange(Number(event.target.value))}
+                    className="w-12 bg-transparent text-sm font-bold outline-none"
+                  />
+                </div>
+              </label>
+
+              <label className="text-xs font-bold text-slate-500">
+                Max
+                <div className="mt-1 flex items-center gap-1 rounded-xl border-2 border-slate-950 bg-white px-3 py-2">
+                  <span className="font-black">£</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={maxPrice}
+                    onChange={(event) => handleMaxPriceChange(Number(event.target.value))}
+                    className="w-12 bg-transparent text-sm font-bold outline-none"
+                  />
+                </div>
+              </label>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={minPrice}
+                onChange={(event) => handleMinPriceChange(Number(event.target.value))}
+                className="w-full accent-cyan-300"
+              />
+
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={maxPrice}
+                onChange={(event) => handleMaxPriceChange(Number(event.target.value))}
+                className="w-full accent-cyan-300"
+              />
+            </div>
+
+            <p className="mt-3 text-sm font-bold">
+              £{minPrice}–£{maxPrice} / hour
+            </p>
+          </div>
+        </div>
 
         <FilterSection
           title="Learning Style"

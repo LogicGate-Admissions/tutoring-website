@@ -9,6 +9,7 @@ import { sortOptions, tutors } from '../../lib/tutorOptions';
 import type { Tutor } from '../../lib/tutorOptions';
 
 const onboardingSubjects = ['Maths', 'Physics', 'Further Maths', 'TMUA', 'MAT'];
+const onboardingLevels = ['A-level', 'University admissions'];
 const onboardingLearningStyles = ['Visual explanations', 'Past-paper drilling'];
 const onboardingUniversities = ['Imperial College London', 'University of Cambridge'];
 
@@ -18,113 +19,132 @@ function toggleValue(values: string[], value: string) {
     : [...values, value];
 }
 
-function tutorMatchesSubjects(tutor: Tutor, selectedSubjects: string[]) {
-  if (selectedSubjects.length === 0) return true;
-
-  return selectedSubjects.some(
-    (subject) => tutor.subjects.includes(subject) || tutor.levels.includes(subject)
-  );
-}
-
-function tutorMatchesStyles(tutor: Tutor, selectedStyles: string[]) {
-  if (selectedStyles.length === 0) return true;
-
-  return selectedStyles.some((style) => tutor.learningStyles.includes(style));
-}
-
-function tutorMatchesUniversities(tutor: Tutor, selectedUniversities: string[]) {
-  if (selectedUniversities.length === 0) return true;
-
-  return selectedUniversities.includes(tutor.university);
-}
-
-function sortTutors(tutorsToSort: Tutor[], sort: string) {
-  const sortedTutors = [...tutorsToSort];
-
-  if (sort === 'Lowest Price') {
-    return sortedTutors.sort((a, b) => a.hourlyRate - b.hourlyRate);
-  }
-
-  if (sort === 'Highest Price') {
-    return sortedTutors.sort((a, b) => b.hourlyRate - a.hourlyRate);
-  }
-
-  if (sort === 'Most Reviews') {
-    return sortedTutors.sort((a, b) => b.reviewCount - a.reviewCount);
-  }
-
-  return sortedTutors.sort((a, b) => b.rating - a.rating);
+function hasAnyMatch(values: string[], selectedValues: string[]) {
+  if (selectedValues.length === 0) return true;
+  return values.some((value) => selectedValues.includes(value));
 }
 
 export default function TutorsPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>(onboardingSubjects);
+  const [selectedLevels, setSelectedLevels] = useState<string[]>(onboardingLevels);
   const [selectedStyles, setSelectedStyles] = useState<string[]>(onboardingLearningStyles);
   const [selectedUniversities, setSelectedUniversities] =
     useState<string[]>(onboardingUniversities);
 
-  const [sort, setSort] = useState('Top Rated');
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(40);
+
+  const [sortBy, setSortBy] = useState('Best match');
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [requestedTutorIds, setRequestedTutorIds] = useState<string[]>([]);
   const [isBooking, setIsBooking] = useState(false);
 
-  const displayedTutors = useMemo(() => {
-    const filteredTutors = tutors.filter(
-      (tutor) =>
-        tutorMatchesSubjects(tutor, selectedSubjects) &&
-        tutorMatchesStyles(tutor, selectedStyles) &&
-        tutorMatchesUniversities(tutor, selectedUniversities)
-    );
+  const filteredTutors = useMemo(() => {
+    const matches = tutors.filter((tutor) => {
+      const matchesSubject = hasAnyMatch(tutor.subjects, selectedSubjects);
+      const matchesLevel = hasAnyMatch(tutor.levels, selectedLevels);
+      const matchesStyle = hasAnyMatch(tutor.learningStyles, selectedStyles);
+      const matchesUniversity =
+        selectedUniversities.length === 0 ||
+        selectedUniversities.includes(tutor.university);
 
-    return sortTutors(filteredTutors, sort);
-  }, [selectedSubjects, selectedStyles, selectedUniversities, sort]);
+      const matchesPrice =
+        tutor.pricePerHour >= minPrice && tutor.pricePerHour <= maxPrice;
 
-  const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
+      return (
+        matchesSubject &&
+        matchesLevel &&
+        matchesStyle &&
+        matchesUniversity &&
+        matchesPrice
+      );
+    });
 
-  const basedOnSummary = [
-    selectedSubjects.length > 0 ? selectedSubjects.join(', ') : 'Any subject',
-    selectedStyles.length > 0 ? selectedStyles.join(', ') : 'Any learning style',
-    selectedUniversities.length > 0 ? selectedUniversities.join(', ') : 'Any university',
-  ].join(' · ');
+    return [...matches].sort((a, b) => {
+      if (sortBy === 'Highest rated') return b.rating - a.rating;
+      if (sortBy === 'Lowest price') return a.pricePerHour - b.pricePerHour;
+      if (sortBy === 'Highest price') return b.pricePerHour - a.pricePerHour;
+
+      const aScore =
+        a.subjects.filter((subject) => selectedSubjects.includes(subject)).length +
+        a.levels.filter((level) => selectedLevels.includes(level)).length +
+        a.learningStyles.filter((style) => selectedStyles.includes(style)).length +
+        (selectedUniversities.includes(a.university) ? 1 : 0);
+
+      const bScore =
+        b.subjects.filter((subject) => selectedSubjects.includes(subject)).length +
+        b.levels.filter((level) => selectedLevels.includes(level)).length +
+        b.learningStyles.filter((style) => selectedStyles.includes(style)).length +
+        (selectedUniversities.includes(b.university) ? 1 : 0);
+
+      return bScore - aScore || b.rating - a.rating;
+    });
+  }, [
+    selectedSubjects,
+    selectedLevels,
+    selectedStyles,
+    selectedUniversities,
+    minPrice,
+    maxPrice,
+    sortBy,
+  ]);
+
+  const selectedTutor = filteredTutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
+
+  const handleSubjectToggle = (subject: string) => {
+    setSelectedSubjects((current) => toggleValue(current, subject));
+  };
+
+  const handleLevelToggle = (level: string) => {
+    setSelectedLevels((current) => toggleValue(current, level));
+  };
+
+  const handleStyleToggle = (style: string) => {
+    setSelectedStyles((current) => toggleValue(current, style));
+  };
+
+  const handleUniversityToggle = (university: string) => {
+    setSelectedUniversities((current) => toggleValue(current, university));
+  };
 
   const handleClearFilters = () => {
     setSelectedSubjects([]);
+    setSelectedLevels([]);
     setSelectedStyles([]);
     setSelectedUniversities([]);
+    setMinPrice(0);
+    setMaxPrice(100);
     setSelectedTutorId(null);
   };
 
   const handleOnboardFilters = () => {
     setSelectedSubjects(onboardingSubjects);
+    setSelectedLevels(onboardingLevels);
     setSelectedStyles(onboardingLearningStyles);
     setSelectedUniversities(onboardingUniversities);
+    setMinPrice(0);
+    setMaxPrice(40);
     setSelectedTutorId(null);
   };
 
-  const handleTutorClick = (tutorId: string) => {
-    setSelectedTutorId((current) => (current === tutorId ? null : tutorId));
-  };
-
   const handleBookTrialSession = async (tutor: Tutor) => {
-    try {
-      setIsBooking(true);
+    if (isBooking || requestedTutorIds.includes(tutor.id)) return;
 
+    setIsBooking(true);
+
+    try {
       await createTrialRequest({
         tutorId: tutor.id,
         tutorName: tutor.name,
         studentName: 'Alex Student',
         subject: selectedSubjects[0] ?? tutor.subjects[0] ?? 'Any subject',
-        level: tutor.levels[0] ?? 'A-level',
+        level: selectedLevels[0] ?? tutor.levels[0] ?? 'Any level',
         learningStyle: selectedStyles[0] ?? 'Any learning style',
         preferredTime: 'Weekday evening',
         message: 'I would like to book a trial session and see if this is a good fit.',
       });
 
-      setRequestedTutorIds((current) =>
-        current.includes(tutor.id) ? current : [...current, tutor.id]
-      );
-    } catch (error) {
-      console.error(error);
-      alert('Could not book trial session. Check Firebase is configured.');
+      setRequestedTutorIds((current) => [...current, tutor.id]);
     } finally {
       setIsBooking(false);
     }
@@ -135,205 +155,157 @@ export default function TutorsPage() {
       <section className="mx-auto min-h-[calc(100vh-32px)] max-w-7xl rounded-[2rem] border-2 border-slate-950 bg-white px-5 py-6 shadow-[0_24px_80px_rgba(15,23,42,0.10)] sm:px-8 lg:px-12">
         <header className="flex flex-wrap items-start justify-between gap-6">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">
-              Tutor Matching
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-slate-500">
+              Tutor matching
             </p>
 
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">
-              Find a tutor
+            <h1 className="mt-2 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
+              Tutors matched to your subjects, level, style and budget.
             </h1>
+          </div>
 
-            <p className="mt-4 max-w-4xl text-base font-medium text-slate-600">
-              Based on: {basedOnSummary}
-            </p>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/tutor-dashboard"
+              className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200"
+            >
+              Tutor View
+            </Link>
 
             <Link
               href="/preferences"
-              className="mt-5 inline-flex rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-50"
+              className="rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
             >
               Change preferences
             </Link>
           </div>
-
-          <Link
-            href="/tutor-dashboard"
-            className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200"
-          >
-            Tutor View
-          </Link>
         </header>
 
-        <div className="mt-10 grid gap-10 lg:grid-cols-[300px_1fr]">
+        <div className="mt-10 grid gap-8 lg:grid-cols-[320px_1fr]">
           <TutorFilters
             selectedSubjects={selectedSubjects}
+            selectedLevels={selectedLevels}
             selectedStyles={selectedStyles}
             selectedUniversities={selectedUniversities}
-            onSubjectToggle={(subject) =>
-              setSelectedSubjects((current) => toggleValue(current, subject))
-            }
-            onStyleToggle={(style) =>
-              setSelectedStyles((current) => toggleValue(current, style))
-            }
-            onUniversityToggle={(university) =>
-              setSelectedUniversities((current) => toggleValue(current, university))
-            }
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onSubjectToggle={handleSubjectToggle}
+            onLevelToggle={handleLevelToggle}
+            onStyleToggle={handleStyleToggle}
+            onUniversityToggle={handleUniversityToggle}
+            onMinPriceChange={setMinPrice}
+            onMaxPriceChange={setMaxPrice}
             onClear={handleClearFilters}
             onOnboardFilters={handleOnboardFilters}
           />
 
           <section>
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-              <p className="text-lg font-bold">
-                {displayedTutors.length} tutor{displayedTutors.length === 1 ? '' : 's'} found
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+              <p className="text-sm font-bold text-slate-500">
+                Showing {filteredTutors.length} tutor{filteredTutors.length === 1 ? '' : 's'}
               </p>
 
-              <label className="flex items-center gap-3 text-sm font-bold">
-                Sort:
-                <select
-                  value={sort}
-                  onChange={(event) => setSort(event.target.value)}
-                  className="rounded-xl border-2 border-slate-950 bg-white px-4 py-2 font-semibold"
-                >
-                  {sortOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                className="rounded-xl border-2 border-slate-950 bg-white px-4 py-2 text-sm font-bold shadow-[3px_3px_0_#0f172a] outline-none"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
             </div>
 
-            {displayedTutors.length === 0 && (
-              <div className="rounded-[1.75rem] border-2 border-slate-950 bg-slate-50 p-8 text-center shadow-[6px_6px_0_#0f172a]">
-                <h2 className="text-2xl font-bold">No tutors match those filters yet.</h2>
-                <p className="mt-2 font-medium text-slate-600">
-                  Try clearing filters or changing your preferences.
-                </p>
-              </div>
-            )}
-
             <div
-              className={`grid items-start gap-6 ${
+              className={`grid gap-6 ${
                 selectedTutor ? 'xl:grid-cols-[1fr_390px]' : 'xl:grid-cols-1'
               }`}
             >
               <div className={`grid gap-6 ${selectedTutor ? '' : 'xl:grid-cols-2'}`}>
-                {displayedTutors.map((tutor) => (
+                {filteredTutors.map((tutor) => (
                   <TutorCard
                     key={tutor.id}
                     tutor={tutor}
-                    selected={selectedTutor?.id === tutor.id}
-                    onClick={() => handleTutorClick(tutor.id)}
+                    selected={selectedTutorId === tutor.id}
+                    onClick={() =>
+                      setSelectedTutorId((current) =>
+                        current === tutor.id ? null : tutor.id
+                      )
+                    }
                   />
                 ))}
+
+                {filteredTutors.length === 0 && (
+                  <div className="rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-8 shadow-[6px_6px_0_#0f172a]">
+                    <h2 className="text-2xl font-bold">No tutors found</h2>
+                    <p className="mt-3 text-slate-600">
+                      Try widening the subject, level, university, style or price filters.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {selectedTutor && (
-                <aside className="sticky top-6 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
-                  <div className="flex items-start justify-between gap-4">
-                    <div
-                      className={`flex h-28 w-28 items-center justify-center rounded-3xl border-2 border-slate-950 ${selectedTutor.avatarColour} text-4xl font-black shadow-[4px_4px_0_#0f172a]`}
-                    >
-                      {selectedTutor.name
-                        .split(' ')
-                        .map((part) => part[0])
-                        .join('')}
-                    </div>
+                <aside className="h-fit rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
+                  <h2 className="text-2xl font-bold">{selectedTutor.name}</h2>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTutorId(null)}
-                      className="rounded-xl border-2 border-slate-950 bg-white px-4 py-2 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
-                    >
-                      Close profile
-                    </button>
-                  </div>
-
-                  <h2 className="mt-5 text-3xl font-black">{selectedTutor.name}</h2>
-
-                  <p className="mt-1 text-sm font-bold text-slate-500">
-                    Education: {selectedTutor.university}
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    {selectedTutor.degree} · {selectedTutor.university}
                   </p>
 
-                  <div className="mt-5 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-                        Rating
-                      </p>
-                      <p className="mt-1 text-xl font-black">★ {selectedTutor.rating}</p>
-                    </div>
+                  <p className="mt-4 text-slate-700">{selectedTutor.bio}</p>
 
-                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3">
-                      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-                        Price
-                      </p>
-                      <p className="mt-1 text-xl font-black">
-                        £{selectedTutor.hourlyRate}/hr
-                      </p>
-                    </div>
-                  </div>
+                  <div className="mt-5 rounded-[1.25rem] border-2 border-slate-950 bg-white p-4">
+                    <p className="font-bold">Match details</p>
 
-                  <div className="mt-5 space-y-4 text-sm">
-                    <div>
-                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
-                        Teaches
+                    <div className="mt-3 space-y-2 text-sm text-slate-600">
+                      <p>
+                        <span className="font-bold text-slate-950">Subjects:</span>{' '}
+                        {selectedTutor.subjects.join(', ')}
                       </p>
-                      <p className="mt-1 font-bold">
-                        {selectedTutor.subjects.join(' · ')}
-                      </p>
-                    </div>
 
-                    <div>
-                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
-                        Levels
+                      <p>
+                        <span className="font-bold text-slate-950">Levels:</span>{' '}
+                        {selectedTutor.levels.join(', ')}
                       </p>
-                      <p className="mt-1 font-bold">{selectedTutor.levels.join(' · ')}</p>
-                    </div>
 
-                    <div>
-                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
-                        Learning style
+                      <p>
+                        <span className="font-bold text-slate-950">Learning styles:</span>{' '}
+                        {selectedTutor.learningStyles.join(', ')}
                       </p>
-                      <p className="mt-1 font-bold">
-                        {selectedTutor.learningStyles.join(' · ')}
-                      </p>
-                    </div>
 
-                    <div>
-                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
-                        Next slot
+                      <p>
+                        <span className="font-bold text-slate-950">Price:</span> £
+                        {selectedTutor.pricePerHour}/hour
                       </p>
-                      <p className="mt-1 font-bold">Available today · 18:00–19:00</p>
-                    </div>
 
-                    <div>
-                      <p className="font-black uppercase tracking-[0.12em] text-slate-400">
-                        About
+                      <p>
+                        <span className="font-bold text-slate-950">Availability:</span>{' '}
+                        {selectedTutor.availability}
                       </p>
-                      <p className="mt-1 leading-6 text-slate-700">{selectedTutor.bio}</p>
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-3 pb-2">
+                  <div className="mt-5 grid gap-3">
                     <button
                       type="button"
-                      className="w-full rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
+                      className="rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
                     >
                       Message
                     </button>
 
                     <button
                       type="button"
-                      className="w-full rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
+                      className="rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
                     >
                       Shortlist
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => handleBookTrialSession(selectedTutor)}
                       disabled={isBooking || requestedTutorIds.includes(selectedTutor.id)}
-                      className="w-full rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-green-100"
+                      onClick={() => handleBookTrialSession(selectedTutor)}
+                      className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-200"
                     >
                       {requestedTutorIds.includes(selectedTutor.id)
                         ? 'Trial Session Requested'
