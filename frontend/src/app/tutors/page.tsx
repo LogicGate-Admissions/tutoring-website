@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import TutorCard from '../../components/tutors/TutorCard';
 import TutorFilters from '../../components/tutors/TutorFilters';
-import { sortOptions, Tutor, tutors } from '../../lib/tutorOptions';
+import { createTrialRequest } from '../../lib/trialRequests';
+import { sortOptions, tutors } from '../../lib/tutorOptions';
+import type { Tutor } from '../../lib/tutorOptions';
 
 const onboardingSubjects = ['Maths', 'Physics', 'Further Maths', 'TMUA', 'MAT'];
 const onboardingLearningStyles = ['Visual explanations', 'Past-paper drilling'];
@@ -62,6 +64,8 @@ export default function TutorsPage() {
 
   const [sort, setSort] = useState('Top Rated');
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
+  const [requestedTutorIds, setRequestedTutorIds] = useState<string[]>([]);
+  const [isBooking, setIsBooking] = useState(false);
 
   const displayedTutors = useMemo(() => {
     const filteredTutors = tutors.filter(
@@ -100,6 +104,32 @@ export default function TutorsPage() {
     setSelectedTutorId((current) => (current === tutorId ? null : tutorId));
   };
 
+  const handleBookTrialSession = async (tutor: Tutor) => {
+    try {
+      setIsBooking(true);
+
+      await createTrialRequest({
+        tutorId: tutor.id,
+        tutorName: tutor.name,
+        studentName: 'Alex Student',
+        subject: selectedSubjects[0] ?? tutor.subjects[0] ?? 'Any subject',
+        level: tutor.levels[0] ?? 'A-level',
+        learningStyle: selectedStyles[0] ?? 'Any learning style',
+        preferredTime: 'Weekday evening',
+        message: 'I would like to book a trial session and see if this is a good fit.',
+      });
+
+      setRequestedTutorIds((current) =>
+        current.includes(tutor.id) ? current : [...current, tutor.id]
+      );
+    } catch (error) {
+      console.error(error);
+      alert('Could not book trial session. Check Firebase is configured.');
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#f7fbff] px-4 py-4 text-slate-950 sm:px-8 lg:px-12">
       <section className="mx-auto min-h-[calc(100vh-32px)] max-w-7xl rounded-[2rem] border-2 border-slate-950 bg-white px-5 py-6 shadow-[0_24px_80px_rgba(15,23,42,0.10)] sm:px-8 lg:px-12">
@@ -118,12 +148,21 @@ export default function TutorsPage() {
             </p>
           </div>
 
-          <Link
-            href="/preferences"
-            className="rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-50"
-          >
-            Change preferences
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/tutor-dashboard"
+              className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200"
+            >
+              Tutor View
+            </Link>
+
+            <Link
+              href="/preferences"
+              className="rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-50"
+            >
+              Change preferences
+            </Link>
+          </div>
         </header>
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[300px_1fr]">
@@ -270,7 +309,7 @@ export default function TutorsPage() {
                   <div className="mt-6 grid gap-3">
                     <button
                       type="button"
-                      className="w-full rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200"
+                      className="w-full rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
                     >
                       Message
                     </button>
@@ -284,9 +323,15 @@ export default function TutorsPage() {
 
                     <button
                       type="button"
-                      className="w-full rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
+                      onClick={() => handleBookTrialSession(selectedTutor)}
+                      disabled={isBooking || requestedTutorIds.includes(selectedTutor.id)}
+                      className="w-full rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-green-100"
                     >
-                      Book Trial Session
+                      {requestedTutorIds.includes(selectedTutor.id)
+                        ? 'Trial Session Requested'
+                        : isBooking
+                          ? 'Sending...'
+                          : 'Book Trial Session'}
                     </button>
                   </div>
                 </aside>

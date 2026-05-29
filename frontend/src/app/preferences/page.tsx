@@ -72,12 +72,12 @@ export default function PreferencesOnboardingPage() {
             How do you like to learn?
           </h1>
 
-          <button
-            type="button"
-            className="rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-50"
+          <Link
+            href="/tutor-dashboard"
+            className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200"
           >
-            Change preferences
-          </button>
+            Tutor View
+          </Link>
         </header>
 
         <div className="mt-12 grid gap-10 lg:grid-cols-[1fr_360px]">
