@@ -168,7 +168,7 @@ export default function SubjectsOnboardingPage() {
       <section className="mx-auto min-h-[calc(100vh-32px)] max-w-7xl rounded-[2rem] border-2 border-slate-950 bg-white px-5 py-6 shadow-[0_24px_80px_rgba(15,23,42,0.10)] sm:px-8 lg:px-12">
         <header className="flex items-start justify-between gap-6">
           <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-            What do you need help with?
+            What do you need help with? HI JAMIE
           </h1>
 
           <Link
