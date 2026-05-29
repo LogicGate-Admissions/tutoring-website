@@ -250,39 +250,138 @@ export default function TutorsPage() {
                   <h2 className="text-2xl font-bold">{selectedTutor.name}</h2>
 
                   <p className="mt-2 text-sm font-bold text-slate-500">
-                    {selectedTutor.degree} · {selectedTutor.university}
+                    {selectedTutor.degree}
                   </p>
 
-                  <p className="mt-4 text-slate-700">{selectedTutor.bio}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-500">
+                    {selectedTutor.university}
+                  </p>
+
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3 text-center">
+                      <p className="text-lg font-black">★ {selectedTutor.rating}</p>
+                      <p className="mt-1 text-[11px] font-bold text-slate-500">
+                        {selectedTutor.reviews} reviews
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3 text-center">
+                      <p className="text-lg font-black">{selectedTutor.numberOfStudents}</p>
+                      <p className="mt-1 text-[11px] font-bold text-slate-500">
+                        students
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border-2 border-slate-950 bg-white p-3 text-center">
+                      <p className="text-lg font-black">£{selectedTutor.pricePerHour}</p>
+                      <p className="mt-1 text-[11px] font-bold text-slate-500">
+                        per hour
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-[1.25rem] border-2 border-slate-950 bg-white p-4">
+                    <p className="font-bold">About me</p>
+
+                    <p className="mt-3 text-sm leading-6 text-slate-700">
+                      {selectedTutor.bio}
+                    </p>
+                  </div>
 
                   <div className="mt-5 rounded-[1.25rem] border-2 border-slate-950 bg-white p-4">
                     <p className="font-bold">Match details</p>
 
-                    <div className="mt-3 space-y-2 text-sm text-slate-600">
-                      <p>
-                        <span className="font-bold text-slate-950">Subjects:</span>{' '}
-                        {selectedTutor.subjects.join(', ')}
-                      </p>
+                    <div className="mt-4 space-y-4 text-sm">
+                      <div>
+                        <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                          Levels
+                        </p>
 
-                      <p>
-                        <span className="font-bold text-slate-950">Levels:</span>{' '}
-                        {selectedTutor.levels.join(', ')}
-                      </p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTutor.levels.map((level) => (
+                            <span
+                              key={level}
+                              className="rounded-lg border-2 border-slate-950 bg-cyan-100 px-3 py-1 font-bold"
+                            >
+                              {level}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
 
-                      <p>
-                        <span className="font-bold text-slate-950">Learning styles:</span>{' '}
-                        {selectedTutor.learningStyles.join(', ')}
-                      </p>
+                      <div>
+                        <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                          Subjects
+                        </p>
 
-                      <p>
-                        <span className="font-bold text-slate-950">Price:</span> £
-                        {selectedTutor.pricePerHour}/hour
-                      </p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTutor.subjects.map((subject) => (
+                            <span
+                              key={subject}
+                              className="rounded-lg border-2 border-slate-950 bg-green-100 px-3 py-1 font-bold"
+                            >
+                              {subject}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
 
-                      <p>
-                        <span className="font-bold text-slate-950">Availability:</span>{' '}
-                        {selectedTutor.availability}
-                      </p>
+                      <div>
+                        <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                          Learning styles
+                        </p>
+
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTutor.learningStyles.map((style) => (
+                            <span
+                              key={style}
+                              className="rounded-lg border-2 border-slate-950 bg-purple-100 px-3 py-1 font-bold"
+                            >
+                              {style}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                          Availability
+                        </p>
+
+                        <span className="rounded-lg border-2 border-slate-950 bg-white px-3 py-1 font-bold">
+                          {selectedTutor.availability}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-[1.25rem] border-2 border-slate-950 bg-white p-4">
+                    <p className="font-bold">Hobbies</p>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedTutor.hobbies.map((hobby) => (
+                        <span
+                          key={hobby}
+                          className="rounded-lg border-2 border-slate-950 bg-yellow-100 px-3 py-1 text-sm font-bold"
+                        >
+                          {hobby}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-[1.25rem] border-2 border-slate-950 bg-white p-4">
+                    <p className="font-bold">Personality</p>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedTutor.personality.map((trait) => (
+                        <span
+                          key={trait}
+                          className="rounded-lg border-2 border-slate-950 bg-pink-100 px-3 py-1 text-sm font-bold"
+                        >
+                          {trait}
+                        </span>
+                      ))}
                     </div>
                   </div>
 

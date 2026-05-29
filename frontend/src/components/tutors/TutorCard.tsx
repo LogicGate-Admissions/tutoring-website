@@ -173,11 +173,7 @@ export default function TutorCard({ tutor, selected, onClick }: TutorCardProps) 
         </div>
 
         <div className="text-right">
-          <p className="text-sm font-black text-slate-950">
-            £{tutor.pricePerHour}/hour
-          </p>
-
-          <p className="mt-1 rounded-xl border-2 border-slate-950 bg-cyan-100 px-4 py-2 text-sm font-bold">
+          <p className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-4 py-2 text-sm font-bold">
             {selected ? 'Close profile ↑' : 'View profile →'}
           </p>
         </div>

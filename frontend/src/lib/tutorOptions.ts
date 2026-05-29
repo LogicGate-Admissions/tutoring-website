@@ -10,8 +10,11 @@ export type Tutor = {
   pricePerHour: number;
   rating: number;
   reviews: number;
+  numberOfStudents: number;
   availability: string;
   bio: string;
+  hobbies: string[];
+  personality: string[];
   tags: string[];
 };
 
@@ -28,8 +31,11 @@ export const tutors: Tutor[] = [
     pricePerHour: 32,
     rating: 4.9,
     reviews: 42,
+    numberOfStudents: 18,
     availability: 'Weekday evenings',
     bio: 'I help students turn unclear topics into repeatable exam methods, especially for calculus, algebra and admissions-style problem solving.',
+    hobbies: ['Chess', 'Bouldering', 'Logic puzzles'],
+    personality: ['Patient', 'Structured', 'Calm under pressure'],
     tags: ['Exam technique', 'Admissions', 'Maths'],
   },
   {
@@ -44,8 +50,11 @@ export const tutors: Tutor[] = [
     pricePerHour: 35,
     rating: 4.8,
     reviews: 36,
+    numberOfStudents: 14,
     availability: 'Weekend mornings',
     bio: 'I use sketches, diagrams and guided questioning to help students understand mechanics and problem-solving rather than memorising steps.',
+    hobbies: ['Sketching', 'Cycling', 'Robotics'],
+    personality: ['Encouraging', 'Curious', 'Visual thinker'],
     tags: ['Physics', 'Visual', 'Engineering'],
   },
   {
@@ -60,8 +69,11 @@ export const tutors: Tutor[] = [
     pricePerHour: 28,
     rating: 4.7,
     reviews: 29,
+    numberOfStudents: 21,
     availability: 'After school',
     bio: 'I focus on breaking down mark schemes, building revision routines and helping students explain scientific ideas clearly.',
+    hobbies: ['Gardening', 'Reading', 'Running'],
+    personality: ['Friendly', 'Organised', 'Supportive'],
     tags: ['Biology', 'Revision', 'GCSE'],
   },
   {
@@ -76,8 +88,11 @@ export const tutors: Tutor[] = [
     pricePerHour: 30,
     rating: 4.9,
     reviews: 51,
+    numberOfStudents: 24,
     availability: 'Weekday evenings',
     bio: 'I help students prepare for science exams and admissions tests with realistic timed practice and clear feedback.',
+    hobbies: ['Netball', 'Cooking', 'Podcasts'],
+    personality: ['Motivating', 'Focused', 'Warm'],
     tags: ['Medicine', 'UCAT', 'Science'],
   },
   {
@@ -92,8 +107,11 @@ export const tutors: Tutor[] = [
     pricePerHour: 25,
     rating: 4.6,
     reviews: 24,
+    numberOfStudents: 12,
     availability: 'Weekend evenings',
     bio: 'I teach programming and algorithms by building small examples together, then gradually increasing difficulty.',
+    hobbies: ['Gaming', 'Hackathons', 'Football'],
+    personality: ['Relaxed', 'Practical', 'Clear'],
     tags: ['Coding', 'Algorithms', 'Confidence'],
   },
   {
@@ -108,8 +126,11 @@ export const tutors: Tutor[] = [
     pricePerHour: 27,
     rating: 4.8,
     reviews: 33,
+    numberOfStudents: 16,
     availability: 'Weekday evenings',
     bio: 'I help students connect economic theory with strong essay structure, diagrams and quantitative reasoning.',
+    hobbies: ['Debating', 'Photography', 'Tennis'],
+    personality: ['Thoughtful', 'Analytical', 'Direct'],
     tags: ['Economics', 'Essays', 'A-level'],
   },
 ];
