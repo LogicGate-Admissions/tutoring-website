@@ -117,6 +117,11 @@ export default function TutorsPage() {
   ]);
 
   const selectedTutor = filteredTutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
+  const selectedTutorSubjects = selectedTutor
+    ? selectedSubjects.length > 0
+      ? selectedTutor.subjects.filter((subject) => selectedSubjects.includes(subject))
+      : []
+    : [];
 
   const handleSubjectToggle = (subject: string) => {
     setSelectedSubjects((current) => toggleValue(current, subject));
@@ -362,14 +367,20 @@ export default function TutorsPage() {
                         </p>
 
                         <div className="flex flex-wrap gap-2">
-                          {selectedTutor.subjects.map((subject) => (
+                          {selectedTutorSubjects.map((subject) => (
                             <span
                               key={subject}
                               className="rounded-lg border-2 border-slate-950 bg-green-100 px-3 py-1 font-bold"
                             >
-                              {subject}
+                              {subject} · {selectedTutor.rating} ★
                             </span>
                           ))}
+
+                          {selectedTutorSubjects.length === 0 && (
+                            <span className="rounded-lg border-2 border-slate-950 bg-green-100 px-3 py-1 font-bold">
+                              No selected subjects
+                            </span>
+                          )}
                         </div>
                       </div>
 
