@@ -19,9 +19,9 @@ function toggleValue(values: string[], value: string) {
     : [...values, value];
 }
 
-function hasAnyMatch(values: string[], selectedValues: string[]) {
+function hasAllSelected(values: string[], selectedValues: string[]) {
   if (selectedValues.length === 0) return true;
-  return values.some((value) => selectedValues.includes(value));
+  return selectedValues.every((selectedValue) => values.includes(selectedValue));
 }
 
 export default function TutorsPage() {
@@ -41,9 +41,9 @@ export default function TutorsPage() {
 
   const filteredTutors = useMemo(() => {
     const matches = tutors.filter((tutor) => {
-      const matchesSubject = hasAnyMatch(tutor.subjects, selectedSubjects);
-      const matchesLevel = hasAnyMatch(tutor.levels, selectedLevels);
-      const matchesStyle = hasAnyMatch(tutor.learningStyles, selectedStyles);
+      const matchesSubject = hasAllSelected(tutor.subjects, selectedSubjects);
+      const matchesLevel = hasAllSelected(tutor.levels, selectedLevels);
+      const matchesStyle = hasAllSelected(tutor.learningStyles, selectedStyles);
       const matchesUniversity =
         selectedUniversities.length === 0 ||
         selectedUniversities.includes(tutor.university);
@@ -160,7 +160,7 @@ export default function TutorsPage() {
             </p>
 
             <h1 className="mt-2 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-              Tutors matched to your subjects, level, style and budget.
+              Matched tutors.
             </h1>
           </div>
 
@@ -176,7 +176,7 @@ export default function TutorsPage() {
               href="/preferences"
               className="rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
             >
-              Change preferences
+              Edit Onboarding
             </Link>
           </div>
         </header>
@@ -246,7 +246,7 @@ export default function TutorsPage() {
               </div>
 
               {selectedTutor && (
-                <aside className="h-fit rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
+                <aside className="sticky top-4 h-fit max-h-[calc(100vh-2rem)] overflow-auto rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
                   <h2 className="text-2xl font-bold">{selectedTutor.name}</h2>
 
                   <p className="mt-2 text-sm font-bold text-slate-500">
@@ -419,20 +419,13 @@ export default function TutorsPage() {
           </section>
         </div>
 
-        <div className="sticky bottom-4 z-30 mt-14 flex justify-between pb-4">
+        <div className="sticky bottom-4 z-30 mt-14 flex justify-start pb-4">
           <Link
             href="/preferences"
             className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium shadow-[4px_4px_0_#0f172a] transition hover:bg-slate-50"
           >
             ← Back
           </Link>
-
-          <button
-            type="button"
-            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium shadow-[4px_4px_0_#0f172a] transition hover:bg-slate-50"
-          >
-            Finish
-          </button>
         </div>
       </section>
     </main>
