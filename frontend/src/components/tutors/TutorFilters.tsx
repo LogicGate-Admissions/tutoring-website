@@ -161,7 +161,9 @@ function FilterSection({
     (value) => !visibleOptions.includes(value)
   );
 
-  const hiddenOptions = allOptions.filter((option) => !visibleOptions.includes(option));
+  const hiddenOptions = allOptions.filter(
+    (option) => !visibleOptions.includes(option) && !selectedValues.includes(option)
+  );
 
   return (
     <div>

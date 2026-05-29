@@ -348,17 +348,17 @@ export default function TutorsPage() {
           </section>
         </div>
 
-        <div className="mt-14 flex justify-between pb-6">
+        <div className="sticky bottom-4 z-30 mt-14 flex justify-between pb-4">
           <Link
             href="/preferences"
-            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium transition hover:bg-slate-50"
+            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium shadow-[4px_4px_0_#0f172a] transition hover:bg-slate-50"
           >
             ← Back
           </Link>
 
           <button
             type="button"
-            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium transition hover:bg-slate-50"
+            className="rounded-xl border-2 border-slate-950 bg-white px-8 py-3 text-xl font-medium shadow-[4px_4px_0_#0f172a] transition hover:bg-slate-50"
           >
             Finish
           </button>
