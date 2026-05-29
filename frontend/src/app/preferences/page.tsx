@@ -13,6 +13,8 @@ function toggleValue(values: string[], value: string) {
     : [...values, value];
 }
 
+//
+
 export default function PreferencesOnboardingPage() {
   const [selectedLearningStyles, setSelectedLearningStyles] = useState<string[]>([]);
 
