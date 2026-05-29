@@ -146,23 +146,21 @@ export default function TutorsPage() {
             <p className="mt-4 max-w-4xl text-base font-medium text-slate-600">
               Based on: {basedOnSummary}
             </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/tutor-dashboard"
-              className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200"
-            >
-              Tutor View
-            </Link>
 
             <Link
               href="/preferences"
-              className="rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-50"
+              className="mt-5 inline-flex rounded-xl border-2 border-slate-950 bg-white px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-50"
             >
               Change preferences
             </Link>
           </div>
+
+          <Link
+            href="/tutor-dashboard"
+            className="rounded-xl border-2 border-slate-950 bg-cyan-100 px-5 py-2.5 text-sm font-semibold shadow-[3px_3px_0_#0f172a] transition hover:bg-cyan-200"
+          >
+            Tutor View
+          </Link>
         </header>
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[300px_1fr]">
@@ -215,7 +213,7 @@ export default function TutorsPage() {
             )}
 
             <div
-              className={`grid gap-6 ${
+              className={`grid items-start gap-6 ${
                 selectedTutor ? 'xl:grid-cols-[1fr_390px]' : 'xl:grid-cols-1'
               }`}
             >
@@ -231,14 +229,24 @@ export default function TutorsPage() {
               </div>
 
               {selectedTutor && (
-                <aside className="sticky top-6 h-fit rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
-                  <div
-                    className={`flex h-28 w-28 items-center justify-center rounded-3xl border-2 border-slate-950 ${selectedTutor.avatarColour} text-4xl font-black shadow-[4px_4px_0_#0f172a]`}
-                  >
-                    {selectedTutor.name
-                      .split(' ')
-                      .map((part) => part[0])
-                      .join('')}
+                <aside className="sticky top-6 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-[1.75rem] border-2 border-slate-950 bg-[#f7fbff] p-6 shadow-[6px_6px_0_#0f172a]">
+                  <div className="flex items-start justify-between gap-4">
+                    <div
+                      className={`flex h-28 w-28 items-center justify-center rounded-3xl border-2 border-slate-950 ${selectedTutor.avatarColour} text-4xl font-black shadow-[4px_4px_0_#0f172a]`}
+                    >
+                      {selectedTutor.name
+                        .split(' ')
+                        .map((part) => part[0])
+                        .join('')}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTutorId(null)}
+                      className="rounded-xl border-2 border-slate-950 bg-white px-4 py-2 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"
+                    >
+                      Close profile
+                    </button>
                   </div>
 
                   <h2 className="mt-5 text-3xl font-black">{selectedTutor.name}</h2>
@@ -306,7 +314,7 @@ export default function TutorsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-3">
+                  <div className="mt-6 grid gap-3 pb-2">
                     <button
                       type="button"
                       className="w-full rounded-xl border-2 border-slate-950 bg-white px-5 py-3 text-sm font-bold shadow-[3px_3px_0_#0f172a] transition hover:bg-slate-50"

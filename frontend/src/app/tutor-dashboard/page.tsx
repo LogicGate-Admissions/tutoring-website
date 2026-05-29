@@ -70,11 +70,6 @@ export default function TutorDashboardPage() {
             <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">
               Trial session requests
             </h1>
-
-            <p className="mt-4 max-w-3xl text-base font-medium text-slate-600">
-              Accept or reject incoming student requests. Updates are saved in Firebase and
-              work on the deployed site.
-            </p>
           </div>
 
           <Link

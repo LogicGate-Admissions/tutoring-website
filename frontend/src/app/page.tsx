@@ -146,10 +146,16 @@ export default function SubjectsOnboardingPage() {
   return (
     <main className="min-h-screen bg-[#f7fbff] px-4 py-4 text-slate-950 sm:px-8 lg:px-12">
       <section className="mx-auto min-h-[calc(100vh-32px)] max-w-7xl rounded-[2rem] border-2 border-slate-950 bg-white px-5 py-6 shadow-[0_24px_80px_rgba(15,23,42,0.10)] sm:px-8 lg:px-12">
-        <header className="flex items-start justify-between gap-6">
-          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-            What do you need help with?
-          </h1>
+        <header className="flex flex-wrap items-start justify-between gap-6">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-500">
+              Student View
+            </p>
+
+            <h1 className="mt-2 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
+              What do you need help with?
+            </h1>
+          </div>
 
           <Link
             href="/tutor-dashboard"
