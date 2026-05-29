@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   allLearningStyleFilters,
   allLevelFilters,
@@ -230,6 +230,17 @@ export default function TutorFilters({
   onOnboardFilters,
 }: TutorFiltersProps) {
   const [openMore, setOpenMore] = useState<OpenMore>(null);
+  
+  const [minPriceInput, setMinPriceInput] = useState(String(minPrice));
+  const [maxPriceInput, setMaxPriceInput] = useState(String(maxPrice));
+
+  useEffect(() => {
+    setMinPriceInput(String(minPrice));
+  }, [minPrice]);
+
+  useEffect(() => {
+    setMaxPriceInput(String(maxPrice));
+  }, [maxPrice]);
 
   const visibleSubjects = ['Maths', 'Physics', 'Further Maths', 'TMUA', 'MAT'];
   const visibleLevels = ['A-level', 'GCSE', 'University admissions'];
@@ -243,12 +254,38 @@ export default function TutorFilters({
     (university) => university !== 'Any University'
   );
 
-  const handleMinPriceChange = (value: number) => {
+const commitMinPrice = (value: string) => {
+  const parsed = Number(value);
+
+  if (value.trim() === '' || Number.isNaN(parsed)) {
+    setMinPriceInput(String(minPrice));
+    return;
+  }
+
+  const nextMin = Math.min(clampPrice(parsed), maxPrice);
+  onMinPriceChange(nextMin);
+  setMinPriceInput(String(nextMin));
+};
+
+  const commitMaxPrice = (value: string) => {
+    const parsed = Number(value);
+
+    if (value.trim() === '' || Number.isNaN(parsed)) {
+      setMaxPriceInput(String(maxPrice));
+      return;
+    }
+
+    const nextMax = Math.max(clampPrice(parsed), minPrice);
+    onMaxPriceChange(nextMax);
+    setMaxPriceInput(String(nextMax));
+  };
+
+  const handleMinSliderChange = (value: number) => {
     const nextMin = Math.min(clampPrice(value), maxPrice);
     onMinPriceChange(nextMin);
   };
 
-  const handleMaxPriceChange = (value: number) => {
+  const handleMaxSliderChange = (value: number) => {
     const nextMax = Math.max(clampPrice(value), minPrice);
     onMaxPriceChange(nextMax);
   };
@@ -297,8 +334,14 @@ export default function TutorFilters({
                     type="number"
                     min={0}
                     max={100}
-                    value={minPrice}
-                    onChange={(event) => handleMinPriceChange(Number(event.target.value))}
+                    value={minPriceInput}
+                    onChange={(event) => setMinPriceInput(event.target.value)}
+                    onBlur={() => commitMinPrice(minPriceInput)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        commitMinPrice(minPriceInput);
+                      }
+                    }}
                     className="w-12 bg-transparent text-sm font-bold outline-none"
                   />
                 </div>
@@ -312,8 +355,14 @@ export default function TutorFilters({
                     type="number"
                     min={0}
                     max={100}
-                    value={maxPrice}
-                    onChange={(event) => handleMaxPriceChange(Number(event.target.value))}
+                    value={maxPriceInput}
+                    onChange={(event) => setMaxPriceInput(event.target.value)}
+                    onBlur={() => commitMaxPrice(maxPriceInput)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        commitMaxPrice(maxPriceInput);
+                      }
+                    }}
                     className="w-12 bg-transparent text-sm font-bold outline-none"
                   />
                 </div>
@@ -326,7 +375,7 @@ export default function TutorFilters({
                 min={0}
                 max={100}
                 value={minPrice}
-                onChange={(event) => handleMinPriceChange(Number(event.target.value))}
+                onChange={(event) => handleMinSliderChange(Number(event.target.value))}
                 className="w-full accent-cyan-300"
               />
 
@@ -335,7 +384,7 @@ export default function TutorFilters({
                 min={0}
                 max={100}
                 value={maxPrice}
-                onChange={(event) => handleMaxPriceChange(Number(event.target.value))}
+                onChange={(event) => handleMaxSliderChange(Number(event.target.value))}
                 className="w-full accent-cyan-300"
               />
             </div>

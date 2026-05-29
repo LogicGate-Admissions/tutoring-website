@@ -139,12 +139,19 @@ export default function TutorsPage() {
         studentName: 'Alex Student',
         subject: selectedSubjects[0] ?? tutor.subjects[0] ?? 'Any subject',
         level: selectedLevels[0] ?? tutor.levels[0] ?? 'Any level',
-        learningStyle: selectedStyles[0] ?? 'Any learning style',
+        learningStyle: selectedStyles[0] ?? tutor.learningStyles[0] ?? 'Any learning style',
         preferredTime: 'Weekday evening',
         message: 'I would like to book a trial session and see if this is a good fit.',
       });
 
-      setRequestedTutorIds((current) => [...current, tutor.id]);
+      setRequestedTutorIds((current) =>
+        current.includes(tutor.id) ? current : [...current, tutor.id]
+      );
+
+      alert(`Trial session request sent to ${tutor.name}.`);
+    } catch (error) {
+      console.error('Failed to create trial request:', error);
+      alert('Could not send the trial request. Check Firebase setup and Firestore rules.');
     } finally {
       setIsBooking(false);
     }
