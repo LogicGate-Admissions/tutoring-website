@@ -6,10 +6,9 @@ import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { SearchableMultiSelect } from '@/shared/components/SearchableMultiSelect';
 import { cn } from '@/shared/utils/cn';
-import { ROUTES } from '@/shared/constants/routes';
 import {
-  PRIMARY_SUBJECTS_BY_CATEGORY,
   QUALIFICATION_CATEGORIES,
   SUBJECT_OPTIONS_BY_CATEGORY,
 } from '@/domains/students/learning-profile/constants/learningProfileOptions';
@@ -44,7 +43,7 @@ function getSubjectsForCategory(
 /**
  * First student onboarding step.
  *
- * This step lets a student choose multiple qualifications, but keeps subjects
+ * This step lets students choose multiple qualifications, but keeps subjects
  * grouped under each qualification.
  *
  * That means GCSE Maths and A-level Maths are different selections.
@@ -60,9 +59,8 @@ export function StudentSubjectsStep() {
     QualificationCategory | ''
   >(initialProfile.subjectSelections[0]?.category ?? '');
 
-  const [subjectSearch, setSubjectSearch] = useState('');
-
   const selectedCategories = getSelectedCategories(subjectSelections);
+
   const activeSubjects = getSubjectsForCategory(
     subjectSelections,
     activeCategory
@@ -71,16 +69,10 @@ export function StudentSubjectsStep() {
   const subjectOptions = useMemo(() => {
     if (!activeCategory) return [];
 
-    const normalisedSearch = subjectSearch.trim().toLowerCase();
-
-    return SUBJECT_OPTIONS_BY_CATEGORY[activeCategory]
-      .filter((subject) => !activeSubjects.includes(subject))
-      .filter((subject) =>
-        normalisedSearch
-          ? subject.toLowerCase().includes(normalisedSearch)
-          : true
-      );
-  }, [activeCategory, activeSubjects, subjectSearch]);
+    return SUBJECT_OPTIONS_BY_CATEGORY[activeCategory].filter(
+      (subject) => !activeSubjects.includes(subject)
+    );
+  }, [activeCategory, activeSubjects]);
 
   const hasSelectedAnything = subjectSelections.length > 0;
 
@@ -95,7 +87,6 @@ export function StudentSubjectsStep() {
      */
     if (alreadySelected) {
       setActiveCategory(category);
-      setSubjectSearch('');
       return;
     }
 
@@ -108,7 +99,6 @@ export function StudentSubjectsStep() {
     ]);
 
     setActiveCategory(category);
-    setSubjectSearch('');
   }
 
   function removeCategory(category: QualificationCategory) {
@@ -123,13 +113,6 @@ export function StudentSubjectsStep() {
 
       return nextSelections;
     });
-  }
-
-  function addSubjectFromDropdown(subject: string) {
-    if (!subject || !activeCategory) return;
-
-    toggleSubject(subject);
-    setSubjectSearch('');
   }
 
   function toggleSubject(subject: string) {
@@ -156,7 +139,6 @@ export function StudentSubjectsStep() {
   function clearSelection() {
     setSubjectSelections([]);
     setActiveCategory('');
-    setSubjectSearch('');
   }
 
   function saveDraftProfile() {
@@ -207,7 +189,12 @@ export function StudentSubjectsStep() {
                 {subjectSelections.map((selection) => (
                   <div
                     key={selection.category}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                    className={cn(
+                      'rounded-2xl border p-4',
+                      activeCategory === selection.category
+                        ? 'border-slate-950 bg-white'
+                        : 'border-slate-200 bg-slate-50'
+                    )}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <button
@@ -300,15 +287,13 @@ export function StudentSubjectsStep() {
           </aside>
 
           <Card>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">Subjects</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  {activeCategory
-                    ? `Choose subjects for ${activeCategory}.`
-                    : 'Choose a qualification first.'}
-                </p>
-              </div>
+            <div>
+              <h2 className="text-xl font-semibold">Subjects</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {activeCategory
+                  ? `Choose subjects for ${activeCategory}.`
+                  : 'Choose a qualification first.'}
+              </p>
             </div>
 
             {!activeCategory && (
@@ -319,35 +304,21 @@ export function StudentSubjectsStep() {
 
             {activeCategory && (
               <div className="mt-5">
-                <label className="block text-sm font-medium text-slate-700">
-                  Search subjects
-                  <input
-                    value={subjectSearch}
-                    onChange={(event) => setSubjectSearch(event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-slate-500"
-                  />
-                </label>
-
-                <select
-                  value=""
-                  disabled={subjectOptions.length === 0}
-                  onChange={(event) => addSubjectFromDropdown(event.target.value)}
-                  className="mt-3 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                >
-                  <option value="">
-                    {subjectOptions.length === 0 ? 'No subjects available' : 'Add a subject'}
-                  </option>
-
-                  {subjectOptions.map((subject) => (
-                    <option key={`${activeCategory}-${subject}`} value={subject}>
-                      {subject}
-                    </option>
-                  ))}
-                </select>
+                <SearchableMultiSelect
+                  label="Search subjects"
+                  options={subjectOptions}
+                  selectedOptions={activeSubjects}
+                  getOptionKey={(subject) => subject}
+                  getOptionLabel={(subject) => subject}
+                  onSelect={toggleSubject}
+                  onRemove={toggleSubject}
+                  emptyMessage="No subjects found."
+                />
 
                 {activeSubjects.length > 0 && (
                   <p className="mt-4 text-sm text-slate-600">
-                    Selected subjects are shown in the summary on the left.
+                    Selected subjects are shown here and in the summary on the
+                    left.
                   </p>
                 )}
               </div>

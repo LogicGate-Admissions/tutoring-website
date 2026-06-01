@@ -1,8 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
+import { SearchableMultiSelect } from '@/shared/components/SearchableMultiSelect';
 import {
   LEARNING_STYLE_OPTIONS,
   QUALIFICATION_CATEGORIES,
@@ -28,129 +27,22 @@ type TutorFiltersPanelProps = {
   onSaveToOnboarding: () => void;
 };
 
-type DropdownMultiSelectProps = {
-  label: string;
-  emptyLabel: string;
-  options: string[];
-  selectedValues: string[];
-  onAdd: (value: string) => void;
-  onRemove: (value: string) => void;
-};
-
-type SubjectOption = {
-  level: QualificationCategory;
-  subject: string;
-};
-
-type SubjectDropdownProps = {
-  selectedLevels: QualificationCategory[];
-  selectedSubjects: TutorSubjectFilter[];
-  onAdd: (subject: TutorSubjectFilter) => void;
-  onRemove: (subject: TutorSubjectFilter) => void;
-};
-
-function subjectOptionId(option: SubjectOption) {
-  return `${option.level}|||${option.subject}`;
-}
-
 function subjectFilterId(subjectFilter: TutorSubjectFilter) {
   return `${subjectFilter.level}|||${subjectFilter.subject}`;
 }
 
-function subjectOptionLabel(option: SubjectOption) {
-  return `${option.level} · ${option.subject}`;
+function subjectFilterLabel(subjectFilter: TutorSubjectFilter) {
+  return `${subjectFilter.level} · ${subjectFilter.subject}`;
 }
 
 /**
- * Dropdown-based multi-select for normal string filters.
+ * Creates level-specific subject options.
  *
  * Example:
- * - levels
- * - learning styles
- * - universities
- */
-function SearchableDropdownMultiSelect({
-  label,
-  emptyLabel,
-  options,
-  selectedValues,
-  onAdd,
-  onRemove,
-}: DropdownMultiSelectProps) {
-  const [search, setSearch] = useState('');
-
-  const availableOptions = useMemo(() => {
-    const normalisedSearch = search.trim().toLowerCase();
-
-    return options
-      .filter((option) => !selectedValues.includes(option))
-      .filter((option) =>
-        normalisedSearch
-          ? option.toLowerCase().includes(normalisedSearch)
-          : true
-      );
-  }, [options, search, selectedValues]);
-
-  function addSelectedValue(value: string) {
-    if (!value) return;
-
-    onAdd(value);
-    setSearch('');
-  }
-
-  return (
-    <div>
-      <p className="text-sm font-medium text-slate-700">{label}</p>
-
-      {selectedValues.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {selectedValues.map((value) => (
-            <button key={value} type="button" onClick={() => onRemove(value)}>
-              <Badge className="border-slate-950 bg-slate-950 text-white">
-                {value} ×
-              </Badge>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <input
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-      />
-
-      <select
-        value=""
-        disabled={availableOptions.length === 0}
-        onChange={(event) => addSelectedValue(event.target.value)}
-        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-      >
-        <option value="">
-          {availableOptions.length === 0 ? 'No options available' : emptyLabel}
-        </option>
-
-        {availableOptions.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-/**
- * Creates subject options from the selected levels.
- *
- * Example:
- * selected levels: GCSE, A-level
- *
- * dropdown options:
  * GCSE · Maths
- * GCSE · Physics
  * A-level · Maths
- * A-level · Physics
+ *
+ * This avoids the confusing duplicate "Maths" issue.
  */
 function getSubjectOptionsForLevels(levels: QualificationCategory[]) {
   return levels.flatMap((level) =>
@@ -162,106 +54,11 @@ function getSubjectOptionsForLevels(levels: QualificationCategory[]) {
 }
 
 /**
- * Level-specific subject dropdown.
- *
- * This prevents duplicate-looking options such as two separate "Maths" items.
- * Instead, the user sees "GCSE · Maths" and "A-level · Maths".
- */
-function SubjectDropdown({
-  selectedLevels,
-  selectedSubjects,
-  onAdd,
-  onRemove,
-}: SubjectDropdownProps) {
-  const [search, setSearch] = useState('');
-
-  const subjectOptions = getSubjectOptionsForLevels(selectedLevels);
-  const selectedSubjectIds = selectedSubjects.map(subjectFilterId);
-
-  const availableSubjectOptions = useMemo(() => {
-    const normalisedSearch = search.trim().toLowerCase();
-
-    return subjectOptions
-      .filter((option) => !selectedSubjectIds.includes(subjectOptionId(option)))
-      .filter((option) =>
-        normalisedSearch
-          ? subjectOptionLabel(option).toLowerCase().includes(normalisedSearch)
-          : true
-      );
-  }, [search, selectedSubjectIds, subjectOptions]);
-
-  function addSelectedSubject(selectedId: string) {
-    if (!selectedId) return;
-
-    const selectedOption = availableSubjectOptions.find(
-      (option) => subjectOptionId(option) === selectedId
-    );
-
-    if (!selectedOption) return;
-
-    onAdd(selectedOption);
-    setSearch('');
-  }
-
-  return (
-    <div>
-      <p className="text-sm font-medium text-slate-700">Subjects</p>
-
-      {selectedSubjects.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {selectedSubjects.map((selectedSubject) => (
-            <button
-              key={subjectFilterId(selectedSubject)}
-              type="button"
-              onClick={() => onRemove(selectedSubject)}
-            >
-              <Badge className="border-slate-950 bg-slate-950 text-white">
-                {selectedSubject.level} · {selectedSubject.subject} ×
-              </Badge>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <input
-        value={search}
-        disabled={selectedLevels.length === 0}
-        onChange={(event) => setSearch(event.target.value)}
-        className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-      />
-
-      <select
-        value=""
-        disabled={
-          selectedLevels.length === 0 || availableSubjectOptions.length === 0
-        }
-        onChange={(event) => addSelectedSubject(event.target.value)}
-        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-      >
-        <option value="">
-          {selectedLevels.length === 0
-            ? 'Select level(s) first'
-            : availableSubjectOptions.length === 0
-              ? 'No subjects available'
-              : 'Add a subject'}
-        </option>
-
-        {availableSubjectOptions.map((option) => (
-          <option key={subjectOptionId(option)} value={subjectOptionId(option)}>
-            {subjectOptionLabel(option)}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-/**
  * Left-side filter panel for student tutor discovery.
  *
  * These filters start from onboarding values, but editing them here does not
- * change the student's saved onboarding profile unless the user explicitly
- * presses "Save to profile".
+ * change the saved onboarding profile unless the user presses
+ * "Save filters to profile".
  */
 export function TutorFiltersPanel({
   filters,
@@ -279,24 +76,6 @@ export function TutorFiltersPanel({
     });
   }
 
-  function addLearningStyle(learningStyle: string) {
-    if (filters.learningStyles.includes(learningStyle)) return;
-
-    onChange({
-      ...filters,
-      learningStyles: [...filters.learningStyles, learningStyle],
-    });
-  }
-
-  function addUniversity(university: string) {
-    if (filters.universities.includes(university)) return;
-
-    onChange({
-      ...filters,
-      universities: [...filters.universities, university],
-    });
-  }
-
   function removeLevel(level: QualificationCategory) {
     const nextLevels = filters.levels.filter((item) => item !== level);
 
@@ -305,24 +84,6 @@ export function TutorFiltersPanel({
       levels: nextLevels,
       subjects: filters.subjects.filter(
         (subject) => subject.level !== level
-      ),
-    });
-  }
-
-  function removeLearningStyle(learningStyle: string) {
-    onChange({
-      ...filters,
-      learningStyles: filters.learningStyles.filter(
-        (item) => item !== learningStyle
-      ),
-    });
-  }
-
-  function removeUniversity(university: string) {
-    onChange({
-      ...filters,
-      universities: filters.universities.filter(
-        (item) => item !== university
       ),
     });
   }
@@ -349,6 +110,42 @@ export function TutorFiltersPanel({
         (selectedSubject) =>
           selectedSubject.level !== subject.level ||
           selectedSubject.subject !== subject.subject
+      ),
+    });
+  }
+
+  function addLearningStyle(learningStyle: string) {
+    if (filters.learningStyles.includes(learningStyle)) return;
+
+    onChange({
+      ...filters,
+      learningStyles: [...filters.learningStyles, learningStyle],
+    });
+  }
+
+  function removeLearningStyle(learningStyle: string) {
+    onChange({
+      ...filters,
+      learningStyles: filters.learningStyles.filter(
+        (item) => item !== learningStyle
+      ),
+    });
+  }
+
+  function addUniversity(university: string) {
+    if (filters.universities.includes(university)) return;
+
+    onChange({
+      ...filters,
+      universities: [...filters.universities, university],
+    });
+  }
+
+  function removeUniversity(university: string) {
+    onChange({
+      ...filters,
+      universities: filters.universities.filter(
+        (item) => item !== university
       ),
     });
   }
@@ -389,38 +186,50 @@ export function TutorFiltersPanel({
       </div>
 
       <div className="mt-6 grid gap-6">
-        <SearchableDropdownMultiSelect
+        <SearchableMultiSelect
           label="Levels"
-          emptyLabel="Add a level"
           options={[...QUALIFICATION_CATEGORIES]}
-          selectedValues={filters.levels}
-          onAdd={(value) => addLevel(value as QualificationCategory)}
-          onRemove={(value) => removeLevel(value as QualificationCategory)}
+          selectedOptions={filters.levels}
+          getOptionKey={(level) => level}
+          getOptionLabel={(level) => level}
+          onSelect={addLevel}
+          onRemove={removeLevel}
+          emptyMessage="No levels found."
         />
 
-        <SubjectDropdown
-          selectedLevels={filters.levels}
-          selectedSubjects={filters.subjects}
-          onAdd={addSubject}
+        <SearchableMultiSelect
+          label="Subjects"
+          options={getSubjectOptionsForLevels(filters.levels)}
+          selectedOptions={filters.subjects}
+          getOptionKey={subjectFilterId}
+          getOptionLabel={subjectFilterLabel}
+          onSelect={addSubject}
           onRemove={removeSubject}
+          disabled={filters.levels.length === 0}
+          disabledMessage="Select level(s) first."
+          emptyMessage="No subjects found."
         />
 
-        <SearchableDropdownMultiSelect
+        <SearchableMultiSelect
           label="Learning styles"
-          emptyLabel="Add a learning style"
           options={LEARNING_STYLE_OPTIONS.map((style) => style.label)}
-          selectedValues={filters.learningStyles}
-          onAdd={addLearningStyle}
+          selectedOptions={filters.learningStyles}
+          getOptionKey={(style) => style}
+          getOptionLabel={(style) => style}
+          onSelect={addLearningStyle}
           onRemove={removeLearningStyle}
+          emptyMessage="No learning styles found."
         />
 
-        <SearchableDropdownMultiSelect
+        <SearchableMultiSelect
           label="Universities"
-          emptyLabel="Add a university"
           options={UNIVERSITY_FILTER_OPTIONS}
-          selectedValues={filters.universities}
-          onAdd={addUniversity}
+          selectedOptions={filters.universities}
+          getOptionKey={(university) => university}
+          getOptionLabel={(university) => university}
+          onSelect={addUniversity}
           onRemove={removeUniversity}
+          emptyMessage="No universities found."
         />
 
         <label className="grid gap-2 text-sm font-medium text-slate-700">

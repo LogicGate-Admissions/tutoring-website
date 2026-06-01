@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Badge } from '@/shared/components/Badge';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { SearchableMultiSelect } from '@/shared/components/SearchableMultiSelect';
 import {
   LEARNING_STYLE_OPTIONS,
   UNIVERSITY_OPTIONS,
@@ -15,10 +15,6 @@ import {
   getStoredLearningProfile,
   updateStoredLearningProfile,
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
-
-function removeSelectedValues(options: readonly string[], selectedValues: string[]) {
-  return options.filter((option) => !selectedValues.includes(option));
-}
 
 /**
  * Second student onboarding step.
@@ -36,11 +32,6 @@ export function StudentPreferencesStep() {
 
   const [preferredUniversities, setPreferredUniversities] = useState<string[]>(
     storedProfile.preferredUniversities
-  );
-
-  const availableUniversities = removeSelectedValues(
-    UNIVERSITY_OPTIONS,
-    preferredUniversities
   );
 
   function toggleStyle(style: string) {
@@ -108,40 +99,18 @@ export function StudentPreferencesStep() {
             leave this blank if you do not mind.
           </p>
 
-          {preferredUniversities.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {preferredUniversities.map((university) => (
-                <button
-                  key={university}
-                  type="button"
-                  onClick={() => removeUniversity(university)}
-                >
-                  <Badge className="border-slate-950 bg-slate-950 text-white">
-                    {university} ×
-                  </Badge>
-                </button>
-              ))}
-            </div>
-          )}
-
-          <select
-            value=""
-            disabled={availableUniversities.length === 0}
-            onChange={(event) => addUniversity(event.target.value)}
-            className="mt-4 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-          >
-            <option value="">
-              {availableUniversities.length === 0
-                ? 'All universities selected'
-                : 'Add a university'}
-            </option>
-
-            {availableUniversities.map((university) => (
-              <option key={university} value={university}>
-                {university}
-              </option>
-            ))}
-          </select>
+          <div className="mt-5">
+            <SearchableMultiSelect
+              label="Search universities"
+              options={[...UNIVERSITY_OPTIONS]}
+              selectedOptions={preferredUniversities}
+              getOptionKey={(university) => university}
+              getOptionLabel={(university) => university}
+              onSelect={addUniversity}
+              onRemove={removeUniversity}
+              emptyMessage="No universities found."
+            />
+          </div>
         </Card>
       </Container>
 
