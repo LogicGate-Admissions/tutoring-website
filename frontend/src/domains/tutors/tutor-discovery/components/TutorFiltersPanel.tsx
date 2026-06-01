@@ -13,13 +13,18 @@ import {
   TUTOR_SORT_OPTIONS,
   UNIVERSITY_FILTER_OPTIONS,
 } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
-import type { TutorFilters } from '@/domains/tutors/tutor-discovery/types/tutor';
+import type { QualificationCategory } from '@/domains/students/learning-profile/types/learningProfile';
+import type {
+  TutorFilters,
+  TutorSubjectFilter,
+} from '@/domains/tutors/tutor-discovery/types/tutor';
 
 type TutorFiltersPanelProps = {
   filters: TutorFilters;
   onChange: (filters: TutorFilters) => void;
   onClear: () => void;
   onResetToOnboarding: () => void;
+  onSaveToOnboarding: () => void;
 };
 
 type DropdownMultiSelectProps = {
@@ -27,26 +32,47 @@ type DropdownMultiSelectProps = {
   emptyLabel: string;
   options: string[];
   selectedValues: string[];
-  disabled?: boolean;
-  disabledMessage?: string;
   onAdd: (value: string) => void;
   onRemove: (value: string) => void;
 };
 
+type SubjectOption = {
+  level: QualificationCategory;
+  subject: string;
+};
+
+type SubjectDropdownProps = {
+  selectedLevels: QualificationCategory[];
+  selectedSubjects: TutorSubjectFilter[];
+  onAdd: (subject: TutorSubjectFilter) => void;
+  onRemove: (subject: TutorSubjectFilter) => void;
+};
+
+function subjectOptionId(option: SubjectOption) {
+  return `${option.level}|||${option.subject}`;
+}
+
+function subjectFilterId(subjectFilter: TutorSubjectFilter) {
+  return `${subjectFilter.level}|||${subjectFilter.subject}`;
+}
+
+function subjectOptionLabel(option: SubjectOption) {
+  return `${option.level} · ${option.subject}`;
+}
+
 /**
- * Dropdown-based multi-select.
+ * Dropdown-based multi-select for normal string filters.
  *
- * It behaves like a normal dropdown, but every selected option becomes
- * a removable pill. Selected options are removed from the dropdown so
- * the user cannot add the same filter twice.
+ * Example:
+ * - levels
+ * - learning styles
+ * - universities
  */
 function DropdownMultiSelect({
   label,
   emptyLabel,
   options,
   selectedValues,
-  disabled = false,
-  disabledMessage,
   onAdd,
   onRemove,
 }: DropdownMultiSelectProps) {
@@ -72,7 +98,7 @@ function DropdownMultiSelect({
 
       <select
         value=""
-        disabled={disabled || availableOptions.length === 0}
+        disabled={availableOptions.length === 0}
         onChange={(event) => {
           const selectedValue = event.target.value;
           if (!selectedValue) return;
@@ -81,11 +107,7 @@ function DropdownMultiSelect({
         className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
       >
         <option value="">
-          {disabled
-            ? disabledMessage ?? emptyLabel
-            : availableOptions.length === 0
-              ? 'All options selected'
-              : emptyLabel}
+          {availableOptions.length === 0 ? 'All options selected' : emptyLabel}
         </option>
 
         {availableOptions.map((option) => (
@@ -98,83 +120,196 @@ function DropdownMultiSelect({
   );
 }
 
-function uniqueStrings(values: string[]) {
-  return values.filter((value, index) => values.indexOf(value) === index);
-}
-
 /**
- * Subjects depend on the levels the student has selected.
+ * Creates subject options from the selected levels.
  *
  * Example:
  * selected levels: GCSE, A-level
- * available subjects: GCSE subjects + A-level subjects
+ *
+ * dropdown options:
+ * GCSE · Maths
+ * GCSE · Physics
+ * A-level · Maths
+ * A-level · Physics
  */
-function getSubjectOptionsForLevels(levels: string[]) {
-  return uniqueStrings(
-    levels.flatMap((level) => {
-      const typedLevel = level as keyof typeof SUBJECT_OPTIONS_BY_CATEGORY;
-      return SUBJECT_OPTIONS_BY_CATEGORY[typedLevel] ?? [];
-    })
-  ).sort();
+function getSubjectOptionsForLevels(levels: QualificationCategory[]) {
+  return levels.flatMap((level) =>
+    SUBJECT_OPTIONS_BY_CATEGORY[level].map((subject) => ({
+      level,
+      subject,
+    }))
+  );
+}
+
+/**
+ * Level-specific subject dropdown.
+ *
+ * This prevents duplicate-looking options such as two separate "Maths" items.
+ * Instead, the user sees "GCSE · Maths" and "A-level · Maths".
+ */
+function SubjectDropdown({
+  selectedLevels,
+  selectedSubjects,
+  onAdd,
+  onRemove,
+}: SubjectDropdownProps) {
+  const subjectOptions = getSubjectOptionsForLevels(selectedLevels);
+
+  const selectedSubjectIds = selectedSubjects.map(subjectFilterId);
+
+  const availableSubjectOptions = subjectOptions.filter(
+    (option) => !selectedSubjectIds.includes(subjectOptionId(option))
+  );
+
+  return (
+    <div>
+      <p className="text-sm font-medium text-slate-700">Subjects</p>
+
+      {selectedSubjects.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {selectedSubjects.map((selectedSubject) => (
+            <button
+              key={subjectFilterId(selectedSubject)}
+              type="button"
+              onClick={() => onRemove(selectedSubject)}
+            >
+              <Badge className="border-slate-950 bg-slate-950 text-white">
+                {selectedSubject.level} · {selectedSubject.subject} ×
+              </Badge>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <select
+        value=""
+        disabled={selectedLevels.length === 0 || availableSubjectOptions.length === 0}
+        onChange={(event) => {
+          const selectedId = event.target.value;
+          if (!selectedId) return;
+
+          const selectedOption = availableSubjectOptions.find(
+            (option) => subjectOptionId(option) === selectedId
+          );
+
+          if (!selectedOption) return;
+
+          onAdd(selectedOption);
+        }}
+        className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+      >
+        <option value="">
+          {selectedLevels.length === 0
+            ? 'Select level(s) first'
+            : availableSubjectOptions.length === 0
+              ? 'All subjects selected'
+              : 'Add a subject'}
+        </option>
+
+        {availableSubjectOptions.map((option) => (
+          <option key={subjectOptionId(option)} value={subjectOptionId(option)}>
+            {subjectOptionLabel(option)}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 /**
  * Left-side filter panel for student tutor discovery.
  *
  * These filters start from onboarding values, but editing them here does not
- * change the student's saved onboarding profile.
+ * change the student's saved onboarding profile unless the user explicitly
+ * presses "Save to profile".
  */
 export function TutorFiltersPanel({
   filters,
   onChange,
   onClear,
   onResetToOnboarding,
+  onSaveToOnboarding,
 }: TutorFiltersPanelProps) {
-  const subjectOptions = getSubjectOptionsForLevels(filters.levels);
+  function addLevel(level: QualificationCategory) {
+    if (filters.levels.includes(level)) return;
 
-  function addArrayValue(
-    key: 'subjects' | 'levels' | 'learningStyles' | 'universities',
-    value: string
-  ) {
-    if (filters[key].includes(value)) return;
-
-    /**
-     * If a level is added, subjects stay as they are.
-     * New subjects simply become available in the subject dropdown.
-     */
     onChange({
       ...filters,
-      [key]: [...filters[key], value],
+      levels: [...filters.levels, level],
     });
   }
 
-  function removeArrayValue(
-    key: 'subjects' | 'levels' | 'learningStyles' | 'universities',
-    value: string
-  ) {
-    const nextValues = filters[key].filter((item) => item !== value);
-
-    /**
-     * If a level is removed, remove any selected subjects that no longer
-     * belong to the remaining selected levels.
-     */
-    if (key === 'levels') {
-      const remainingSubjectOptions = getSubjectOptionsForLevels(nextValues);
-
-      onChange({
-        ...filters,
-        levels: nextValues,
-        subjects: filters.subjects.filter((subject) =>
-          remainingSubjectOptions.includes(subject)
-        ),
-      });
-
-      return;
-    }
+  function addLearningStyle(learningStyle: string) {
+    if (filters.learningStyles.includes(learningStyle)) return;
 
     onChange({
       ...filters,
-      [key]: nextValues,
+      learningStyles: [...filters.learningStyles, learningStyle],
+    });
+  }
+
+  function addUniversity(university: string) {
+    if (filters.universities.includes(university)) return;
+
+    onChange({
+      ...filters,
+      universities: [...filters.universities, university],
+    });
+  }
+
+  function removeLevel(level: QualificationCategory) {
+    const nextLevels = filters.levels.filter((item) => item !== level);
+
+    onChange({
+      ...filters,
+      levels: nextLevels,
+      subjects: filters.subjects.filter(
+        (subject) => subject.level !== level
+      ),
+    });
+  }
+
+  function removeLearningStyle(learningStyle: string) {
+    onChange({
+      ...filters,
+      learningStyles: filters.learningStyles.filter(
+        (item) => item !== learningStyle
+      ),
+    });
+  }
+
+  function removeUniversity(university: string) {
+    onChange({
+      ...filters,
+      universities: filters.universities.filter(
+        (item) => item !== university
+      ),
+    });
+  }
+
+  function addSubject(subject: TutorSubjectFilter) {
+    const alreadySelected = filters.subjects.some(
+      (selectedSubject) =>
+        selectedSubject.level === subject.level &&
+        selectedSubject.subject === subject.subject
+    );
+
+    if (alreadySelected) return;
+
+    onChange({
+      ...filters,
+      subjects: [...filters.subjects, subject],
+    });
+  }
+
+  function removeSubject(subject: TutorSubjectFilter) {
+    onChange({
+      ...filters,
+      subjects: filters.subjects.filter(
+        (selectedSubject) =>
+          selectedSubject.level !== subject.level ||
+          selectedSubject.subject !== subject.subject
+      ),
     });
   }
 
@@ -195,13 +330,21 @@ export function TutorFiltersPanel({
         </Button>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 grid gap-3">
         <Button
           variant="secondary"
           onClick={onResetToOnboarding}
           className="w-full px-4 py-2"
         >
-          Reset to onboarding
+          Reset to profile
+        </Button>
+
+        <Button
+          variant="secondary"
+          onClick={onSaveToOnboarding}
+          className="w-full px-4 py-2"
+        >
+          Save filters to profile
         </Button>
       </div>
 
@@ -211,19 +354,15 @@ export function TutorFiltersPanel({
           emptyLabel="Add a level"
           options={[...QUALIFICATION_CATEGORIES]}
           selectedValues={filters.levels}
-          onAdd={(value) => addArrayValue('levels', value)}
-          onRemove={(value) => removeArrayValue('levels', value)}
+          onAdd={(value) => addLevel(value as QualificationCategory)}
+          onRemove={(value) => removeLevel(value as QualificationCategory)}
         />
 
-        <DropdownMultiSelect
-          label="Subjects"
-          emptyLabel="Add a subject"
-          options={subjectOptions}
-          selectedValues={filters.subjects}
-          disabled={filters.levels.length === 0}
-          disabledMessage="Select level(s) first"
-          onAdd={(value) => addArrayValue('subjects', value)}
-          onRemove={(value) => removeArrayValue('subjects', value)}
+        <SubjectDropdown
+          selectedLevels={filters.levels}
+          selectedSubjects={filters.subjects}
+          onAdd={addSubject}
+          onRemove={removeSubject}
         />
 
         <DropdownMultiSelect
@@ -231,8 +370,8 @@ export function TutorFiltersPanel({
           emptyLabel="Add a learning style"
           options={LEARNING_STYLE_OPTIONS.map((style) => style.label)}
           selectedValues={filters.learningStyles}
-          onAdd={(value) => addArrayValue('learningStyles', value)}
-          onRemove={(value) => removeArrayValue('learningStyles', value)}
+          onAdd={addLearningStyle}
+          onRemove={removeLearningStyle}
         />
 
         <DropdownMultiSelect
@@ -240,8 +379,8 @@ export function TutorFiltersPanel({
           emptyLabel="Add a university"
           options={UNIVERSITY_FILTER_OPTIONS}
           selectedValues={filters.universities}
-          onAdd={(value) => addArrayValue('universities', value)}
-          onRemove={(value) => removeArrayValue('universities', value)}
+          onAdd={addUniversity}
+          onRemove={removeUniversity}
         />
 
         <label className="grid gap-2 text-sm font-medium text-slate-700">

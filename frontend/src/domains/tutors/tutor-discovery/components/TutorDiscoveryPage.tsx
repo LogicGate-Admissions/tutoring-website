@@ -8,7 +8,10 @@ import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { ROUTES } from '@/shared/constants/routes';
 import { MOCK_STUDENT } from '@/domains/accounts/mockUsers';
-import { getStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
+import {
+  getStoredLearningProfile,
+  updateStoredLearningProfile,
+} from '@/domains/students/learning-profile/services/learningProfileStorage';
 import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';
 import {
   createTrialSessionRequest,
@@ -35,7 +38,7 @@ export const DEFAULT_FILTERS: TutorFilters = {
   sortBy: 'Best match',
 };
 
-function uniqueStrings(values: string[]) {
+function uniqueStrings<T>(values: T[]) {
   return values.filter((value, index) => values.indexOf(value) === index);
 }
 
@@ -44,8 +47,11 @@ function getOnboardingTutorFilters(): TutorFilters {
 
   return {
     ...DEFAULT_FILTERS,
-    subjects: uniqueStrings(
-      profile.subjectSelections.flatMap((selection) => selection.subjects)
+    subjects: profile.subjectSelections.flatMap((selection) =>
+      selection.subjects.map((subject) => ({
+        level: selection.category,
+        subject,
+      }))
     ),
     levels: uniqueStrings(
       profile.subjectSelections.map((selection) => selection.category)
@@ -86,8 +92,29 @@ export function TutorDiscoveryPage() {
     filteredTutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
   const selectedTutorSubjectMatches =
     selectedTutor?.subjects.filter((subject) =>
-      filters.subjects.includes(subject)
+      filters.subjects.some(
+        (subjectFilter) => subjectFilter.subject === subject
+      )
     ) ?? [];
+
+  function saveFiltersToOnboardingProfile() {
+    const profile = getStoredLearningProfile();
+
+    const subjectSelections = filters.levels.map((level) => ({
+      category: level,
+      subjects: filters.subjects
+        .filter((subjectFilter) => subjectFilter.level === level)
+        .map((subjectFilter) => subjectFilter.subject),
+    }));
+
+    updateStoredLearningProfile({
+      ...profile,
+      subjectSelections,
+      learningStyles: filters.learningStyles,
+    });
+
+    setNotice('Your learning profile has been updated from these filters.');
+  }
 
   function clearFilters() {
     setFilters(DEFAULT_FILTERS);
@@ -136,10 +163,11 @@ export function TutorDiscoveryPage() {
       studentId: MOCK_STUDENT.id,
       studentName: MOCK_STUDENT.name,
       subject:
-        filters.subjects[0] ||
-        profile.subjectSelections.flatMap((selection) => selection.subjects)[0] ||
+        filters.subjects[0]?.subject ||
+        profile.subjectSelections[0]?.subjects[0] ||
         tutor.subjects[0],
       level:
+        filters.subjects[0]?.level ||
         filters.levels[0] ||
         profile.subjectSelections[0]?.category ||
         tutor.levels[0],
@@ -178,6 +206,7 @@ export function TutorDiscoveryPage() {
             onChange={setFilters}
             onClear={clearFilters}
             onResetToOnboarding={resetToOnboardingFilters}
+            onSaveToOnboarding={saveFiltersToOnboardingProfile}
           />
         </div>
 

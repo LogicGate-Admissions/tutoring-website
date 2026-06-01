@@ -1,3 +1,5 @@
+import type { QualificationCategory } from '@/domains/students/learning-profile/types/learningProfile';
+
 /**
  * Tutor profile shown to students while browsing.
  */
@@ -28,15 +30,26 @@ export type TutorSortOption =
   | 'Highest price';
 
 /**
+ * A subject filter is qualification-specific.
+ *
+ * This means GCSE Maths and A-level Maths are no longer treated as the same
+ * selected filter, even though they share the same subject name.
+ */
+export type TutorSubjectFilter = {
+  level: QualificationCategory;
+  subject: string;
+};
+
+/**
  * Filters students can apply while browsing tutors.
  *
  * These are separate from onboarding.
  * Tutor filters can be edited freely without changing the student's saved
- * onboarding learning profile.
+ * onboarding profile unless the user explicitly presses "Save to profile".
  */
 export type TutorFilters = {
-  subjects: string[];
-  levels: string[];
+  subjects: TutorSubjectFilter[];
+  levels: QualificationCategory[];
   learningStyles: string[];
   universities: string[];
   minPricePerHour: number;
