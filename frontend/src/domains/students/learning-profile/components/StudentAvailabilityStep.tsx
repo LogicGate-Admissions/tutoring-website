@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
@@ -196,6 +197,10 @@ export function StudentAvailabilityStep() {
         title="When are you usually available?"
         description="Choose common times or add your own."
       />
+
+      <Container className="pt-4">
+        <HomeLinkButton />
+      </Container>
 
       <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
@@ -214,9 +215,11 @@ export function TutorDiscoveryPage() {
         description="Use your learning profile to narrow tutors by subject, level, style, university, rating, and price."
       />
 
-      <Container className="py-4">
+      <Container className="flex items-center gap-3 py-4">
+        <HomeLinkButton />
+
         <Link href={ROUTES.studentOnboardingSubjects}>
-          <Button variant="secondary">← Back to onboarding</Button>
+          <Button variant="secondary">← Edit profile</Button>
         </Link>
       </Container>
 
@@ -304,13 +307,17 @@ export function TutorDiscoveryPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setSelectedTutorId(null)}
-                className="rounded-full border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-              >
-                Close
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <HomeLinkButton label="Home" />
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedTutorId(null)}
+                  className="rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
             <div className="mt-6 grid gap-3 sm:grid-cols-3">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
@@ -154,6 +155,10 @@ export function StudentSubjectsStep() {
         title="What are you studying?"
         description="Choose your qualifications, then pick the subjects under each one."
       />
+
+      <Container className="pt-4">
+        <HomeLinkButton />
+      </Container>
 
       <Container className="py-10 pb-28">
         <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">

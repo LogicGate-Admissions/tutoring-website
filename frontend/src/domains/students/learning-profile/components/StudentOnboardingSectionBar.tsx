@@ -55,15 +55,7 @@ export function StudentOnboardingSectionBar({
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 py-3 backdrop-blur">
       <Container>
-        <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 md:grid-cols-[auto_1fr_auto]">
-          <button
-            type="button"
-            onClick={() => navigateTo(ROUTES.home)}
-            className="rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
-          >
-            Landing page
-          </button>
-
+        <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 md:grid-cols-[1fr_auto]">
           <div className="grid grid-cols-3 gap-2">
             {ONBOARDING_SECTIONS.map((section) => {
               const isActive = section.id === currentStep;
