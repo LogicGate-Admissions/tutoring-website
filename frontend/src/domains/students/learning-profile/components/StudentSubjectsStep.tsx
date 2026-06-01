@@ -113,13 +113,12 @@ export function StudentSubjectsStep() {
             </div>
           )}
 
-          <div className="mt-8 flex justify-end">
-            <Button
-              disabled={!category || selectedSubjects.length === 0}
-              onClick={continueToPreferences}
-            >
-              Continue
+          <div className="mt-8 flex items-center justify-between gap-4">
+            <Button variant="secondary" href={ROUTES.home}>
+              Back
             </Button>
+
+            <Button onClick={continueToPreferences}>Continue</Button>
           </div>
         </Card>
       </Container>

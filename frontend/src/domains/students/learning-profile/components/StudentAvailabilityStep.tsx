@@ -296,9 +296,13 @@ export function StudentAvailabilityStep() {
               </p>
             </div>
 
-            <Button disabled={availability.length === 0} onClick={finishOnboarding}>
-              Find tutors
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="secondary" href={ROUTES.studentOnboardingPreferences}>
+                Back
+              </Button>
+
+              <Button onClick={finishOnboarding}>Find tutors</Button>
+            </div>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
