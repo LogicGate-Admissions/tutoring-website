@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
@@ -13,6 +14,7 @@ import {
   updateStoredLearningProfile,
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';
+import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import {
   createTrialSessionRequest,
   subscribeToStudentTrialSessions,
@@ -26,7 +28,10 @@ import {
 import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
 import { TutorFiltersPanel } from '@/domains/tutors/tutor-discovery/components/TutorFiltersPanel';
 import { filterTutors } from '@/domains/tutors/tutor-discovery/utils/filterTutors';
-import type { Tutor, TutorFilters } from '@/domains/tutors/tutor-discovery/types/tutor';
+import type {
+  Tutor,
+  TutorFilters,
+} from '@/domains/tutors/tutor-discovery/types/tutor';
 
 export const DEFAULT_FILTERS: TutorFilters = {
   subjects: [],
@@ -61,16 +66,30 @@ function getOnboardingTutorFilters(): TutorFilters {
   };
 }
 
+function tutorInitials(name: string) {
+  return name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 /**
  * Student-facing tutor discovery page.
  *
- * The page is intentionally split into a left filter panel and a right tutor
- * results area. This keeps the browsing experience close to the original
- * prototype layout while keeping the code organised by domain components.
+ * The tutor profile opens as a modal so the tutor results grid never gets
+ * squeezed into a narrower layout.
  */
 export function TutorDiscoveryPage() {
-  const [filters, setFilters] = useState<TutorFilters>(getOnboardingTutorFilters);
-  const [studentRequests, setStudentRequests] = useState<TrialSessionRequest[]>([]);
+  const [filters, setFilters] = useState<TutorFilters>(
+    getOnboardingTutorFilters
+  );
+
+  const [studentRequests, setStudentRequests] = useState<TrialSessionRequest[]>(
+    []
+  );
+
   const [notice, setNotice] = useState('');
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [shortlistedTutorIds, setShortlistedTutorIds] = useState<string[]>([]);
@@ -90,13 +109,7 @@ export function TutorDiscoveryPage() {
   );
 
   const selectedTutor =
-    filteredTutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
-  const selectedTutorSubjectMatches =
-    selectedTutor?.subjects.filter((subject) =>
-      filters.subjects.some(
-        (subjectFilter) => subjectFilter.subject === subject
-      )
-    ) ?? [];
+    TUTOR_PROFILES.find((tutor) => tutor.id === selectedTutorId) ?? null;
 
   function saveFiltersToOnboardingProfile() {
     const profile = getStoredLearningProfile();
@@ -135,7 +148,6 @@ export function TutorDiscoveryPage() {
   }
 
   function handleChat(tutor: Tutor) {
-    setSelectedTutorId(tutor.id);
     setNotice(`Chat with ${tutor.name} is coming soon.`);
   }
 
@@ -157,6 +169,13 @@ export function TutorDiscoveryPage() {
   }
 
   async function requestTrial(tutor: Tutor) {
+    const existingRequest = findExistingRequest(tutor.id);
+
+    if (existingRequest) {
+      setNotice(`You have already sent a trial request to ${tutor.name}.`);
+      return;
+    }
+
     const profile = getStoredLearningProfile();
 
     await createTrialSessionRequest({
@@ -201,7 +220,7 @@ export function TutorDiscoveryPage() {
         </Link>
       </Container>
 
-      <Container className={`grid items-start gap-8 py-10 ${selectedTutor ? 'lg:grid-cols-[320px_minmax(0,1fr)_360px]' : 'lg:grid-cols-[320px_minmax(0,1fr)]'}`}>
+      <Container className="grid items-start gap-8 py-10 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-8">
           <TutorFiltersPanel
             filters={filters}
@@ -230,7 +249,8 @@ export function TutorDiscoveryPage() {
             </div>
 
             <p className="max-w-md text-sm leading-6 text-slate-600">
-              Browse the tutors below and filter by what matters most.
+              Browse the tutors below and open a profile when you want more
+              detail.
             </p>
           </div>
 
@@ -248,120 +268,201 @@ export function TutorDiscoveryPage() {
                   key={tutor.id}
                   tutor={tutor}
                   existingRequest={findExistingRequest(tutor.id)}
-                  onRequestTrial={requestTrial}
                   onViewProfile={handleViewProfile}
                 />
               ))}
             </div>
           )}
         </section>
+      </Container>
 
-        <aside className="lg:sticky lg:top-8">
-          {selectedTutor && (
-          <Card className="h-fit">
-              <div>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                      Tutor profile
-                    </p>
-                    <h3 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-                      {selectedTutor.name}
-                    </h3>
-                    <p className="mt-1 text-sm font-medium text-slate-700">
-                      {selectedTutor.headline}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTutorId(null)}
-                    className="rounded-full border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                  >
-                    Close
-                  </button>
+      {selectedTutor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-slate-950 text-2xl font-semibold text-white">
+                  {tutorInitials(selectedTutor.name)}
                 </div>
 
-                <div className="mt-5 grid grid-cols-3 gap-3">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
-                    <p className="text-lg font-semibold text-slate-950">£{selectedTutor.pricePerHour}</p>
-                    <p className="mt-1 text-[11px] font-medium text-slate-500">per hour</p>
-                  </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                    Tutor profile
+                  </p>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
-                    <p className="text-lg font-semibold text-slate-950">★ {selectedTutor.rating}</p>
-                    <p className="mt-1 text-[11px] font-medium text-slate-500">
-                      {selectedTutor.reviews} reviews
-                    </p>
-                  </div>
+                  <h3 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
+                    {selectedTutor.name}
+                  </h3>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
-                    <p className="text-lg font-semibold text-slate-950">{selectedTutor.numberOfStudents}</p>
-                    <p className="mt-1 text-[11px] font-medium text-slate-500">
-                      students
-                    </p>
-                  </div>
-                </div>
+                  <p className="mt-2 text-sm font-medium text-slate-700">
+                    {selectedTutor.university}
+                  </p>
 
-                <div className="mt-5 grid gap-4 text-sm leading-6 text-slate-600">
-                  <p>{selectedTutor.bio}</p>
-
-                  {selectedTutorSubjectMatches.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedTutorSubjectMatches.map((subject) => (
-                        <span
-                          key={subject}
-                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700"
-                        >
-                          {subject} · {selectedTutor.rating.toFixed(1)} ★
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                      Learning styles
-                    </p>
-                    <p className="mt-2 text-slate-700">{selectedTutor.learningStyles.join(', ')}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                      Availability
-                    </p>
-                    <p className="mt-2 text-slate-700">{selectedTutor.availability}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                      Personality
-                    </p>
-                    <p className="mt-2 text-slate-700">{selectedTutor.personality.join(', ')}</p>
-                  </div>
-                </div>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  <Button variant="secondary" onClick={() => handleChat(selectedTutor)}>
-                    Chat
-                  </Button>
-
-                  <Button
-                    variant="secondary"
-                    onClick={() => toggleShortlist(selectedTutor)}
-                  >
-                    {shortlistedTutorIds.includes(selectedTutor.id)
-                      ? 'Shortlisted'
-                      : 'Shortlist'}
-                  </Button>
-
-                  <Button onClick={() => requestTrial(selectedTutor)}>Book trial</Button>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {selectedTutor.degree}
+                  </p>
                 </div>
               </div>
-          </Card>
-          )}
-        </aside>
-      </Container>
+
+              <button
+                type="button"
+                onClick={() => setSelectedTutorId(null)}
+                className="rounded-full border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <p className="text-xl font-semibold text-slate-950">
+                  £{selectedTutor.pricePerHour}
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  per hour
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <p className="text-xl font-semibold text-slate-950">
+                  ★ {selectedTutor.rating.toFixed(1)}
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  {selectedTutor.reviews} reviews
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
+                <p className="text-xl font-semibold text-slate-950">
+                  {selectedTutor.numberOfStudents}
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-500">
+                  students taught
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  About
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {selectedTutor.bio}
+                </p>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Levels taught
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedTutor.levels.map((level) => (
+                      <Badge
+                        key={level}
+                        className="border-slate-300 bg-white text-slate-800"
+                      >
+                        {level}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Subjects
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedTutor.subjects.map((subject) => (
+                      <Badge
+                        key={subject}
+                        className="border-slate-300 bg-white text-slate-800"
+                      >
+                        {subject}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Learning styles
+                  </p>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                    {selectedTutor.learningStyles.join(', ')}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Availability
+                  </p>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                    {selectedTutor.availability}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Personality
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {selectedTutor.personality.join(', ')}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 border-t border-slate-200 pt-5">
+              {findExistingRequest(selectedTutor.id) && (
+                <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-medium text-slate-700">
+                    Trial request
+                  </p>
+                  <TrialStatusBadge
+                    status={findExistingRequest(selectedTutor.id)!.status}
+                  />
+                </div>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => handleChat(selectedTutor)}
+                >
+                  Chat
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => toggleShortlist(selectedTutor)}
+                >
+                  {shortlistedTutorIds.includes(selectedTutor.id)
+                    ? 'Shortlisted'
+                    : 'Shortlist'}
+                </Button>
+
+                <Button
+                  disabled={Boolean(findExistingRequest(selectedTutor.id))}
+                  onClick={() => requestTrial(selectedTutor)}
+                >
+                  {findExistingRequest(selectedTutor.id)
+                    ? 'Request sent'
+                    : 'Book trial'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
