@@ -5,7 +5,7 @@ type StepTabsProps = {
 };
 
 const steps = [
-  { id: 'subjects', label: 'Subjects', href: '/' },
+  { id: 'subjects', label: 'Subjects', href: '/onboarding' },
   { id: 'time', label: 'Time', href: '/time' },
   { id: 'preferences', label: 'Preferences', href: '/preferences' },
 ] as const;
