@@ -1,0 +1,160 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { Card } from '@/shared/components/Card';
+import { Container } from '@/shared/components/Container';
+import { PageHeader } from '@/shared/components/PageHeader';
+import { MOCK_STUDENT } from '@/domains/accounts/mockUsers';
+import { getStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
+import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';
+import {
+  createTrialSessionRequest,
+  subscribeToStudentTrialSessions,
+} from '@/domains/sessions/trial-sessions/services/trialSessionService';
+import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import { TUTOR_PROFILES } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
+import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
+import { TutorFiltersPanel } from '@/domains/tutors/tutor-discovery/components/TutorFiltersPanel';
+import { filterTutors } from '@/domains/tutors/tutor-discovery/utils/filterTutors';
+import type { Tutor, TutorFilters } from '@/domains/tutors/tutor-discovery/types/tutor';
+
+export const DEFAULT_FILTERS: TutorFilters = {
+  subjects: [],
+  level: '',
+  learningStyle: '',
+  university: '',
+  maxPricePerHour: 80,
+  sortBy: 'Best match',
+};
+
+function getInitialTutorFilters(): TutorFilters {
+  const profile = getStoredLearningProfile();
+
+  return {
+    ...DEFAULT_FILTERS,
+    subjects: profile.subjects,
+    level: profile.category,
+    learningStyle: profile.learningStyles[0] ?? '',
+  };
+}
+
+/**
+ * Student-facing tutor discovery page.
+ *
+ * The page is intentionally split into a left filter panel and a right tutor
+ * results area. This keeps the browsing experience close to the original
+ * prototype layout while keeping the code organised by domain components.
+ */
+export function TutorDiscoveryPage() {
+  const [filters, setFilters] = useState<TutorFilters>(getInitialTutorFilters);
+  const [studentRequests, setStudentRequests] = useState<TrialSessionRequest[]>([]);
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStudentTrialSessions(
+      MOCK_STUDENT.id,
+      setStudentRequests
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const filteredTutors = useMemo(
+    () => filterTutors(TUTOR_PROFILES, filters),
+    [filters]
+  );
+
+  function clearFilters() {
+    setFilters(DEFAULT_FILTERS);
+  }
+
+  function findExistingRequest(tutorId: string) {
+    return studentRequests.find((request) => request.tutorId === tutorId);
+  }
+
+  async function requestTrial(tutor: Tutor) {
+    const profile = getStoredLearningProfile();
+
+    await createTrialSessionRequest({
+      tutorId: tutor.id,
+      tutorName: tutor.name,
+      studentId: MOCK_STUDENT.id,
+      studentName: MOCK_STUDENT.name,
+      subject: filters.subjects[0] || profile.subjects[0] || tutor.subjects[0],
+      level: filters.level || profile.category || tutor.levels[0],
+      learningStyle:
+        filters.learningStyle || profile.learningStyles[0] || tutor.learningStyles[0],
+      preferredTime:
+        profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
+        tutor.availability,
+      message:
+        'I would like a trial session. I want help identifying weak points and getting clearer resources before sessions.',
+    });
+
+    setNotice(`Trial request sent to ${tutor.name}.`);
+  }
+
+  return (
+    <main className="min-h-screen bg-[#f8f7f4]">
+      <PageHeader
+        eyebrow="Student area"
+        title="Find your match."
+        description="Use your learning profile to narrow tutors by subject, level, style, university, rating, and price."
+      />
+
+      <Container className="grid items-start gap-8 py-10 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="lg:sticky lg:top-8">
+          <TutorFiltersPanel
+            filters={filters}
+            onChange={setFilters}
+            onClear={clearFilters}
+          />
+        </div>
+
+        <section className="min-w-0">
+          {notice && (
+            <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+              {notice}
+            </div>
+          )}
+
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                Tutor results
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+                {filteredTutors.length} available matches
+              </h2>
+            </div>
+
+            <p className="max-w-md text-sm leading-6 text-slate-600">
+              Cards show the key information first: subjects, style, level,
+              rating, price, and trial request status.
+            </p>
+          </div>
+
+          {filteredTutors.length === 0 ? (
+            <Card>
+              <p className="font-medium">No tutors match these filters.</p>
+              <p className="mt-2 text-sm text-slate-600">
+                Try increasing the max price or clearing one of the filters.
+              </p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+              {filteredTutors.map((tutor) => (
+                <TutorCard
+                  key={tutor.id}
+                  tutor={tutor}
+                  existingRequest={findExistingRequest(tutor.id)}
+                  onRequestTrial={requestTrial}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      </Container>
+    </main>
+  );
+}
