@@ -129,8 +129,7 @@ export function TutorDiscoveryPage() {
             </div>
 
             <p className="max-w-md text-sm leading-6 text-slate-600">
-              Cards show the key information first: subjects, style, level,
-              rating, price, and trial request status.
+              Browse the tutors below and filter by what matters most.
             </p>
           </div>
 

@@ -202,7 +202,7 @@ export function StudentAvailabilityStep() {
       <PageHeader
         eyebrow="Student onboarding"
         title="When are you usually available?"
-        description="Choose common times or add your own. This makes trial requests easier to respond to."
+        description="Choose common times or add your own."
       />
 
       <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[1.1fr_0.9fr]">
@@ -272,8 +272,7 @@ export function StudentAvailabilityStep() {
         <Card className="lg:col-span-2">
           <h2 className="text-xl font-semibold">Timetable selection</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Drag across 30-minute slots to quickly add availability, then refine
-            blocks by resizing.
+            Drag across 30-minute slots to add availability, then adjust blocks if needed.
           </p>
 
           <div className="mt-5">
@@ -293,8 +292,7 @@ export function StudentAvailabilityStep() {
             <div>
               <h2 className="text-xl font-semibold">Selected availability</h2>
               <p className="mt-2 text-sm text-slate-600">
-                These times will be used as context when requesting a trial
-                session.
+                These times will be used when you request a trial session.
               </p>
             </div>
 

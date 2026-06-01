@@ -48,7 +48,7 @@ export function StudentPreferencesStep() {
       <PageHeader
         eyebrow="Student onboarding"
         title="How do you prefer to learn?"
-        description="Learning style matters because students often feel stuck when tutor support feels like school all over again."
+        description="Tell us how you like to work so we can match you with a better fit."
       />
 
       <Container className="py-10 pb-28">

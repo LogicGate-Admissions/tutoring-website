@@ -66,14 +66,14 @@ export function StudentSubjectsStep() {
       <PageHeader
         eyebrow="Student onboarding"
         title="What are you studying?"
-        description="Choose your qualification and subjects. This makes tutor recommendations more relevant."
+        description="Choose your qualification and the subjects you want help with."
       />
 
       <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[0.8fr_1.2fr]">
         <Card>
           <h2 className="text-xl font-semibold">Qualification</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            This controls which subject options appear next.
+            Select the qualification you’re working towards.
           </p>
 
           <div className="mt-5 grid gap-3">
@@ -91,7 +91,7 @@ export function StudentSubjectsStep() {
         <Card>
           <h2 className="text-xl font-semibold">Subjects</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Pick every subject you may need support with.
+            Pick the subjects you want support with.
           </p>
 
           {!category && (
