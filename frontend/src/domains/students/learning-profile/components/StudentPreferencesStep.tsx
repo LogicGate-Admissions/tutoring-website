@@ -1,12 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
-import { ROUTES } from '@/shared/constants/routes';
 import { LEARNING_STYLE_OPTIONS } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
 import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
@@ -21,7 +18,6 @@ import {
  * This captures how the student prefers to learn, not just what they study.
  */
 export function StudentPreferencesStep() {
-  const router = useRouter();
   const [selectedStyles, setSelectedStyles] = useState<string[]>(
     getStoredLearningProfile().learningStyles
   );
@@ -32,11 +28,6 @@ export function StudentPreferencesStep() {
         ? currentStyles.filter((item) => item !== style)
         : [...currentStyles, style]
     );
-  }
-
-  function continueToAvailability() {
-    updateStoredLearningProfile({ learningStyles: selectedStyles });
-    router.push(ROUTES.studentOnboardingAvailability);
   }
 
   function saveDraftProfile() {
@@ -63,14 +54,6 @@ export function StudentPreferencesStep() {
                 onToggle={() => toggleStyle(style.label)}
               />
             ))}
-          </div>
-
-          <div className="mt-8 flex items-center justify-between gap-4">
-            <Button variant="secondary" href={ROUTES.studentOnboardingSubjects}>
-              Back
-            </Button>
-
-            <Button onClick={continueToAvailability}>Continue</Button>
           </div>
         </Card>
       </Container>

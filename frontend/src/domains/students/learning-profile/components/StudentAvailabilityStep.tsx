@@ -1,13 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
-import { ROUTES } from '@/shared/constants/routes';
 import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
 import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
 import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
@@ -76,7 +74,6 @@ function getInitialSelectedPresetIds(savedAvailability: TimeBlock[]) {
  * Availability blocks need to stay readable, so overlapping times are merged.
  */
 export function StudentAvailabilityStep() {
-  const router = useRouter();
   const storedProfile = getStoredLearningProfile();
 
   const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>(
@@ -188,11 +185,6 @@ export function StudentAvailabilityStep() {
     setSelectedBlockId(null);
   }
 
-  function finishOnboarding() {
-    updateStoredLearningProfile({ availability });
-    router.push(ROUTES.studentTutors);
-  }
-
   function saveDraftProfile() {
     updateStoredLearningProfile({ availability });
   }
@@ -294,14 +286,6 @@ export function StudentAvailabilityStep() {
               <p className="mt-2 text-sm text-slate-600">
                 These times will be used when you request a trial session.
               </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Button variant="secondary" href={ROUTES.studentOnboardingPreferences}>
-                Back
-              </Button>
-
-              <Button onClick={finishOnboarding}>Find tutors</Button>
             </div>
           </div>
 

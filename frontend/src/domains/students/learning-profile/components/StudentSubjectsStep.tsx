@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
@@ -52,7 +51,6 @@ function getSubjectsForCategory(
  * That means GCSE Maths and A-level Maths are different selections.
  */
 export function StudentSubjectsStep() {
-  const router = useRouter();
   const initialProfile = getStoredLearningProfile();
 
   const [subjectSelections, setSubjectSelections] = useState<
@@ -89,10 +87,6 @@ export function StudentSubjectsStep() {
   }, [activeCategory, showAllSubjects, subjectSearch]);
 
   const hasSelectedAnything = subjectSelections.length > 0;
-
-  const canContinue = subjectSelections.some(
-    (selection) => selection.subjects.length > 0
-  );
 
   function chooseCategory(category: QualificationCategory) {
     const alreadySelected = subjectSelections.some(
@@ -163,16 +157,6 @@ export function StudentSubjectsStep() {
     setActiveCategory('');
     setSubjectSearch('');
     setShowAllSubjects(false);
-  }
-
-  function continueToPreferences() {
-    if (!canContinue) return;
-
-    updateStoredLearningProfile({
-      subjectSelections,
-    });
-
-    router.push(ROUTES.studentOnboardingPreferences);
   }
 
   function saveDraftProfile() {
@@ -375,22 +359,6 @@ export function StudentSubjectsStep() {
               </>
             )}
           </Card>
-        </div>
-
-        <div className="mt-6 flex items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <Button variant="secondary" href={ROUTES.home}>
-            Back
-          </Button>
-
-          <p className="hidden text-sm text-slate-500 sm:block">
-            {canContinue
-              ? 'Ready to continue.'
-              : 'Select at least one subject under a qualification.'}
-          </p>
-
-          <Button disabled={!canContinue} onClick={continueToPreferences}>
-            Continue
-          </Button>
         </div>
       </Container>
 

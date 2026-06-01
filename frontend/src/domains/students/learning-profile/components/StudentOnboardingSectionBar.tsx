@@ -35,10 +35,11 @@ const ONBOARDING_SECTIONS: Array<{
 ];
 
 /**
- * Sticky navigation for onboarding sections.
+ * Sticky navigation for student onboarding.
  *
- * Important behaviour: all sections stay navigable even if the current step
- * is incomplete, so students can move freely between sections.
+ * This is the main way students move around onboarding.
+ * It also gives them a direct route back to the landing page or forward
+ * to tutor discovery without forcing every onboarding section to be complete.
  */
 export function StudentOnboardingSectionBar({
   currentStep,
@@ -54,26 +55,44 @@ export function StudentOnboardingSectionBar({
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 py-3 backdrop-blur">
       <Container>
-        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
-          {ONBOARDING_SECTIONS.map((section) => {
-            const isActive = section.id === currentStep;
+        <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 md:grid-cols-[auto_1fr_auto]">
+          <button
+            type="button"
+            onClick={() => navigateTo(ROUTES.home)}
+            className="rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-white"
+          >
+            Landing page
+          </button>
 
-            return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => navigateTo(section.href)}
-                className={cn(
-                  'rounded-xl px-3 py-2 text-sm font-medium transition',
-                  isActive
-                    ? 'bg-slate-950 text-white'
-                    : 'bg-transparent text-slate-700 hover:bg-white'
-                )}
-              >
-                {section.label}
-              </button>
-            );
-          })}
+          <div className="grid grid-cols-3 gap-2">
+            {ONBOARDING_SECTIONS.map((section) => {
+              const isActive = section.id === currentStep;
+
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => navigateTo(section.href)}
+                  className={cn(
+                    'rounded-xl px-3 py-2 text-sm font-medium transition',
+                    isActive
+                      ? 'bg-slate-950 text-white'
+                      : 'bg-transparent text-slate-700 hover:bg-white'
+                  )}
+                >
+                  {section.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigateTo(ROUTES.studentTutors)}
+            className="rounded-xl bg-slate-950 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+          >
+            Find tutors
+          </button>
         </div>
       </Container>
     </div>
