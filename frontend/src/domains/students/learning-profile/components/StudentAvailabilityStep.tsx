@@ -2,17 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
-import { Badge } from '@/shared/components/Badge';
 import { ROUTES } from '@/shared/constants/routes';
+import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
 import {
   AVAILABILITY_PRESETS,
   DAYS,
 } from '@/domains/students/learning-profile/constants/learningProfileOptions';
-import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
 import {
   createManualTimeBlock,
   mergeTimeBlocks,
@@ -23,67 +23,129 @@ import {
   getStoredLearningProfile,
   updateStoredLearningProfile,
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
-import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
+import type {
+  Day,
+  TimeBlock,
+} from '@/domains/students/learning-profile/types/learningProfile';
+
+/**
+ * Checks whether a saved/merged time block fully covers another time block.
+ *
+ * Example:
+ * saved block:  Mon 16:00–21:00
+ * preset block: Mon 16:00–18:00
+ *
+ * This returns true because the saved block contains the preset block.
+ */
+function blockCoversBlock(savedBlock: TimeBlock, targetBlock: TimeBlock) {
+  if (savedBlock.day !== targetBlock.day) return false;
+
+  return (
+    timeToMinutes(savedBlock.from) <= timeToMinutes(targetBlock.from) &&
+    timeToMinutes(savedBlock.to) >= timeToMinutes(targetBlock.to)
+  );
+}
+
+/**
+ * Works out which preset cards should appear selected when the page loads.
+ *
+ * This is deliberately based on time coverage, not exact block equality.
+ * That means presets stay highlighted even when neighbouring times have
+ * been merged into one larger availability block.
+ */
+function getInitialSelectedPresetIds(savedAvailability: TimeBlock[]) {
+  return AVAILABILITY_PRESETS.filter((preset) =>
+    preset.blocks.every((presetBlock) =>
+      savedAvailability.some((savedBlock) =>
+        blockCoversBlock(savedBlock, presetBlock)
+      )
+    )
+  ).map((preset) => preset.id);
+}
 
 /**
  * Final student onboarding step.
  *
- * Availability is stored in the learning profile so trial requests can include
- * useful context instead of forcing tutor and student to start from zero.
+ * The important idea here is that selected preset cards and selected
+ * availability blocks are not exactly the same thing.
+ *
+ * Preset cards need to stay highlighted.
+ * Availability blocks need to stay readable, so overlapping times are merged.
  */
 export function StudentAvailabilityStep() {
   const router = useRouter();
-  const [availability, setAvailability] = useState<TimeBlock[]>(
-    getStoredLearningProfile().availability
+  const storedProfile = getStoredLearningProfile();
+
+  const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>(
+    getInitialSelectedPresetIds(storedProfile.availability)
   );
+
+  const [manualBlocks, setManualBlocks] = useState<TimeBlock[]>(
+    storedProfile.availability.filter((block) => block.source === 'manual')
+  );
+
   const [manualDay, setManualDay] = useState<Day>('Mon');
   const [manualFrom, setManualFrom] = useState('18:00');
   const [manualTo, setManualTo] = useState('19:00');
 
-
-  const selectedPresetIds = useMemo(() => {
+  const presetBlocks = useMemo(() => {
     return AVAILABILITY_PRESETS.filter((preset) =>
-      preset.blocks.every((presetBlock) =>
-        availability.some(
-          (block) =>
-            block.day === presetBlock.day &&
-            block.from === presetBlock.from &&
-            block.to === presetBlock.to
-        )
-      )
-    ).map((preset) => preset.id);
-  }, [availability]);
+      selectedPresetIds.includes(preset.id)
+    ).flatMap((preset) => preset.blocks);
+  }, [selectedPresetIds]);
+
+  const availability = useMemo(() => {
+    return mergeTimeBlocks([...presetBlocks, ...manualBlocks]);
+  }, [presetBlocks, manualBlocks]);
 
   function togglePreset(presetId: string) {
-    const preset = AVAILABILITY_PRESETS.find((item) => item.id === presetId);
-    if (!preset) return;
+    setSelectedPresetIds((currentPresetIds) => {
+      if (currentPresetIds.includes(presetId)) {
+        return currentPresetIds.filter((id) => id !== presetId);
+      }
 
-    if (selectedPresetIds.includes(presetId)) {
-      setAvailability((currentBlocks) =>
-        currentBlocks.filter(
-          (block) => !preset.blocks.some((presetBlock) => presetBlock.id === block.id)
-        )
-      );
-      return;
-    }
-
-    setAvailability((currentBlocks) => mergeTimeBlocks([...currentBlocks, ...preset.blocks]));
+      return [...currentPresetIds, presetId];
+    });
   }
 
   function addManualBlock() {
     if (timeToMinutes(manualFrom) >= timeToMinutes(manualTo)) return;
 
-    setAvailability((currentBlocks) =>
-      mergeTimeBlocks([
-        ...currentBlocks,
-        createManualTimeBlock(manualDay, manualFrom, manualTo),
-      ])
+    const newManualBlock = createManualTimeBlock(
+      manualDay,
+      manualFrom,
+      manualTo
+    );
+
+    setManualBlocks((currentBlocks) =>
+      mergeTimeBlocks([...currentBlocks, newManualBlock])
     );
   }
 
-  function removeBlock(blockId: string) {
-    setAvailability((currentBlocks) =>
-      currentBlocks.filter((block) => block.id !== blockId)
+  function removeBlock(blockToRemove: TimeBlock) {
+    /**
+     * If the block is a manual block, remove it from manual availability.
+     */
+    setManualBlocks((currentBlocks) =>
+      currentBlocks.filter((block) => block.id !== blockToRemove.id)
+    );
+
+    /**
+     * If the block came from presets, deselect any preset that is fully
+     * covered by this block.
+     *
+     * This avoids confusing behaviour when one visible block represents
+     * multiple merged preset times.
+     */
+    setSelectedPresetIds((currentPresetIds) =>
+      currentPresetIds.filter((presetId) => {
+        const preset = AVAILABILITY_PRESETS.find((item) => item.id === presetId);
+        if (!preset) return false;
+
+        return !preset.blocks.every((presetBlock) =>
+          blockCoversBlock(blockToRemove, presetBlock)
+        );
+      })
     );
   }
 
@@ -103,6 +165,7 @@ export function StudentAvailabilityStep() {
       <Container className="grid gap-6 py-10 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <h2 className="text-xl font-semibold">Quick presets</h2>
+
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {AVAILABILITY_PRESETS.map((preset) => (
               <OptionCard
@@ -128,7 +191,9 @@ export function StudentAvailabilityStep() {
                 className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950"
               >
                 {DAYS.map((day) => (
-                  <option key={day} value={day}>{day}</option>
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
                 ))}
               </select>
             </label>
@@ -166,9 +231,11 @@ export function StudentAvailabilityStep() {
             <div>
               <h2 className="text-xl font-semibold">Selected availability</h2>
               <p className="mt-2 text-sm text-slate-600">
-                These times will be used as context when requesting a trial session.
+                These times will be used as context when requesting a trial
+                session.
               </p>
             </div>
+
             <Button disabled={availability.length === 0} onClick={finishOnboarding}>
               Find tutors
             </Button>
@@ -180,7 +247,11 @@ export function StudentAvailabilityStep() {
             )}
 
             {availability.map((block) => (
-              <button key={block.id} type="button" onClick={() => removeBlock(block.id)}>
+              <button
+                key={block.id}
+                type="button"
+                onClick={() => removeBlock(block)}
+              >
                 <Badge className="hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700">
                   {timeBlockLabel(block)} ×
                 </Badge>
