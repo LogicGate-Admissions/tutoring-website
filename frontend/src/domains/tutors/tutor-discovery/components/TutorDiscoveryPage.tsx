@@ -33,13 +33,25 @@ export const DEFAULT_FILTERS: TutorFilters = {
   sortBy: 'Best match',
 };
 
+function getProfileSubjects() {
+  const profile = getStoredLearningProfile();
+
+  return profile.subjectSelections.flatMap((selection) => selection.subjects);
+}
+
+function getProfileLevel() {
+  const profile = getStoredLearningProfile();
+
+  return profile.subjectSelections[0]?.category ?? '';
+}
+
 function getInitialTutorFilters(): TutorFilters {
   const profile = getStoredLearningProfile();
 
   return {
     ...DEFAULT_FILTERS,
-    subjects: profile.subjects,
-    level: profile.categories[0] ?? '',
+    subjects: getProfileSubjects(),
+    level: getProfileLevel(),
     learningStyle: profile.learningStyles[0] ?? '',
   };
 }
@@ -119,8 +131,14 @@ export function TutorDiscoveryPage() {
       tutorName: tutor.name,
       studentId: MOCK_STUDENT.id,
       studentName: MOCK_STUDENT.name,
-      subject: filters.subjects[0] || profile.subjects[0] || tutor.subjects[0],
-      level: filters.level || profile.categories[0] || tutor.levels[0],
+      subject:
+        filters.subjects[0] ||
+        profile.subjectSelections.flatMap((selection) => selection.subjects)[0] ||
+        tutor.subjects[0],
+      level:
+        filters.level ||
+        profile.subjectSelections[0]?.category ||
+        tutor.levels[0],
       learningStyle:
         filters.learningStyle || profile.learningStyles[0] || tutor.learningStyles[0],
       preferredTime:

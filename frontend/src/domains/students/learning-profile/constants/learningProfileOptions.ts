@@ -159,19 +159,21 @@ export const AVAILABILITY_PRESETS = [
 ];
 
 export const DEFAULT_LEARNING_PROFILE = {
-  categories: [],
-  subjects: [],
+  subjectSelections: [],
   learningStyles: [],
   availability: [],
 } satisfies import('@/domains/students/learning-profile/types/learningProfile').StudentLearningProfile;
 
 /**
- * Subjects shown immediately before the user clicks "More subjects".
+ * Subjects shown before the user clicks "More subjects".
  *
- * These are the common STEM subjects users are most likely to scan for first.
- * The full list is still available through search.
+ * These are the common STEM subjects students are most likely to look for
+ * first. The full list is still available afterwards.
  */
-export const PRIMARY_SUBJECTS_BY_CATEGORY: Record<QualificationCategory, string[]> = {
+export const PRIMARY_SUBJECTS_BY_CATEGORY: Record<
+  QualificationCategory,
+  string[]
+> = {
   'A-level': [
     'Maths',
     'Further Maths',

@@ -1,20 +1,70 @@
 import { DEFAULT_LEARNING_PROFILE } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import type {
   QualificationCategory,
+  QualificationSubjectSelection,
   StudentLearningProfile,
 } from '@/domains/students/learning-profile/types/learningProfile';
 
 const STORAGE_KEY = 'tutorly.studentLearningProfile';
 
-type StoredLearningProfile = Partial<StudentLearningProfile> & {
+type LegacyStoredLearningProfile = Partial<StudentLearningProfile> & {
   /**
-   * Legacy field from the older single-qualification version.
-   *
-   * Keeping this here lets old localStorage data keep working instead of
-   * breaking when we move from category -> categories.
+   * Old single-qualification field.
    */
   category?: QualificationCategory | '';
+
+  /**
+   * Old multi-qualification field from the temporary version.
+   */
+  categories?: QualificationCategory[];
+
+  /**
+   * Old flat subject field.
+   */
+  subjects?: string[];
 };
+
+function migrateLegacySubjectSelections(
+  parsedProfile: LegacyStoredLearningProfile
+): QualificationSubjectSelection[] {
+  if (parsedProfile.subjectSelections) {
+    return parsedProfile.subjectSelections;
+  }
+
+  /**
+   * Handles the older version:
+   *
+   * category: 'GCSE'
+   * subjects: ['Maths', 'Physics']
+   */
+  if (parsedProfile.category && parsedProfile.subjects) {
+    return [
+      {
+        category: parsedProfile.category,
+        subjects: parsedProfile.subjects,
+      },
+    ];
+  }
+
+  /**
+   * Handles the temporary multi-qualification version:
+   *
+   * categories: ['GCSE', 'A-level']
+   * subjects: ['Maths', 'Physics']
+   *
+   * This cannot know which subject belonged to which qualification, so it
+   * copies the old flat subjects into each selected qualification. From now on,
+   * the new UI will save them correctly per qualification.
+   */
+  if (parsedProfile.categories && parsedProfile.subjects) {
+    return parsedProfile.categories.map((category) => ({
+      category,
+      subjects: parsedProfile.subjects ?? [],
+    }));
+  }
+
+  return [];
+}
 
 /**
  * Reads the profile from localStorage.
@@ -34,16 +84,14 @@ export function getStoredLearningProfile(): StudentLearningProfile {
   }
 
   try {
-    const parsedProfile = JSON.parse(storedProfile) as StoredLearningProfile;
-
-    const categories =
-      parsedProfile.categories ??
-      (parsedProfile.category ? [parsedProfile.category] : []);
+    const parsedProfile = JSON.parse(
+      storedProfile
+    ) as LegacyStoredLearningProfile;
 
     return {
       ...DEFAULT_LEARNING_PROFILE,
       ...parsedProfile,
-      categories,
+      subjectSelections: migrateLegacySubjectSelections(parsedProfile),
     };
   } catch {
     return DEFAULT_LEARNING_PROFILE;

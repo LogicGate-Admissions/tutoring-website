@@ -17,14 +17,22 @@ export type TimeBlock = {
   source: 'preset' | 'manual';
 };
 
+export type QualificationSubjectSelection = {
+  category: QualificationCategory;
+  subjects: string[];
+};
+
 /**
  * The learning profile is the useful outcome of student onboarding.
  *
- * It is separate from the UI so tutor discovery can reuse it later.
+ * Subject selections are grouped by qualification because the same subject
+ * can mean different things at different levels.
+ *
+ * Example:
+ * GCSE Maths and A-level Maths should be treated as different choices.
  */
 export type StudentLearningProfile = {
-  categories: QualificationCategory[];
-  subjects: string[];
+  subjectSelections: QualificationSubjectSelection[];
   learningStyles: string[];
   availability: TimeBlock[];
 };
