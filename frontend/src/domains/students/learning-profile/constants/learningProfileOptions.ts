@@ -159,8 +159,70 @@ export const AVAILABILITY_PRESETS = [
 ];
 
 export const DEFAULT_LEARNING_PROFILE = {
-  category: '',
+  categories: [],
   subjects: [],
   learningStyles: [],
   availability: [],
 } satisfies import('@/domains/students/learning-profile/types/learningProfile').StudentLearningProfile;
+
+/**
+ * Subjects shown immediately before the user clicks "More subjects".
+ *
+ * These are the common STEM subjects users are most likely to scan for first.
+ * The full list is still available through search.
+ */
+export const PRIMARY_SUBJECTS_BY_CATEGORY: Record<QualificationCategory, string[]> = {
+  'A-level': [
+    'Maths',
+    'Further Maths',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Computer Science',
+  ],
+  GCSE: [
+    'Maths',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Computer Science',
+    'Combined Science',
+  ],
+  'University admissions': [
+    'TMUA',
+    'MAT',
+    'STEP',
+    'ESAT',
+    'UCAT',
+    'Interview preparation',
+  ],
+  IB: [
+    'Maths AA HL',
+    'Maths AI HL',
+    'Physics HL',
+    'Chemistry HL',
+    'Biology HL',
+    'Computer Science HL',
+  ],
+  IGCSE: [
+    'Maths',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Computer Science',
+  ],
+  IAL: [
+    'Maths',
+    'Further Maths',
+    'Physics',
+    'Chemistry',
+    'Biology',
+  ],
+  'Scottish Highers': [
+    'Maths',
+    'Physics',
+    'Chemistry',
+    'Biology',
+    'Computing Science',
+  ],
+};

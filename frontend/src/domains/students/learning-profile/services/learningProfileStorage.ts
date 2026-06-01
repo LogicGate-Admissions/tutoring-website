@@ -1,7 +1,20 @@
 import { DEFAULT_LEARNING_PROFILE } from '@/domains/students/learning-profile/constants/learningProfileOptions';
-import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
+import type {
+  QualificationCategory,
+  StudentLearningProfile,
+} from '@/domains/students/learning-profile/types/learningProfile';
 
 const STORAGE_KEY = 'tutorly.studentLearningProfile';
+
+type StoredLearningProfile = Partial<StudentLearningProfile> & {
+  /**
+   * Legacy field from the older single-qualification version.
+   *
+   * Keeping this here lets old localStorage data keep working instead of
+   * breaking when we move from category -> categories.
+   */
+  category?: QualificationCategory | '';
+};
 
 /**
  * Reads the profile from localStorage.
@@ -21,9 +34,16 @@ export function getStoredLearningProfile(): StudentLearningProfile {
   }
 
   try {
+    const parsedProfile = JSON.parse(storedProfile) as StoredLearningProfile;
+
+    const categories =
+      parsedProfile.categories ??
+      (parsedProfile.category ? [parsedProfile.category] : []);
+
     return {
       ...DEFAULT_LEARNING_PROFILE,
-      ...JSON.parse(storedProfile),
+      ...parsedProfile,
+      categories,
     };
   } catch {
     return DEFAULT_LEARNING_PROFILE;

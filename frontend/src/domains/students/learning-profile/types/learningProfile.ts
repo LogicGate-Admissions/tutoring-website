@@ -23,7 +23,7 @@ export type TimeBlock = {
  * It is separate from the UI so tutor discovery can reuse it later.
  */
 export type StudentLearningProfile = {
-  category: QualificationCategory | '';
+  categories: QualificationCategory[];
   subjects: string[];
   learningStyles: string[];
   availability: TimeBlock[];

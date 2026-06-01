@@ -39,7 +39,7 @@ function getInitialTutorFilters(): TutorFilters {
   return {
     ...DEFAULT_FILTERS,
     subjects: profile.subjects,
-    level: profile.category,
+    level: profile.categories[0] ?? '',
     learningStyle: profile.learningStyles[0] ?? '',
   };
 }
@@ -120,7 +120,7 @@ export function TutorDiscoveryPage() {
       studentId: MOCK_STUDENT.id,
       studentName: MOCK_STUDENT.name,
       subject: filters.subjects[0] || profile.subjects[0] || tutor.subjects[0],
-      level: filters.level || profile.category || tutor.levels[0],
+      level: filters.level || profile.categories[0] || tutor.levels[0],
       learningStyle:
         filters.learningStyle || profile.learningStyles[0] || tutor.learningStyles[0],
       preferredTime:
