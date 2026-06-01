@@ -9,6 +9,7 @@ import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { ROUTES } from '@/shared/constants/routes';
 import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
+import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import {
   AVAILABILITY_PRESETS,
   DAYS,
@@ -154,6 +155,10 @@ export function StudentAvailabilityStep() {
     router.push(ROUTES.studentTutors);
   }
 
+  function saveDraftProfile() {
+    updateStoredLearningProfile({ availability });
+  }
+
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
       <PageHeader
@@ -162,7 +167,7 @@ export function StudentAvailabilityStep() {
         description="Choose common times or add your own. This makes trial requests easier to respond to."
       />
 
-      <Container className="grid gap-6 py-10 lg:grid-cols-[1.1fr_0.9fr]">
+      <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <h2 className="text-xl font-semibold">Quick presets</h2>
 
@@ -260,6 +265,11 @@ export function StudentAvailabilityStep() {
           </div>
         </Card>
       </Container>
+
+      <StudentOnboardingSectionBar
+        currentStep="availability"
+        onBeforeNavigate={saveDraftProfile}
+      />
     </main>
   );
 }

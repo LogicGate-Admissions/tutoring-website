@@ -9,6 +9,7 @@ import { PageHeader } from '@/shared/components/PageHeader';
 import { ROUTES } from '@/shared/constants/routes';
 import { LEARNING_STYLE_OPTIONS } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
+import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import {
   getStoredLearningProfile,
   updateStoredLearningProfile,
@@ -38,6 +39,10 @@ export function StudentPreferencesStep() {
     router.push(ROUTES.studentOnboardingAvailability);
   }
 
+  function saveDraftProfile() {
+    updateStoredLearningProfile({ learningStyles: selectedStyles });
+  }
+
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
       <PageHeader
@@ -46,7 +51,7 @@ export function StudentPreferencesStep() {
         description="Learning style matters because students often feel stuck when tutor support feels like school all over again."
       />
 
-      <Container className="py-10">
+      <Container className="py-10 pb-28">
         <Card>
           <div className="grid gap-3 md:grid-cols-2">
             {LEARNING_STYLE_OPTIONS.map((style) => (
@@ -67,6 +72,11 @@ export function StudentPreferencesStep() {
           </div>
         </Card>
       </Container>
+
+      <StudentOnboardingSectionBar
+        currentStep="preferences"
+        onBeforeNavigate={saveDraftProfile}
+      />
     </main>
   );
 }

@@ -12,6 +12,7 @@ import {
   SUBJECT_OPTIONS_BY_CATEGORY,
 } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
+import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import {
   getStoredLearningProfile,
   updateStoredLearningProfile,
@@ -41,7 +42,6 @@ export function StudentSubjectsStep() {
 
   function chooseCategory(nextCategory: QualificationCategory) {
     setCategory(nextCategory);
-    setSelectedSubjects([]);
   }
 
   function toggleSubject(subject: string) {
@@ -57,6 +57,10 @@ export function StudentSubjectsStep() {
     router.push(ROUTES.studentOnboardingPreferences);
   }
 
+  function saveDraftProfile() {
+    updateStoredLearningProfile({ category, subjects: selectedSubjects });
+  }
+
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
       <PageHeader
@@ -65,7 +69,7 @@ export function StudentSubjectsStep() {
         description="Choose your qualification and subjects. This makes tutor recommendations more relevant."
       />
 
-      <Container className="grid gap-6 py-10 lg:grid-cols-[0.8fr_1.2fr]">
+      <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[0.8fr_1.2fr]">
         <Card>
           <h2 className="text-xl font-semibold">Qualification</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -119,6 +123,11 @@ export function StudentSubjectsStep() {
           </div>
         </Card>
       </Container>
+
+      <StudentOnboardingSectionBar
+        currentStep="subjects"
+        onBeforeNavigate={saveDraftProfile}
+      />
     </main>
   );
 }
