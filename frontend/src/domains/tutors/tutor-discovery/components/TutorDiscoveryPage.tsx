@@ -1,10 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { ROUTES } from '@/shared/constants/routes';
 import { MOCK_STUDENT } from '@/domains/accounts/mockUsers';
 import { getStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';
@@ -158,6 +160,12 @@ export function TutorDiscoveryPage() {
         title="Find your match."
         description="Use your learning profile to narrow tutors by subject, level, style, university, rating, and price."
       />
+
+      <Container className="py-4">
+        <Link href={ROUTES.studentOnboardingSubjects}>
+          <Button variant="secondary">← Back to onboarding</Button>
+        </Link>
+      </Container>
 
       <Container className={`grid items-start gap-8 py-10 ${selectedTutor ? 'lg:grid-cols-[320px_minmax(0,1fr)_360px]' : 'lg:grid-cols-[320px_minmax(0,1fr)]'}`}>
         <div className="lg:sticky lg:top-8">
