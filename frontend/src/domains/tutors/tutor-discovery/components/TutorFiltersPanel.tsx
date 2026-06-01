@@ -10,6 +10,8 @@ import {
 import {
   TUTOR_SORT_OPTIONS,
   UNIVERSITY_FILTER_OPTIONS,
+  MAX_TUTOR_PRICE_PER_HOUR,
+  MIN_TUTOR_PRICE_PER_HOUR,
 } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
 import type { TutorFilters } from '@/domains/tutors/tutor-discovery/types/tutor';
 
@@ -124,30 +126,70 @@ export function TutorFiltersPanel({
 
         <div className="grid gap-2 text-sm font-medium text-slate-700">
           <div className="flex items-center justify-between gap-3">
+            <span>Min hourly rate</span>
+            <span className="font-semibold text-slate-950">£{filters.minPricePerHour}</span>
+          </div>
+
+          <input
+            type="range"
+            min={MIN_TUTOR_PRICE_PER_HOUR}
+            max={MAX_TUTOR_PRICE_PER_HOUR}
+            value={filters.minPricePerHour}
+            onChange={(event) =>
+              onChange({
+                ...filters,
+                minPricePerHour: Math.min(Number(event.target.value), filters.maxPricePerHour),
+              })
+            }
+          />
+
+          <input
+            type="number"
+            min={MIN_TUTOR_PRICE_PER_HOUR}
+            max={MAX_TUTOR_PRICE_PER_HOUR}
+            value={filters.minPricePerHour}
+            onChange={(event) => {
+              const typedValue = Number(event.target.value);
+              onChange({
+                ...filters,
+                minPricePerHour: Number.isNaN(typedValue)
+                  ? MIN_TUTOR_PRICE_PER_HOUR
+                  : Math.min(typedValue, filters.maxPricePerHour),
+              });
+            }}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
+          />
+
+          <div className="flex items-center justify-between gap-3">
             <span>Max hourly rate</span>
             <span className="font-semibold text-slate-950">£{filters.maxPricePerHour}</span>
           </div>
 
           <input
             type="range"
-            min="15"
-            max="80"
+            min={MIN_TUTOR_PRICE_PER_HOUR}
+            max={MAX_TUTOR_PRICE_PER_HOUR}
             value={filters.maxPricePerHour}
             onChange={(event) =>
-              onChange({ ...filters, maxPricePerHour: Number(event.target.value) })
+              onChange({
+                ...filters,
+                maxPricePerHour: Math.max(Number(event.target.value), filters.minPricePerHour),
+              })
             }
           />
 
           <input
             type="number"
-            min="15"
-            max="80"
+            min={MIN_TUTOR_PRICE_PER_HOUR}
+            max={MAX_TUTOR_PRICE_PER_HOUR}
             value={filters.maxPricePerHour}
             onChange={(event) => {
               const typedValue = Number(event.target.value);
               onChange({
                 ...filters,
-                maxPricePerHour: Number.isNaN(typedValue) ? 80 : typedValue,
+                maxPricePerHour: Number.isNaN(typedValue)
+                  ? MAX_TUTOR_PRICE_PER_HOUR
+                  : Math.max(typedValue, filters.minPricePerHour),
               });
             }}
             className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"

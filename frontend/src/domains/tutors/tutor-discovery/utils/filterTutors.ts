@@ -66,6 +66,7 @@ export function filterTutors(tutors: Tutor[], filters: TutorFilters) {
       hasLevel(tutor, filters.level) &&
       hasLearningStyle(tutor, filters.learningStyle) &&
       hasUniversity(tutor, filters.university) &&
+      tutor.pricePerHour >= filters.minPricePerHour &&
       tutor.pricePerHour <= filters.maxPricePerHour
     );
   });

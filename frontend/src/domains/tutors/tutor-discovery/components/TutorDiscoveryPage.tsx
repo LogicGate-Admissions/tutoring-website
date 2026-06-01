@@ -12,7 +12,11 @@ import {
   subscribeToStudentTrialSessions,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
-import { TUTOR_PROFILES } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
+import {
+  MAX_TUTOR_PRICE_PER_HOUR,
+  MIN_TUTOR_PRICE_PER_HOUR,
+  TUTOR_PROFILES,
+} from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
 import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
 import { TutorFiltersPanel } from '@/domains/tutors/tutor-discovery/components/TutorFiltersPanel';
 import { filterTutors } from '@/domains/tutors/tutor-discovery/utils/filterTutors';
@@ -23,7 +27,8 @@ export const DEFAULT_FILTERS: TutorFilters = {
   level: '',
   learningStyle: '',
   university: '',
-  maxPricePerHour: 80,
+  minPricePerHour: MIN_TUTOR_PRICE_PER_HOUR,
+  maxPricePerHour: MAX_TUTOR_PRICE_PER_HOUR,
   sortBy: 'Best match',
 };
 

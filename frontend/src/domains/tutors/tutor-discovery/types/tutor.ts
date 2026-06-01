@@ -35,6 +35,7 @@ export type TutorFilters = {
   level: string;
   learningStyle: string;
   university: string;
+  minPricePerHour: number;
   maxPricePerHour: number;
   sortBy: TutorSortOption;
 };

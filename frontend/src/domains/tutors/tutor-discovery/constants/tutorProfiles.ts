@@ -142,3 +142,11 @@ export const UNIVERSITY_FILTER_OPTIONS = [
   'University of Bristol',
   'University of Edinburgh',
 ];
+
+export const MIN_TUTOR_PRICE_PER_HOUR = Math.min(
+  ...TUTOR_PROFILES.map((tutor) => tutor.pricePerHour)
+);
+
+export const MAX_TUTOR_PRICE_PER_HOUR = Math.max(
+  ...TUTOR_PROFILES.map((tutor) => tutor.pricePerHour)
+);
