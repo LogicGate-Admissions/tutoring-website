@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import {
@@ -68,7 +69,7 @@ function subjectOptionLabel(option: SubjectOption) {
  * - learning styles
  * - universities
  */
-function DropdownMultiSelect({
+function SearchableDropdownMultiSelect({
   label,
   emptyLabel,
   options,
@@ -76,9 +77,26 @@ function DropdownMultiSelect({
   onAdd,
   onRemove,
 }: DropdownMultiSelectProps) {
-  const availableOptions = options.filter(
-    (option) => !selectedValues.includes(option)
-  );
+  const [search, setSearch] = useState('');
+
+  const availableOptions = useMemo(() => {
+    const normalisedSearch = search.trim().toLowerCase();
+
+    return options
+      .filter((option) => !selectedValues.includes(option))
+      .filter((option) =>
+        normalisedSearch
+          ? option.toLowerCase().includes(normalisedSearch)
+          : true
+      );
+  }, [options, search, selectedValues]);
+
+  function addSelectedValue(value: string) {
+    if (!value) return;
+
+    onAdd(value);
+    setSearch('');
+  }
 
   return (
     <div>
@@ -96,18 +114,20 @@ function DropdownMultiSelect({
         </div>
       )}
 
+      <input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
+      />
+
       <select
         value=""
         disabled={availableOptions.length === 0}
-        onChange={(event) => {
-          const selectedValue = event.target.value;
-          if (!selectedValue) return;
-          onAdd(selectedValue);
-        }}
-        className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+        onChange={(event) => addSelectedValue(event.target.value)}
+        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
       >
         <option value="">
-          {availableOptions.length === 0 ? 'All options selected' : emptyLabel}
+          {availableOptions.length === 0 ? 'No options available' : emptyLabel}
         </option>
 
         {availableOptions.map((option) => (
@@ -153,13 +173,35 @@ function SubjectDropdown({
   onAdd,
   onRemove,
 }: SubjectDropdownProps) {
-  const subjectOptions = getSubjectOptionsForLevels(selectedLevels);
+  const [search, setSearch] = useState('');
 
+  const subjectOptions = getSubjectOptionsForLevels(selectedLevels);
   const selectedSubjectIds = selectedSubjects.map(subjectFilterId);
 
-  const availableSubjectOptions = subjectOptions.filter(
-    (option) => !selectedSubjectIds.includes(subjectOptionId(option))
-  );
+  const availableSubjectOptions = useMemo(() => {
+    const normalisedSearch = search.trim().toLowerCase();
+
+    return subjectOptions
+      .filter((option) => !selectedSubjectIds.includes(subjectOptionId(option)))
+      .filter((option) =>
+        normalisedSearch
+          ? subjectOptionLabel(option).toLowerCase().includes(normalisedSearch)
+          : true
+      );
+  }, [search, selectedSubjectIds, subjectOptions]);
+
+  function addSelectedSubject(selectedId: string) {
+    if (!selectedId) return;
+
+    const selectedOption = availableSubjectOptions.find(
+      (option) => subjectOptionId(option) === selectedId
+    );
+
+    if (!selectedOption) return;
+
+    onAdd(selectedOption);
+    setSearch('');
+  }
 
   return (
     <div>
@@ -181,28 +223,26 @@ function SubjectDropdown({
         </div>
       )}
 
+      <input
+        value={search}
+        disabled={selectedLevels.length === 0}
+        onChange={(event) => setSearch(event.target.value)}
+        className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+      />
+
       <select
         value=""
-        disabled={selectedLevels.length === 0 || availableSubjectOptions.length === 0}
-        onChange={(event) => {
-          const selectedId = event.target.value;
-          if (!selectedId) return;
-
-          const selectedOption = availableSubjectOptions.find(
-            (option) => subjectOptionId(option) === selectedId
-          );
-
-          if (!selectedOption) return;
-
-          onAdd(selectedOption);
-        }}
-        className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+        disabled={
+          selectedLevels.length === 0 || availableSubjectOptions.length === 0
+        }
+        onChange={(event) => addSelectedSubject(event.target.value)}
+        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
       >
         <option value="">
           {selectedLevels.length === 0
             ? 'Select level(s) first'
             : availableSubjectOptions.length === 0
-              ? 'All subjects selected'
+              ? 'No subjects available'
               : 'Add a subject'}
         </option>
 
@@ -349,7 +389,7 @@ export function TutorFiltersPanel({
       </div>
 
       <div className="mt-6 grid gap-6">
-        <DropdownMultiSelect
+        <SearchableDropdownMultiSelect
           label="Levels"
           emptyLabel="Add a level"
           options={[...QUALIFICATION_CATEGORIES]}
@@ -365,7 +405,7 @@ export function TutorFiltersPanel({
           onRemove={removeSubject}
         />
 
-        <DropdownMultiSelect
+        <SearchableDropdownMultiSelect
           label="Learning styles"
           emptyLabel="Add a learning style"
           options={LEARNING_STYLE_OPTIONS.map((style) => style.label)}
@@ -374,7 +414,7 @@ export function TutorFiltersPanel({
           onRemove={removeLearningStyle}
         />
 
-        <DropdownMultiSelect
+        <SearchableDropdownMultiSelect
           label="Universities"
           emptyLabel="Add a university"
           options={UNIVERSITY_FILTER_OPTIONS}

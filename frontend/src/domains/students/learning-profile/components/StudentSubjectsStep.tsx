@@ -13,7 +13,6 @@ import {
   QUALIFICATION_CATEGORIES,
   SUBJECT_OPTIONS_BY_CATEGORY,
 } from '@/domains/students/learning-profile/constants/learningProfileOptions';
-import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
 import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import {
   getStoredLearningProfile,
@@ -61,7 +60,6 @@ export function StudentSubjectsStep() {
     QualificationCategory | ''
   >(initialProfile.subjectSelections[0]?.category ?? '');
 
-  const [showAllSubjects, setShowAllSubjects] = useState(false);
   const [subjectSearch, setSubjectSearch] = useState('');
 
   const selectedCategories = getSelectedCategories(subjectSelections);
@@ -73,18 +71,16 @@ export function StudentSubjectsStep() {
   const subjectOptions = useMemo(() => {
     if (!activeCategory) return [];
 
-    const baseOptions = showAllSubjects
-      ? SUBJECT_OPTIONS_BY_CATEGORY[activeCategory]
-      : PRIMARY_SUBJECTS_BY_CATEGORY[activeCategory];
-
     const normalisedSearch = subjectSearch.trim().toLowerCase();
 
-    if (!normalisedSearch) return baseOptions;
-
-    return SUBJECT_OPTIONS_BY_CATEGORY[activeCategory].filter((subject) =>
-      subject.toLowerCase().includes(normalisedSearch)
-    );
-  }, [activeCategory, showAllSubjects, subjectSearch]);
+    return SUBJECT_OPTIONS_BY_CATEGORY[activeCategory]
+      .filter((subject) => !activeSubjects.includes(subject))
+      .filter((subject) =>
+        normalisedSearch
+          ? subject.toLowerCase().includes(normalisedSearch)
+          : true
+      );
+  }, [activeCategory, activeSubjects, subjectSearch]);
 
   const hasSelectedAnything = subjectSelections.length > 0;
 
@@ -99,7 +95,6 @@ export function StudentSubjectsStep() {
      */
     if (alreadySelected) {
       setActiveCategory(category);
-      setShowAllSubjects(false);
       setSubjectSearch('');
       return;
     }
@@ -113,7 +108,6 @@ export function StudentSubjectsStep() {
     ]);
 
     setActiveCategory(category);
-    setShowAllSubjects(false);
     setSubjectSearch('');
   }
 
@@ -129,6 +123,13 @@ export function StudentSubjectsStep() {
 
       return nextSelections;
     });
+  }
+
+  function addSubjectFromDropdown(subject: string) {
+    if (!subject || !activeCategory) return;
+
+    toggleSubject(subject);
+    setSubjectSearch('');
   }
 
   function toggleSubject(subject: string) {
@@ -156,7 +157,6 @@ export function StudentSubjectsStep() {
     setSubjectSelections([]);
     setActiveCategory('');
     setSubjectSearch('');
-    setShowAllSubjects(false);
   }
 
   function saveDraftProfile() {
@@ -309,16 +309,6 @@ export function StudentSubjectsStep() {
                     : 'Choose a qualification first.'}
                 </p>
               </div>
-
-              {activeCategory && (
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowAllSubjects((current) => !current)}
-                  className="shrink-0"
-                >
-                  {showAllSubjects ? 'Show less' : 'More subjects'}
-                </Button>
-              )}
             </div>
 
             {!activeCategory && (
@@ -328,35 +318,39 @@ export function StudentSubjectsStep() {
             )}
 
             {activeCategory && (
-              <>
-                {showAllSubjects && (
-                  <label className="mt-5 block text-sm font-medium text-slate-700">
-                    Search subjects
-                    <input
-                      value={subjectSearch}
-                      onChange={(event) => setSubjectSearch(event.target.value)}
-                      className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-slate-500"
-                    />
-                  </label>
-                )}
+              <div className="mt-5">
+                <label className="block text-sm font-medium text-slate-700">
+                  Search subjects
+                  <input
+                    value={subjectSearch}
+                    onChange={(event) => setSubjectSearch(event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-slate-500"
+                  />
+                </label>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <select
+                  value=""
+                  disabled={subjectOptions.length === 0}
+                  onChange={(event) => addSubjectFromDropdown(event.target.value)}
+                  className="mt-3 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  <option value="">
+                    {subjectOptions.length === 0 ? 'No subjects available' : 'Add a subject'}
+                  </option>
+
                   {subjectOptions.map((subject) => (
-                    <OptionCard
-                      key={`${activeCategory}-${subject}`}
-                      title={subject}
-                      selected={activeSubjects.includes(subject)}
-                      onToggle={() => toggleSubject(subject)}
-                    />
+                    <option key={`${activeCategory}-${subject}`} value={subject}>
+                      {subject}
+                    </option>
                   ))}
-                </div>
+                </select>
 
-                {subjectOptions.length === 0 && (
-                  <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
-                    No subjects match your search.
-                  </div>
+                {activeSubjects.length > 0 && (
+                  <p className="mt-4 text-sm text-slate-600">
+                    Selected subjects are shown in the summary on the left.
+                  </p>
                 )}
-              </>
+              </div>
             )}
           </Card>
         </div>
