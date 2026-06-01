@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
@@ -54,6 +55,8 @@ export function TutorDiscoveryPage() {
   const [filters, setFilters] = useState<TutorFilters>(getInitialTutorFilters);
   const [studentRequests, setStudentRequests] = useState<TrialSessionRequest[]>([]);
   const [notice, setNotice] = useState('');
+  const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
+  const [shortlistedTutorIds, setShortlistedTutorIds] = useState<string[]>([]);
 
   useEffect(() => {
     const unsubscribe = subscribeToStudentTrialSessions(
@@ -69,12 +72,43 @@ export function TutorDiscoveryPage() {
     [filters]
   );
 
+  const selectedTutor =
+    filteredTutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
+  const selectedTutorSubjectMatches =
+    selectedTutor?.subjects.filter((subject) => filters.subjects.includes(subject)) ?? [];
+
   function clearFilters() {
     setFilters(DEFAULT_FILTERS);
   }
 
   function findExistingRequest(tutorId: string) {
     return studentRequests.find((request) => request.tutorId === tutorId);
+  }
+
+  function handleViewProfile(tutor: Tutor) {
+    setSelectedTutorId(tutor.id);
+  }
+
+  function handleChat(tutor: Tutor) {
+    setSelectedTutorId(tutor.id);
+    setNotice(`Chat with ${tutor.name} is coming soon.`);
+  }
+
+  function toggleShortlist(tutor: Tutor) {
+    setShortlistedTutorIds((currentTutorIds) => {
+      const isShortlisted = currentTutorIds.includes(tutor.id);
+      const nextTutorIds = isShortlisted
+        ? currentTutorIds.filter((id) => id !== tutor.id)
+        : [...currentTutorIds, tutor.id];
+
+      setNotice(
+        isShortlisted
+          ? `${tutor.name} removed from shortlist.`
+          : `${tutor.name} added to shortlist.`
+      );
+
+      return nextTutorIds;
+    });
   }
 
   async function requestTrial(tutor: Tutor) {
@@ -107,7 +141,7 @@ export function TutorDiscoveryPage() {
         description="Use your learning profile to narrow tutors by subject, level, style, university, rating, and price."
       />
 
-      <Container className="grid items-start gap-8 py-10 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <Container className={`grid items-start gap-8 py-10 ${selectedTutor ? 'lg:grid-cols-[320px_minmax(0,1fr)_360px]' : 'lg:grid-cols-[320px_minmax(0,1fr)]'}`}>
         <div className="lg:sticky lg:top-8">
           <TutorFiltersPanel
             filters={filters}
@@ -153,11 +187,118 @@ export function TutorDiscoveryPage() {
                   tutor={tutor}
                   existingRequest={findExistingRequest(tutor.id)}
                   onRequestTrial={requestTrial}
+                  onViewProfile={handleViewProfile}
                 />
               ))}
             </div>
           )}
         </section>
+
+        <aside className="lg:sticky lg:top-8">
+          {selectedTutor && (
+          <Card className="h-fit">
+              <div>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                      Tutor profile
+                    </p>
+                    <h3 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+                      {selectedTutor.name}
+                    </h3>
+                    <p className="mt-1 text-sm font-medium text-slate-700">
+                      {selectedTutor.headline}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTutorId(null)}
+                    className="rounded-full border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="mt-5 grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-semibold text-slate-950">£{selectedTutor.pricePerHour}</p>
+                    <p className="mt-1 text-[11px] font-medium text-slate-500">per hour</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-semibold text-slate-950">★ {selectedTutor.rating}</p>
+                    <p className="mt-1 text-[11px] font-medium text-slate-500">
+                      {selectedTutor.reviews} reviews
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+                    <p className="text-lg font-semibold text-slate-950">{selectedTutor.numberOfStudents}</p>
+                    <p className="mt-1 text-[11px] font-medium text-slate-500">
+                      students
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-4 text-sm leading-6 text-slate-600">
+                  <p>{selectedTutor.bio}</p>
+
+                  {selectedTutorSubjectMatches.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTutorSubjectMatches.map((subject) => (
+                        <span
+                          key={subject}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700"
+                        >
+                          {subject} · {selectedTutor.rating.toFixed(1)} ★
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                      Learning styles
+                    </p>
+                    <p className="mt-2 text-slate-700">{selectedTutor.learningStyles.join(', ')}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                      Availability
+                    </p>
+                    <p className="mt-2 text-slate-700">{selectedTutor.availability}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                      Personality
+                    </p>
+                    <p className="mt-2 text-slate-700">{selectedTutor.personality.join(', ')}</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  <Button variant="secondary" onClick={() => handleChat(selectedTutor)}>
+                    Chat
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    onClick={() => toggleShortlist(selectedTutor)}
+                  >
+                    {shortlistedTutorIds.includes(selectedTutor.id)
+                      ? 'Shortlisted'
+                      : 'Shortlist'}
+                  </Button>
+
+                  <Button onClick={() => requestTrial(selectedTutor)}>Book trial</Button>
+                </div>
+              </div>
+          </Card>
+          )}
+        </aside>
       </Container>
     </main>
   );

@@ -9,6 +9,7 @@ type TutorCardProps = {
   tutor: Tutor;
   existingRequest?: TrialSessionRequest;
   onRequestTrial: (tutor: Tutor) => void;
+  onViewProfile: (tutor: Tutor) => void;
 };
 
 /**
@@ -17,7 +18,12 @@ type TutorCardProps = {
  * The layout is compact enough for a two-column results grid while still
  * keeping the key decision-making information visible at a glance.
  */
-export function TutorCard({ tutor, existingRequest, onRequestTrial }: TutorCardProps) {
+export function TutorCard({
+  tutor,
+  existingRequest,
+  onRequestTrial,
+  onViewProfile,
+}: TutorCardProps) {
   const hasExistingRequest = Boolean(existingRequest);
 
   return (
@@ -88,7 +94,11 @@ export function TutorCard({ tutor, existingRequest, onRequestTrial }: TutorCardP
             {hasExistingRequest ? 'Request sent' : 'Book trial'}
           </Button>
 
-          <Button variant="secondary" className="w-full">
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={() => onViewProfile(tutor)}
+          >
             View profile
           </Button>
         </div>
