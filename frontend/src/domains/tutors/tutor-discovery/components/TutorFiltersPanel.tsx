@@ -1,30 +1,19 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
+import { Button } from '@/shared/components/Button';
 import {
   LEARNING_STYLE_OPTIONS,
   QUALIFICATION_CATEGORIES,
   SUBJECT_OPTIONS_BY_CATEGORY,
 } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import {
-  TUTOR_SORT_OPTIONS,
-  UNIVERSITY_FILTER_OPTIONS,
   MAX_TUTOR_PRICE_PER_HOUR,
   MIN_TUTOR_PRICE_PER_HOUR,
+  TUTOR_SORT_OPTIONS,
+  UNIVERSITY_FILTER_OPTIONS,
 } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
 import type { TutorFilters } from '@/domains/tutors/tutor-discovery/types/tutor';
-
-const ALL_SUBJECT_OPTIONS = Array.from(
-  new Set(Object.values(SUBJECT_OPTIONS_BY_CATEGORY).flat())
-).sort();
-
-const ALL_LEVEL_OPTIONS = [...QUALIFICATION_CATEGORIES];
-
-const ALL_LEARNING_STYLE_OPTIONS = LEARNING_STYLE_OPTIONS.map(
-  (style) => style.label
-);
 
 type TutorFiltersPanelProps = {
   filters: TutorFilters;
@@ -33,35 +22,37 @@ type TutorFiltersPanelProps = {
   onResetToOnboarding: () => void;
 };
 
-type MultiSelectFilterProps = {
+type DropdownMultiSelectProps = {
   label: string;
-  values: string[];
+  emptyLabel: string;
+  options: string[];
   selectedValues: string[];
-  onToggle: (value: string) => void;
+  disabled?: boolean;
+  disabledMessage?: string;
+  onAdd: (value: string) => void;
+  onRemove: (value: string) => void;
 };
 
 /**
- * Reusable searchable multi-select section.
+ * Dropdown-based multi-select.
  *
- * Used for subjects, levels, learning styles, and universities.
+ * It behaves like a normal dropdown, but every selected option becomes
+ * a removable pill. Selected options are removed from the dropdown so
+ * the user cannot add the same filter twice.
  */
-function MultiSelectFilter({
+function DropdownMultiSelect({
   label,
-  values,
+  emptyLabel,
+  options,
   selectedValues,
-  onToggle,
-}: MultiSelectFilterProps) {
-  const [search, setSearch] = useState('');
-
-  const filteredValues = useMemo(() => {
-    const normalisedSearch = search.trim().toLowerCase();
-
-    if (!normalisedSearch) return values;
-
-    return values.filter((value) =>
-      value.toLowerCase().includes(normalisedSearch)
-    );
-  }, [search, values]);
+  disabled = false,
+  disabledMessage,
+  onAdd,
+  onRemove,
+}: DropdownMultiSelectProps) {
+  const availableOptions = options.filter(
+    (option) => !selectedValues.includes(option)
+  );
 
   return (
     <div>
@@ -70,7 +61,7 @@ function MultiSelectFilter({
       {selectedValues.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {selectedValues.map((value) => (
-            <button key={value} type="button" onClick={() => onToggle(value)}>
+            <button key={value} type="button" onClick={() => onRemove(value)}>
               <Badge className="border-slate-950 bg-slate-950 text-white">
                 {value} ×
               </Badge>
@@ -79,44 +70,59 @@ function MultiSelectFilter({
         </div>
       )}
 
-      <input
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-      />
+      <select
+        value=""
+        disabled={disabled || availableOptions.length === 0}
+        onChange={(event) => {
+          const selectedValue = event.target.value;
+          if (!selectedValue) return;
+          onAdd(selectedValue);
+        }}
+        className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+      >
+        <option value="">
+          {disabled
+            ? disabledMessage ?? emptyLabel
+            : availableOptions.length === 0
+              ? 'All options selected'
+              : emptyLabel}
+        </option>
 
-      <div className="mt-3 flex max-h-40 flex-wrap gap-2 overflow-y-auto pr-1">
-        {filteredValues.map((value) => {
-          const isSelected = selectedValues.includes(value);
-
-          return (
-            <button key={value} type="button" onClick={() => onToggle(value)}>
-              <Badge
-                className={
-                  isSelected
-                    ? 'border-slate-950 bg-slate-950 text-white'
-                    : 'hover:border-slate-400'
-                }
-              >
-                {value}
-              </Badge>
-            </button>
-          );
-        })}
-      </div>
-
-      {filteredValues.length === 0 && (
-        <p className="mt-3 text-sm text-slate-500">No options found.</p>
-      )}
+        {availableOptions.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </div>
   );
+}
+
+function uniqueStrings(values: string[]) {
+  return values.filter((value, index) => values.indexOf(value) === index);
+}
+
+/**
+ * Subjects depend on the levels the student has selected.
+ *
+ * Example:
+ * selected levels: GCSE, A-level
+ * available subjects: GCSE subjects + A-level subjects
+ */
+function getSubjectOptionsForLevels(levels: string[]) {
+  return uniqueStrings(
+    levels.flatMap((level) => {
+      const typedLevel = level as keyof typeof SUBJECT_OPTIONS_BY_CATEGORY;
+      return SUBJECT_OPTIONS_BY_CATEGORY[typedLevel] ?? [];
+    })
+  ).sort();
 }
 
 /**
  * Left-side filter panel for student tutor discovery.
  *
- * These filters are independent from onboarding. They start from onboarding
- * values, but editing them here does not update the onboarding profile.
+ * These filters start from onboarding values, but editing them here does not
+ * change the student's saved onboarding profile.
  */
 export function TutorFiltersPanel({
   filters,
@@ -124,17 +130,51 @@ export function TutorFiltersPanel({
   onClear,
   onResetToOnboarding,
 }: TutorFiltersPanelProps) {
-  function toggleArrayValue(key: keyof Pick<
-    TutorFilters,
-    'subjects' | 'levels' | 'learningStyles' | 'universities'
-  >, value: string) {
-    const currentValues = filters[key];
+  const subjectOptions = getSubjectOptionsForLevels(filters.levels);
+
+  function addArrayValue(
+    key: 'subjects' | 'levels' | 'learningStyles' | 'universities',
+    value: string
+  ) {
+    if (filters[key].includes(value)) return;
+
+    /**
+     * If a level is added, subjects stay as they are.
+     * New subjects simply become available in the subject dropdown.
+     */
+    onChange({
+      ...filters,
+      [key]: [...filters[key], value],
+    });
+  }
+
+  function removeArrayValue(
+    key: 'subjects' | 'levels' | 'learningStyles' | 'universities',
+    value: string
+  ) {
+    const nextValues = filters[key].filter((item) => item !== value);
+
+    /**
+     * If a level is removed, remove any selected subjects that no longer
+     * belong to the remaining selected levels.
+     */
+    if (key === 'levels') {
+      const remainingSubjectOptions = getSubjectOptionsForLevels(nextValues);
+
+      onChange({
+        ...filters,
+        levels: nextValues,
+        subjects: filters.subjects.filter((subject) =>
+          remainingSubjectOptions.includes(subject)
+        ),
+      });
+
+      return;
+    }
 
     onChange({
       ...filters,
-      [key]: currentValues.includes(value)
-        ? currentValues.filter((item) => item !== value)
-        : [...currentValues, value],
+      [key]: nextValues,
     });
   }
 
@@ -166,32 +206,42 @@ export function TutorFiltersPanel({
       </div>
 
       <div className="mt-6 grid gap-6">
-        <MultiSelectFilter
-          label="Subjects"
-          values={ALL_SUBJECT_OPTIONS}
-          selectedValues={filters.subjects}
-          onToggle={(value) => toggleArrayValue('subjects', value)}
-        />
-
-        <MultiSelectFilter
+        <DropdownMultiSelect
           label="Levels"
-          values={ALL_LEVEL_OPTIONS}
+          emptyLabel="Add a level"
+          options={[...QUALIFICATION_CATEGORIES]}
           selectedValues={filters.levels}
-          onToggle={(value) => toggleArrayValue('levels', value)}
+          onAdd={(value) => addArrayValue('levels', value)}
+          onRemove={(value) => removeArrayValue('levels', value)}
         />
 
-        <MultiSelectFilter
+        <DropdownMultiSelect
+          label="Subjects"
+          emptyLabel="Add a subject"
+          options={subjectOptions}
+          selectedValues={filters.subjects}
+          disabled={filters.levels.length === 0}
+          disabledMessage="Select level(s) first"
+          onAdd={(value) => addArrayValue('subjects', value)}
+          onRemove={(value) => removeArrayValue('subjects', value)}
+        />
+
+        <DropdownMultiSelect
           label="Learning styles"
-          values={ALL_LEARNING_STYLE_OPTIONS}
+          emptyLabel="Add a learning style"
+          options={LEARNING_STYLE_OPTIONS.map((style) => style.label)}
           selectedValues={filters.learningStyles}
-          onToggle={(value) => toggleArrayValue('learningStyles', value)}
+          onAdd={(value) => addArrayValue('learningStyles', value)}
+          onRemove={(value) => removeArrayValue('learningStyles', value)}
         />
 
-        <MultiSelectFilter
+        <DropdownMultiSelect
           label="Universities"
-          values={UNIVERSITY_FILTER_OPTIONS}
+          emptyLabel="Add a university"
+          options={UNIVERSITY_FILTER_OPTIONS}
           selectedValues={filters.universities}
-          onToggle={(value) => toggleArrayValue('universities', value)}
+          onAdd={(value) => addArrayValue('universities', value)}
+          onRemove={(value) => removeArrayValue('universities', value)}
         />
 
         <label className="grid gap-2 text-sm font-medium text-slate-700">
@@ -256,7 +306,7 @@ export function TutorFiltersPanel({
             className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
           />
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="mt-3 flex items-center justify-between gap-3">
             <span>Max hourly rate</span>
             <span className="font-semibold text-slate-950">
               £{filters.maxPricePerHour}
