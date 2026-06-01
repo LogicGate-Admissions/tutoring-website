@@ -9,12 +9,14 @@ import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { ROUTES } from '@/shared/constants/routes';
 import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
+import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
 import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import {
   AVAILABILITY_PRESETS,
   DAYS,
 } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import {
+  blockFullyContains,
   createManualTimeBlock,
   mergeTimeBlocks,
   timeBlockLabel,
@@ -81,9 +83,11 @@ export function StudentAvailabilityStep() {
     getInitialSelectedPresetIds(storedProfile.availability)
   );
 
-  const [manualBlocks, setManualBlocks] = useState<TimeBlock[]>(
+  const [customBlocks, setCustomBlocks] = useState<TimeBlock[]>(
     storedProfile.availability.filter((block) => block.source === 'manual')
   );
+
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
   const [manualDay, setManualDay] = useState<Day>('Mon');
   const [manualFrom, setManualFrom] = useState('18:00');
@@ -96,8 +100,8 @@ export function StudentAvailabilityStep() {
   }, [selectedPresetIds]);
 
   const availability = useMemo(() => {
-    return mergeTimeBlocks([...presetBlocks, ...manualBlocks]);
-  }, [presetBlocks, manualBlocks]);
+    return mergeTimeBlocks([...presetBlocks, ...customBlocks]);
+  }, [presetBlocks, customBlocks]);
 
   function togglePreset(presetId: string) {
     setSelectedPresetIds((currentPresetIds) => {
@@ -118,26 +122,58 @@ export function StudentAvailabilityStep() {
       manualTo
     );
 
-    setManualBlocks((currentBlocks) =>
+    setCustomBlocks((currentBlocks) =>
       mergeTimeBlocks([...currentBlocks, newManualBlock])
+    );
+
+    setSelectedBlockId(newManualBlock.id);
+  }
+
+  function addGridRange(day: Day, from: string, to: string) {
+    const newManualBlock = createManualTimeBlock(day, from, to);
+
+    setCustomBlocks((currentBlocks) =>
+      mergeTimeBlocks([...currentBlocks, newManualBlock])
+    );
+
+    setSelectedBlockId(newManualBlock.id);
+  }
+
+  function resizeCustomBlock(blockId: string, from: string, to: string) {
+    setCustomBlocks((currentBlocks) => {
+      const blockToResize = currentBlocks.find((block) => block.id === blockId);
+
+      if (!blockToResize) {
+        return currentBlocks;
+      }
+
+      const resizedBlock: TimeBlock = {
+        ...blockToResize,
+        from,
+        to,
+      };
+
+      const otherBlocks = currentBlocks.filter((block) => block.id !== blockId);
+
+      return mergeTimeBlocks([...otherBlocks, resizedBlock]);
+    });
+  }
+
+  function deleteCustomBlock(blockId: string) {
+    setCustomBlocks((currentBlocks) =>
+      currentBlocks.filter((block) => block.id !== blockId)
+    );
+
+    setSelectedBlockId((currentSelectedBlockId) =>
+      currentSelectedBlockId === blockId ? null : currentSelectedBlockId
     );
   }
 
   function removeBlock(blockToRemove: TimeBlock) {
-    /**
-     * If the block is a manual block, remove it from manual availability.
-     */
-    setManualBlocks((currentBlocks) =>
-      currentBlocks.filter((block) => block.id !== blockToRemove.id)
+    setCustomBlocks((currentBlocks) =>
+      currentBlocks.filter((block) => !blockFullyContains(blockToRemove, block))
     );
 
-    /**
-     * If the block came from presets, deselect any preset that is fully
-     * covered by this block.
-     *
-     * This avoids confusing behaviour when one visible block represents
-     * multiple merged preset times.
-     */
     setSelectedPresetIds((currentPresetIds) =>
       currentPresetIds.filter((presetId) => {
         const preset = AVAILABILITY_PRESETS.find((item) => item.id === presetId);
@@ -148,6 +184,8 @@ export function StudentAvailabilityStep() {
         );
       })
     );
+
+    setSelectedBlockId(null);
   }
 
   function finishOnboarding() {
@@ -228,6 +266,25 @@ export function StudentAvailabilityStep() {
             <Button variant="secondary" onClick={addManualBlock}>
               Add time
             </Button>
+          </div>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <h2 className="text-xl font-semibold">Timetable selection</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Drag across 30-minute slots to quickly add availability, then refine
+            blocks by resizing.
+          </p>
+
+          <div className="mt-5">
+            <StudentAvailabilityGrid
+              blocks={customBlocks}
+              selectedBlockId={selectedBlockId}
+              onSelectBlock={setSelectedBlockId}
+              onAddTimeRange={addGridRange}
+              onDeleteBlock={deleteCustomBlock}
+              onResizeBlock={resizeCustomBlock}
+            />
           </div>
         </Card>
 

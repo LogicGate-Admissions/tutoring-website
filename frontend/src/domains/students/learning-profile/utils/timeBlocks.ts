@@ -13,6 +13,18 @@ export function timeToMinutes(time: string) {
   return hours * 60 + minutes;
 }
 
+export function minutesToTime(totalMinutes: number) {
+  const clampedMinutes = Math.max(0, Math.min(24 * 60, totalMinutes));
+  const hours = Math.floor(clampedMinutes / 60);
+  const minutes = clampedMinutes % 60;
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+export function snapMinutesToThirty(minutes: number) {
+  return Math.round(minutes / 30) * 30;
+}
+
 export function blockTouchesOrOverlaps(a: TimeBlock, b: TimeBlock) {
   if (a.day !== b.day) return false;
 
@@ -22,6 +34,32 @@ export function blockTouchesOrOverlaps(a: TimeBlock, b: TimeBlock) {
   const bEnd = timeToMinutes(b.to);
 
   return aStart <= bEnd && bStart <= aEnd;
+}
+
+export function blockFullyContains(existingBlock: TimeBlock, targetBlock: TimeBlock) {
+  if (existingBlock.day !== targetBlock.day) return false;
+
+  return (
+    timeToMinutes(existingBlock.from) <= timeToMinutes(targetBlock.from) &&
+    timeToMinutes(existingBlock.to) >= timeToMinutes(targetBlock.to)
+  );
+}
+
+export function findBlockCoveringTime(
+  blocks: TimeBlock[],
+  day: Day,
+  time: string
+) {
+  const timeMinutes = timeToMinutes(time);
+
+  return blocks.find((block) => {
+    if (block.day !== day) return false;
+
+    return (
+      timeToMinutes(block.from) <= timeMinutes &&
+      timeMinutes < timeToMinutes(block.to)
+    );
+  });
 }
 
 /**
