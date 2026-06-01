@@ -3,24 +3,107 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --brand-primary: #1B4D6E;
+  --brand-accent: #F0A500;
+  --surface-soft: #f7fbff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-accent: var(--brand-accent);
+  --color-surface-soft: var(--surface-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-serif: var(--font-source-serif-4);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Landing page animations */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floatCard {
+  0%, 100% {
+    transform: translateY(0) rotate(3deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(3deg);
+  }
+}
+
+@keyframes floatBadge {
+  0%, 100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-4deg);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 4px 4px 0 #111, 0 0 0 0 rgba(240, 165, 0, 0.4);
+  }
+  50% {
+    box-shadow: 4px 4px 0 #111, 0 0 0 6px rgba(240, 165, 0, 0);
+  }
+}
+
+@keyframes revealLine {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.animate-fade-slide-up {
+  animation: fadeSlideUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-float-card {
+  animation: floatCard 4s ease-in-out infinite;
+}
+
+.animate-float-badge {
+  animation: floatBadge 3.5s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s ease-in-out 0.8s 3;
+}
+
+@keyframes slideDown {
+  0%, 100% { transform: translateY(0); opacity: 1; }
+  80% { transform: translateY(14px); opacity: 0; }
+}
+
+.animate-scroll-dot {
+  animation: slideDown 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-slide-up,
+  .animate-float-card,
+  .animate-float-badge,
+  .animate-pulse-glow {
+    animation: none;
+  }
+  .animate-fade-slide-up {
+    opacity: 1;
+    transform: none;
+  }
 }
