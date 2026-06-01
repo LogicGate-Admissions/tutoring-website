@@ -17,11 +17,11 @@ type SearchableMultiSelectProps<Option> = {
 };
 
 /**
- * Searchable multi-select combobox.
+ * Shared searchable multi-select combobox.
  *
- * The input opens a dropdown automatically.
- * Results update live while the user types.
- * Selected options become removable pills.
+ * This is used anywhere the app needs "search, pick, turn into pill" behaviour.
+ * It supports both simple string options and richer object options by requiring
+ * callers to provide key and label functions.
  */
 export function SearchableMultiSelect<Option>({
   label,
@@ -35,22 +35,23 @@ export function SearchableMultiSelect<Option>({
   disabledMessage = 'Not available',
   emptyMessage = 'No options found',
 }: SearchableMultiSelectProps<Option>) {
+  // Phase 1: local UI state only; selected values remain owned by the parent.
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
 
-  const selectedOptionKeys = selectedOptions.map(getOptionKey);
-
+  // Phase 2: derive available options from current search and selected pills.
   const availableOptions = useMemo(() => {
+    const selectedOptionKeys = new Set(selectedOptions.map(getOptionKey));
     const normalisedSearch = search.trim().toLowerCase();
 
     return options
-      .filter((option) => !selectedOptionKeys.includes(getOptionKey(option)))
+      .filter((option) => !selectedOptionKeys.has(getOptionKey(option)))
       .filter((option) => {
         if (!normalisedSearch) return true;
 
         return getOptionLabel(option).toLowerCase().includes(normalisedSearch);
       });
-  }, [getOptionKey, getOptionLabel, options, search, selectedOptionKeys]);
+  }, [getOptionKey, getOptionLabel, options, search, selectedOptions]);
 
   function chooseOption(option: Option) {
     onSelect(option);
@@ -62,6 +63,7 @@ export function SearchableMultiSelect<Option>({
     <div>
       <p className="text-sm font-medium text-slate-700">{label}</p>
 
+      {/* Phase 3: selected options are visible and removable. */}
       {selectedOptions.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {selectedOptions.map((option) => (
@@ -78,6 +80,7 @@ export function SearchableMultiSelect<Option>({
         </div>
       )}
 
+      {/* Phase 4: the input is the dropdown trigger and live search field. */}
       <div className="relative mt-3">
         <input
           value={search}
@@ -88,14 +91,12 @@ export function SearchableMultiSelect<Option>({
             setIsOpen(true);
           }}
           onBlur={() => {
-            /**
-             * Small delay lets option clicks register before the dropdown closes.
-             */
             window.setTimeout(() => setIsOpen(false), 120);
           }}
           className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
         />
 
+        {/* Phase 5: custom dropdown updates while the user types. */}
         {isOpen && !disabled && (
           <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
             {availableOptions.length > 0 ? (

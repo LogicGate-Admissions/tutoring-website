@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
-import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
@@ -15,86 +14,52 @@ import {
   updateStoredLearningProfile,
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';
-import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import {
   createTrialSessionRequest,
   subscribeToStudentTrialSessions,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
-import {
-  MAX_TUTOR_PRICE_PER_HOUR,
-  MIN_TUTOR_PRICE_PER_HOUR,
-  TUTOR_PROFILES,
-} from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
+import { TUTOR_PROFILES } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
 import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
 import { TutorFiltersPanel } from '@/domains/tutors/tutor-discovery/components/TutorFiltersPanel';
+import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
 import { filterTutors } from '@/domains/tutors/tutor-discovery/utils/filterTutors';
+import {
+  DEFAULT_TUTOR_FILTERS,
+  profileToTutorFilters,
+  tutorFiltersToProfileSelections,
+} from '@/domains/tutors/tutor-discovery/utils/tutorFilterMapping';
 import type {
   Tutor,
   TutorFilters,
 } from '@/domains/tutors/tutor-discovery/types/tutor';
 
-export const DEFAULT_FILTERS: TutorFilters = {
-  subjects: [],
-  levels: [],
-  learningStyles: [],
-  universities: [],
-  minPricePerHour: MIN_TUTOR_PRICE_PER_HOUR,
-  maxPricePerHour: MAX_TUTOR_PRICE_PER_HOUR,
-  sortBy: 'Best match',
-};
-
-function uniqueStrings<T>(values: T[]) {
-  return values.filter((value, index) => values.indexOf(value) === index);
-}
-
-function getOnboardingTutorFilters(): TutorFilters {
-  const profile = getStoredLearningProfile();
-
-  return {
-    ...DEFAULT_FILTERS,
-    subjects: profile.subjectSelections.flatMap((selection) =>
-      selection.subjects.map((subject) => ({
-        level: selection.category,
-        subject,
-      }))
-    ),
-    levels: uniqueStrings(
-      profile.subjectSelections.map((selection) => selection.category)
-    ),
-    learningStyles: profile.learningStyles,
-    universities: profile.preferredUniversities,
-  };
-}
-
-function tutorInitials(name: string) {
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+function getOnboardingTutorFilters() {
+  return profileToTutorFilters(getStoredLearningProfile());
 }
 
 /**
  * Student-facing tutor discovery page.
  *
- * The tutor profile opens as a modal so the tutor results grid never gets
- * squeezed into a narrower layout.
+ * Responsibilities are intentionally split:
+ * - TutorFiltersPanel owns editing filters.
+ * - TutorCard owns compact result display.
+ * - TutorProfileModal owns detailed profile actions.
+ * - filterTutors owns matching/sorting logic.
  */
 export function TutorDiscoveryPage() {
+  // Phase 1: initialise page state from the saved onboarding profile.
   const [filters, setFilters] = useState<TutorFilters>(
     getOnboardingTutorFilters
   );
-
   const [studentRequests, setStudentRequests] = useState<TrialSessionRequest[]>(
     []
   );
-
   const [notice, setNotice] = useState('');
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [shortlistedTutorIds, setShortlistedTutorIds] = useState<string[]>([]);
 
+  // Phase 2: keep trial request state synced with Firestore.
   useEffect(() => {
     const unsubscribe = subscribeToStudentTrialSessions(
       MOCK_STUDENT.id,
@@ -104,6 +69,7 @@ export function TutorDiscoveryPage() {
     return () => unsubscribe();
   }, []);
 
+  // Phase 3: derive display data from state without storing duplicates.
   const filteredTutors = useMemo(
     () => filterTutors(TUTOR_PROFILES, filters),
     [filters]
@@ -112,28 +78,24 @@ export function TutorDiscoveryPage() {
   const selectedTutor =
     TUTOR_PROFILES.find((tutor) => tutor.id === selectedTutorId) ?? null;
 
-  function saveFiltersToOnboardingProfile() {
-    const profile = getStoredLearningProfile();
+  const selectedTutorRequest = selectedTutor
+    ? findExistingRequest(selectedTutor.id)
+    : undefined;
 
-    const subjectSelections = filters.levels.map((level) => ({
-      category: level,
-      subjects: filters.subjects
-        .filter((subjectFilter) => subjectFilter.level === level)
-        .map((subjectFilter) => subjectFilter.subject),
-    }));
+  // Phase 4: filter/profile actions are small wrappers around domain helpers.
+  function saveFiltersToOnboardingProfile() {
+    const profileSelections = tutorFiltersToProfileSelections(filters);
 
     updateStoredLearningProfile({
-      ...profile,
-      subjectSelections,
-      learningStyles: filters.learningStyles,
-      preferredUniversities: filters.universities,
+      ...getStoredLearningProfile(),
+      ...profileSelections,
     });
 
     setNotice('Your learning profile has been updated from these filters.');
   }
 
   function clearFilters() {
-    setFilters(DEFAULT_FILTERS);
+    setFilters(DEFAULT_TUTOR_FILTERS);
   }
 
   function resetToOnboardingFilters() {
@@ -209,6 +171,7 @@ export function TutorDiscoveryPage() {
 
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
+      {/* Phase 5: page-level navigation stays outside the filter/results grid. */}
       <PageHeader
         eyebrow="Student area"
         title="Find your match."
@@ -223,6 +186,7 @@ export function TutorDiscoveryPage() {
         </Link>
       </Container>
 
+      {/* Phase 6: filters and results stay in a stable two-column layout. */}
       <Container className="grid items-start gap-8 py-10 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-8">
           <TutorFiltersPanel
@@ -235,35 +199,13 @@ export function TutorDiscoveryPage() {
         </div>
 
         <section className="min-w-0">
-          {notice && (
-            <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
-              {notice}
-            </div>
-          )}
-
-          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
-                Tutor results
-              </p>
-              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-                {filteredTutors.length} available matches
-              </h2>
-            </div>
-
-            <p className="max-w-md text-sm leading-6 text-slate-600">
-              Browse the tutors below and open a profile when you want more
-              detail.
-            </p>
-          </div>
+          <TutorResultsHeader
+            notice={notice}
+            tutorCount={filteredTutors.length}
+          />
 
           {filteredTutors.length === 0 ? (
-            <Card>
-              <p className="font-medium">No tutors match these filters.</p>
-              <p className="mt-2 text-sm text-slate-600">
-                Try increasing the max price or clearing one of the filters.
-              </p>
-            </Card>
+            <NoTutorMatches />
           ) : (
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
               {filteredTutors.map((tutor) => (
@@ -279,197 +221,62 @@ export function TutorDiscoveryPage() {
         </section>
       </Container>
 
+      {/* Phase 7: profile details open as an overlay, never as a third column. */}
       {selectedTutor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-slate-950 text-2xl font-semibold text-white">
-                  {tutorInitials(selectedTutor.name)}
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                    Tutor profile
-                  </p>
-
-                  <h3 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
-                    {selectedTutor.name}
-                  </h3>
-
-                  <p className="mt-2 text-sm font-medium text-slate-700">
-                    {selectedTutor.university}
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    {selectedTutor.degree}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-2">
-                <HomeLinkButton label="Home" />
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedTutorId(null)}
-                  className="rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p className="text-xl font-semibold text-slate-950">
-                  £{selectedTutor.pricePerHour}
-                </p>
-                <p className="mt-1 text-xs font-medium text-slate-500">
-                  per hour
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p className="text-xl font-semibold text-slate-950">
-                  ★ {selectedTutor.rating.toFixed(1)}
-                </p>
-                <p className="mt-1 text-xs font-medium text-slate-500">
-                  {selectedTutor.reviews} reviews
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-                <p className="text-xl font-semibold text-slate-950">
-                  {selectedTutor.numberOfStudents}
-                </p>
-                <p className="mt-1 text-xs font-medium text-slate-500">
-                  students taught
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-6">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  About
-                </p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">
-                  {selectedTutor.bio}
-                </p>
-              </div>
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Levels taught
-                  </p>
-
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {selectedTutor.levels.map((level) => (
-                      <Badge
-                        key={level}
-                        className="border-slate-300 bg-white text-slate-800"
-                      >
-                        {level}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Subjects
-                  </p>
-
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {selectedTutor.subjects.map((subject) => (
-                      <Badge
-                        key={subject}
-                        className="border-slate-300 bg-white text-slate-800"
-                      >
-                        {subject}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Learning styles
-                  </p>
-
-                  <p className="mt-2 text-sm leading-6 text-slate-700">
-                    {selectedTutor.learningStyles.join(', ')}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Availability
-                  </p>
-
-                  <p className="mt-2 text-sm leading-6 text-slate-700">
-                    {selectedTutor.availability}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Personality
-                </p>
-
-                <p className="mt-2 text-sm leading-6 text-slate-700">
-                  {selectedTutor.personality.join(', ')}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 border-t border-slate-200 pt-5">
-              {findExistingRequest(selectedTutor.id) && (
-                <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-medium text-slate-700">
-                    Trial request
-                  </p>
-                  <TrialStatusBadge
-                    status={findExistingRequest(selectedTutor.id)!.status}
-                  />
-                </div>
-              )}
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Button
-                  variant="secondary"
-                  onClick={() => handleChat(selectedTutor)}
-                >
-                  Chat
-                </Button>
-
-                <Button
-                  variant="secondary"
-                  onClick={() => toggleShortlist(selectedTutor)}
-                >
-                  {shortlistedTutorIds.includes(selectedTutor.id)
-                    ? 'Shortlisted'
-                    : 'Shortlist'}
-                </Button>
-
-                <Button
-                  disabled={Boolean(findExistingRequest(selectedTutor.id))}
-                  onClick={() => requestTrial(selectedTutor)}
-                >
-                  {findExistingRequest(selectedTutor.id)
-                    ? 'Request sent'
-                    : 'Book trial'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <TutorProfileModal
+          tutor={selectedTutor}
+          existingRequest={selectedTutorRequest}
+          isShortlisted={shortlistedTutorIds.includes(selectedTutor.id)}
+          onClose={() => setSelectedTutorId(null)}
+          onChat={handleChat}
+          onToggleShortlist={toggleShortlist}
+          onRequestTrial={requestTrial}
+        />
       )}
     </main>
+  );
+}
+
+function TutorResultsHeader({
+  notice,
+  tutorCount,
+}: {
+  notice: string;
+  tutorCount: number;
+}) {
+  return (
+    <>
+      {notice && (
+        <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+          {notice}
+        </div>
+      )}
+
+      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+            Tutor results
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+            {tutorCount} available matches
+          </h2>
+        </div>
+
+        <p className="max-w-md text-sm leading-6 text-slate-600">
+          Browse the tutors below and open a profile when you want more detail.
+        </p>
+      </div>
+    </>
+  );
+}
+
+function NoTutorMatches() {
+  return (
+    <Card>
+      <p className="font-medium">No tutors match these filters.</p>
+      <p className="mt-2 text-sm text-slate-600">
+        Try increasing the max price or clearing one of the filters.
+      </p>
+    </Card>
   );
 }

@@ -18,6 +18,10 @@ import type {
   TutorFilters,
   TutorSubjectFilter,
 } from '@/domains/tutors/tutor-discovery/types/tutor';
+import {
+  tutorSubjectFilterKey,
+  tutorSubjectFilterLabel,
+} from '@/domains/tutors/tutor-discovery/utils/tutorDisplay';
 
 type TutorFiltersPanelProps = {
   filters: TutorFilters;
@@ -27,22 +31,11 @@ type TutorFiltersPanelProps = {
   onSaveToOnboarding: () => void;
 };
 
-function subjectFilterId(subjectFilter: TutorSubjectFilter) {
-  return `${subjectFilter.level}|||${subjectFilter.subject}`;
-}
-
-function subjectFilterLabel(subjectFilter: TutorSubjectFilter) {
-  return `${subjectFilter.level} · ${subjectFilter.subject}`;
-}
-
 /**
- * Creates level-specific subject options.
+ * Creates level-specific subject options for the subject combobox.
  *
- * Example:
- * GCSE · Maths
- * A-level · Maths
- *
- * This avoids the confusing duplicate "Maths" issue.
+ * Example output: GCSE · Maths, A-level · Maths.
+ * This avoids showing two unclear duplicate "Maths" options.
  */
 function getSubjectOptionsForLevels(levels: QualificationCategory[]) {
   return levels.flatMap((level) =>
@@ -56,9 +49,9 @@ function getSubjectOptionsForLevels(levels: QualificationCategory[]) {
 /**
  * Left-side filter panel for student tutor discovery.
  *
- * These filters start from onboarding values, but editing them here does not
- * change the saved onboarding profile unless the user presses
- * "Save filters to profile".
+ * This component owns temporary browsing filters only. It receives the current
+ * filter state from TutorDiscoveryPage and reports changes upward, so the
+ * panel can be developed independently from result rendering and booking.
  */
 export function TutorFiltersPanel({
   filters,
@@ -67,6 +60,7 @@ export function TutorFiltersPanel({
   onResetToOnboarding,
   onSaveToOnboarding,
 }: TutorFiltersPanelProps) {
+  // Phase 1: update qualification-level filters and keep subject filters valid.
   function addLevel(level: QualificationCategory) {
     if (filters.levels.includes(level)) return;
 
@@ -82,12 +76,11 @@ export function TutorFiltersPanel({
     onChange({
       ...filters,
       levels: nextLevels,
-      subjects: filters.subjects.filter(
-        (subject) => subject.level !== level
-      ),
+      subjects: filters.subjects.filter((subject) => subject.level !== level),
     });
   }
 
+  // Phase 2: update level-specific subject filters.
   function addSubject(subject: TutorSubjectFilter) {
     const alreadySelected = filters.subjects.some(
       (selectedSubject) =>
@@ -114,6 +107,7 @@ export function TutorFiltersPanel({
     });
   }
 
+  // Phase 3: update simple multi-select filters.
   function addLearningStyle(learningStyle: string) {
     if (filters.learningStyles.includes(learningStyle)) return;
 
@@ -144,14 +138,28 @@ export function TutorFiltersPanel({
   function removeUniversity(university: string) {
     onChange({
       ...filters,
-      universities: filters.universities.filter(
-        (item) => item !== university
-      ),
+      universities: filters.universities.filter((item) => item !== university),
+    });
+  }
+
+  // Phase 4: update numeric filter ranges while keeping min <= max.
+  function updateMinimumPrice(value: number) {
+    onChange({
+      ...filters,
+      minPricePerHour: Math.min(value, filters.maxPricePerHour),
+    });
+  }
+
+  function updateMaximumPrice(value: number) {
+    onChange({
+      ...filters,
+      maxPricePerHour: Math.max(value, filters.minPricePerHour),
     });
   }
 
   return (
     <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      {/* Phase 5: global filter actions. */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
@@ -185,6 +193,7 @@ export function TutorFiltersPanel({
         </Button>
       </div>
 
+      {/* Phase 6: searchable matching criteria. */}
       <div className="mt-6 grid gap-6">
         <SearchableMultiSelect
           label="Levels"
@@ -201,8 +210,8 @@ export function TutorFiltersPanel({
           label="Subjects"
           options={getSubjectOptionsForLevels(filters.levels)}
           selectedOptions={filters.subjects}
-          getOptionKey={subjectFilterId}
-          getOptionLabel={subjectFilterLabel}
+          getOptionKey={tutorSubjectFilterKey}
+          getOptionLabel={tutorSubjectFilterLabel}
           onSelect={addSubject}
           onRemove={removeSubject}
           disabled={filters.levels.length === 0}
@@ -232,6 +241,7 @@ export function TutorFiltersPanel({
           emptyMessage="No universities found."
         />
 
+        {/* Phase 7: ordering and price constraints. */}
         <label className="grid gap-2 text-sm font-medium text-slate-700">
           Sort by
           <select
@@ -252,90 +262,83 @@ export function TutorFiltersPanel({
           </select>
         </label>
 
-        <div className="grid gap-2 text-sm font-medium text-slate-700">
-          <div className="flex items-center justify-between gap-3">
-            <span>Min hourly rate</span>
-            <span className="font-semibold text-slate-950">
-              £{filters.minPricePerHour}
-            </span>
-          </div>
-
-          <input
-            type="range"
-            min={MIN_TUTOR_PRICE_PER_HOUR}
-            max={MAX_TUTOR_PRICE_PER_HOUR}
-            value={filters.minPricePerHour}
-            onChange={(event) =>
-              onChange({
-                ...filters,
-                minPricePerHour: Math.min(
-                  Number(event.target.value),
-                  filters.maxPricePerHour
-                ),
-              })
-            }
-          />
-
-          <input
-            type="number"
-            min={MIN_TUTOR_PRICE_PER_HOUR}
-            max={MAX_TUTOR_PRICE_PER_HOUR}
-            value={filters.minPricePerHour}
-            onChange={(event) => {
-              const typedValue = Number(event.target.value);
-
-              onChange({
-                ...filters,
-                minPricePerHour: Number.isNaN(typedValue)
-                  ? MIN_TUTOR_PRICE_PER_HOUR
-                  : Math.min(typedValue, filters.maxPricePerHour),
-              });
-            }}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-          />
-
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <span>Max hourly rate</span>
-            <span className="font-semibold text-slate-950">
-              £{filters.maxPricePerHour}
-            </span>
-          </div>
-
-          <input
-            type="range"
-            min={MIN_TUTOR_PRICE_PER_HOUR}
-            max={MAX_TUTOR_PRICE_PER_HOUR}
-            value={filters.maxPricePerHour}
-            onChange={(event) =>
-              onChange({
-                ...filters,
-                maxPricePerHour: Math.max(
-                  Number(event.target.value),
-                  filters.minPricePerHour
-                ),
-              })
-            }
-          />
-
-          <input
-            type="number"
-            min={MIN_TUTOR_PRICE_PER_HOUR}
-            max={MAX_TUTOR_PRICE_PER_HOUR}
-            value={filters.maxPricePerHour}
-            onChange={(event) => {
-              const typedValue = Number(event.target.value);
-
-              onChange({
-                ...filters,
-                maxPricePerHour: Number.isNaN(typedValue)
-                  ? MAX_TUTOR_PRICE_PER_HOUR
-                  : Math.max(typedValue, filters.minPricePerHour),
-              });
-            }}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-          />
-        </div>
+        <PriceRangeControls
+          minPrice={filters.minPricePerHour}
+          maxPrice={filters.maxPricePerHour}
+          onMinPriceChange={updateMinimumPrice}
+          onMaxPriceChange={updateMaximumPrice}
+        />
       </div>
     </aside>
+  );
+}
+
+function PriceRangeControls({
+  minPrice,
+  maxPrice,
+  onMinPriceChange,
+  onMaxPriceChange,
+}: {
+  minPrice: number;
+  maxPrice: number;
+  onMinPriceChange: (value: number) => void;
+  onMaxPriceChange: (value: number) => void;
+}) {
+  return (
+    <div className="grid gap-2 text-sm font-medium text-slate-700">
+      <PriceField
+        label="Min hourly rate"
+        value={minPrice}
+        onChange={onMinPriceChange}
+      />
+
+      <PriceField
+        label="Max hourly rate"
+        value={maxPrice}
+        onChange={onMaxPriceChange}
+        className="mt-3"
+      />
+    </div>
+  );
+}
+
+function PriceField({
+  label,
+  value,
+  onChange,
+  className,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <div className="flex items-center justify-between gap-3">
+        <span>{label}</span>
+        <span className="font-semibold text-slate-950">£{value}</span>
+      </div>
+
+      <input
+        type="range"
+        min={MIN_TUTOR_PRICE_PER_HOUR}
+        max={MAX_TUTOR_PRICE_PER_HOUR}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+
+      <input
+        type="number"
+        min={MIN_TUTOR_PRICE_PER_HOUR}
+        max={MAX_TUTOR_PRICE_PER_HOUR}
+        value={value}
+        onChange={(event) => {
+          const typedValue = Number(event.target.value);
+          onChange(Number.isNaN(typedValue) ? value : typedValue);
+        }}
+        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
+      />
+    </div>
   );
 }
