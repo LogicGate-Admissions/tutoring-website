@@ -57,6 +57,7 @@ function getOnboardingTutorFilters(): TutorFilters {
       profile.subjectSelections.map((selection) => selection.category)
     ),
     learningStyles: profile.learningStyles,
+    universities: profile.preferredUniversities,
   };
 }
 
@@ -111,6 +112,7 @@ export function TutorDiscoveryPage() {
       ...profile,
       subjectSelections,
       learningStyles: filters.learningStyles,
+      preferredUniversities: filters.universities,
     });
 
     setNotice('Your learning profile has been updated from these filters.');

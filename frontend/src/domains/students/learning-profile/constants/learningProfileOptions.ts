@@ -109,6 +109,24 @@ export const LEARNING_STYLE_OPTIONS = [
   },
 ];
 
+/**
+ * Universities students may prefer tutors to come from.
+ *
+ * This belongs in the learning profile because university preference is part
+ * of the student's matching criteria, not just a temporary tutor search filter.
+ */
+export const UNIVERSITY_OPTIONS = [
+  'Imperial College London',
+  'University of Cambridge',
+  'University of Oxford',
+  'University College London',
+  'King’s College London',
+  'University of Warwick',
+  'University of Manchester',
+  'University of Bristol',
+  'University of Edinburgh',
+] as const;
+
 export const DAYS: Day[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function presetBlock(id: string, day: Day, from: string, to: string): TimeBlock {
@@ -161,6 +179,7 @@ export const AVAILABILITY_PRESETS = [
 export const DEFAULT_LEARNING_PROFILE = {
   subjectSelections: [],
   learningStyles: [],
+  preferredUniversities: [],
   availability: [],
 } satisfies import('@/domains/students/learning-profile/types/learningProfile').StudentLearningProfile;
 

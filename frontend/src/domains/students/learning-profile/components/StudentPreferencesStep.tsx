@@ -1,10 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { Badge } from '@/shared/components/Badge';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
-import { LEARNING_STYLE_OPTIONS } from '@/domains/students/learning-profile/constants/learningProfileOptions';
+import {
+  LEARNING_STYLE_OPTIONS,
+  UNIVERSITY_OPTIONS,
+} from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
 import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import {
@@ -12,14 +16,31 @@ import {
   updateStoredLearningProfile,
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
 
+function removeSelectedValues(options: readonly string[], selectedValues: string[]) {
+  return options.filter((option) => !selectedValues.includes(option));
+}
+
 /**
  * Second student onboarding step.
  *
- * This captures how the student prefers to learn, not just what they study.
+ * This captures matching preferences:
+ * - how the student prefers to learn
+ * - which university backgrounds they prefer tutors to have
  */
 export function StudentPreferencesStep() {
+  const storedProfile = getStoredLearningProfile();
+
   const [selectedStyles, setSelectedStyles] = useState<string[]>(
-    getStoredLearningProfile().learningStyles
+    storedProfile.learningStyles
+  );
+
+  const [preferredUniversities, setPreferredUniversities] = useState<string[]>(
+    storedProfile.preferredUniversities
+  );
+
+  const availableUniversities = removeSelectedValues(
+    UNIVERSITY_OPTIONS,
+    preferredUniversities
   );
 
   function toggleStyle(style: string) {
@@ -30,21 +51,44 @@ export function StudentPreferencesStep() {
     );
   }
 
+  function addUniversity(university: string) {
+    if (!university || preferredUniversities.includes(university)) return;
+
+    setPreferredUniversities((currentUniversities) => [
+      ...currentUniversities,
+      university,
+    ]);
+  }
+
+  function removeUniversity(university: string) {
+    setPreferredUniversities((currentUniversities) =>
+      currentUniversities.filter((item) => item !== university)
+    );
+  }
+
   function saveDraftProfile() {
-    updateStoredLearningProfile({ learningStyles: selectedStyles });
+    updateStoredLearningProfile({
+      learningStyles: selectedStyles,
+      preferredUniversities,
+    });
   }
 
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
       <PageHeader
         eyebrow="Student onboarding"
-        title="How do you prefer to learn?"
-        description="Tell us how you like to work so we can match you with a better fit."
+        title="What kind of tutor fits you?"
+        description="Choose how you prefer to learn and whether you have a tutor university preference."
       />
 
-      <Container className="py-10 pb-28">
+      <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>
-          <div className="grid gap-3 md:grid-cols-2">
+          <h2 className="text-xl font-semibold">Learning style</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Select any styles that would make tutoring feel more useful for you.
+          </p>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
             {LEARNING_STYLE_OPTIONS.map((style) => (
               <OptionCard
                 key={style.label}
@@ -55,6 +99,49 @@ export function StudentPreferencesStep() {
               />
             ))}
           </div>
+        </Card>
+
+        <Card>
+          <h2 className="text-xl font-semibold">Preferred universities</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Add universities you would prefer tutors to come from. You can
+            leave this blank if you do not mind.
+          </p>
+
+          {preferredUniversities.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {preferredUniversities.map((university) => (
+                <button
+                  key={university}
+                  type="button"
+                  onClick={() => removeUniversity(university)}
+                >
+                  <Badge className="border-slate-950 bg-slate-950 text-white">
+                    {university} ×
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <select
+            value=""
+            disabled={availableUniversities.length === 0}
+            onChange={(event) => addUniversity(event.target.value)}
+            className="mt-4 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            <option value="">
+              {availableUniversities.length === 0
+                ? 'All universities selected'
+                : 'Add a university'}
+            </option>
+
+            {availableUniversities.map((university) => (
+              <option key={university} value={university}>
+                {university}
+              </option>
+            ))}
+          </select>
         </Card>
       </Container>
 

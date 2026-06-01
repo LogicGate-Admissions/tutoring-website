@@ -34,5 +34,6 @@ export type QualificationSubjectSelection = {
 export type StudentLearningProfile = {
   subjectSelections: QualificationSubjectSelection[];
   learningStyles: string[];
+  preferredUniversities: string[];
   availability: TimeBlock[];
 };
