@@ -29,12 +29,16 @@ export type TutorSortOption =
 
 /**
  * Filters students can apply while browsing tutors.
+ *
+ * These are separate from onboarding.
+ * Tutor filters can be edited freely without changing the student's saved
+ * onboarding learning profile.
  */
 export type TutorFilters = {
   subjects: string[];
-  level: string;
-  learningStyle: string;
-  university: string;
+  levels: string[];
+  learningStyles: string[];
+  universities: string[];
   minPricePerHour: number;
   maxPricePerHour: number;
   sortBy: TutorSortOption;

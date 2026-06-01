@@ -4,51 +4,40 @@ function normalise(value: string) {
   return value.trim().toLowerCase();
 }
 
-function hasAnyMatchingSubject(tutor: Tutor, selectedSubjects: string[]) {
-  if (selectedSubjects.length === 0) return true;
+function hasAnyMatch(tutorValues: string[], selectedValues: string[]) {
+  if (selectedValues.length === 0) return true;
 
-  const tutorSubjects = tutor.subjects.map(normalise);
+  const normalisedTutorValues = tutorValues.map(normalise);
 
-  return selectedSubjects.some((subject) =>
-    tutorSubjects.includes(normalise(subject))
+  return selectedValues.some((selectedValue) =>
+    normalisedTutorValues.includes(normalise(selectedValue))
   );
 }
 
-function hasLearningStyle(tutor: Tutor, learningStyle: string) {
-  if (!learningStyle) return true;
+function hasSelectedUniversity(tutor: Tutor, selectedUniversities: string[]) {
+  if (selectedUniversities.length === 0) return true;
 
-  return tutor.learningStyles
+  return selectedUniversities
     .map(normalise)
-    .includes(normalise(learningStyle));
-}
-
-function hasLevel(tutor: Tutor, level: string) {
-  if (!level) return true;
-
-  return tutor.levels.map(normalise).includes(normalise(level));
-}
-
-function hasUniversity(tutor: Tutor, university: string) {
-  if (!university) return true;
-
-  return normalise(tutor.university) === normalise(university);
+    .includes(normalise(tutor.university));
 }
 
 function scoreTutor(tutor: Tutor, filters: TutorFilters) {
   let score = 0;
 
   score += tutor.rating * 10;
+
   score += filters.subjects.filter((subject) =>
     tutor.subjects.map(normalise).includes(normalise(subject))
   ).length * 20;
 
-  if (filters.learningStyle && hasLearningStyle(tutor, filters.learningStyle)) {
-    score += 10;
-  }
+  score += filters.levels.filter((level) =>
+    tutor.levels.map(normalise).includes(normalise(level))
+  ).length * 10;
 
-  if (filters.level && hasLevel(tutor, filters.level)) {
-    score += 10;
-  }
+  score += filters.learningStyles.filter((style) =>
+    tutor.learningStyles.map(normalise).includes(normalise(style))
+  ).length * 10;
 
   return score;
 }
@@ -56,16 +45,18 @@ function scoreTutor(tutor: Tutor, filters: TutorFilters) {
 /**
  * Applies all tutor filters in one pure function.
  *
- * A pure function is easy to test because the same input always gives the same
- * output and it does not depend on React state or Firebase.
+ * Empty filter arrays mean "any".
+ * Example:
+ * levels: [] means any level.
+ * levels: ['GCSE', 'A-level'] means tutors must teach at least one of those.
  */
 export function filterTutors(tutors: Tutor[], filters: TutorFilters) {
   const filteredTutors = tutors.filter((tutor) => {
     return (
-      hasAnyMatchingSubject(tutor, filters.subjects) &&
-      hasLevel(tutor, filters.level) &&
-      hasLearningStyle(tutor, filters.learningStyle) &&
-      hasUniversity(tutor, filters.university) &&
+      hasAnyMatch(tutor.subjects, filters.subjects) &&
+      hasAnyMatch(tutor.levels, filters.levels) &&
+      hasAnyMatch(tutor.learningStyles, filters.learningStyles) &&
+      hasSelectedUniversity(tutor, filters.universities) &&
       tutor.pricePerHour >= filters.minPricePerHour &&
       tutor.pricePerHour <= filters.maxPricePerHour
     );

@@ -27,34 +27,30 @@ import type { Tutor, TutorFilters } from '@/domains/tutors/tutor-discovery/types
 
 export const DEFAULT_FILTERS: TutorFilters = {
   subjects: [],
-  level: '',
-  learningStyle: '',
-  university: '',
+  levels: [],
+  learningStyles: [],
+  universities: [],
   minPricePerHour: MIN_TUTOR_PRICE_PER_HOUR,
   maxPricePerHour: MAX_TUTOR_PRICE_PER_HOUR,
   sortBy: 'Best match',
 };
 
-function getProfileSubjects() {
-  const profile = getStoredLearningProfile();
-
-  return profile.subjectSelections.flatMap((selection) => selection.subjects);
+function uniqueStrings(values: string[]) {
+  return values.filter((value, index) => values.indexOf(value) === index);
 }
 
-function getProfileLevel() {
-  const profile = getStoredLearningProfile();
-
-  return profile.subjectSelections[0]?.category ?? '';
-}
-
-function getInitialTutorFilters(): TutorFilters {
+function getOnboardingTutorFilters(): TutorFilters {
   const profile = getStoredLearningProfile();
 
   return {
     ...DEFAULT_FILTERS,
-    subjects: getProfileSubjects(),
-    level: getProfileLevel(),
-    learningStyle: profile.learningStyles[0] ?? '',
+    subjects: uniqueStrings(
+      profile.subjectSelections.flatMap((selection) => selection.subjects)
+    ),
+    levels: uniqueStrings(
+      profile.subjectSelections.map((selection) => selection.category)
+    ),
+    learningStyles: profile.learningStyles,
   };
 }
 
@@ -66,7 +62,7 @@ function getInitialTutorFilters(): TutorFilters {
  * prototype layout while keeping the code organised by domain components.
  */
 export function TutorDiscoveryPage() {
-  const [filters, setFilters] = useState<TutorFilters>(getInitialTutorFilters);
+  const [filters, setFilters] = useState<TutorFilters>(getOnboardingTutorFilters);
   const [studentRequests, setStudentRequests] = useState<TrialSessionRequest[]>([]);
   const [notice, setNotice] = useState('');
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
@@ -89,10 +85,16 @@ export function TutorDiscoveryPage() {
   const selectedTutor =
     filteredTutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
   const selectedTutorSubjectMatches =
-    selectedTutor?.subjects.filter((subject) => filters.subjects.includes(subject)) ?? [];
+    selectedTutor?.subjects.filter((subject) =>
+      filters.subjects.includes(subject)
+    ) ?? [];
 
   function clearFilters() {
     setFilters(DEFAULT_FILTERS);
+  }
+
+  function resetToOnboardingFilters() {
+    setFilters(getOnboardingTutorFilters());
   }
 
   function findExistingRequest(tutorId: string) {
@@ -138,11 +140,13 @@ export function TutorDiscoveryPage() {
         profile.subjectSelections.flatMap((selection) => selection.subjects)[0] ||
         tutor.subjects[0],
       level:
-        filters.level ||
+        filters.levels[0] ||
         profile.subjectSelections[0]?.category ||
         tutor.levels[0],
       learningStyle:
-        filters.learningStyle || profile.learningStyles[0] || tutor.learningStyles[0],
+        filters.learningStyles[0] ||
+        profile.learningStyles[0] ||
+        tutor.learningStyles[0],
       preferredTime:
         profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
         tutor.availability,
@@ -173,6 +177,7 @@ export function TutorDiscoveryPage() {
             filters={filters}
             onChange={setFilters}
             onClear={clearFilters}
+            onResetToOnboarding={resetToOnboardingFilters}
           />
         </div>
 
