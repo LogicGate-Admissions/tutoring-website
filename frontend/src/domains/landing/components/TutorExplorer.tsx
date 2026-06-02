@@ -1,7 +1,7 @@
 'use client';
 
+import { TUTOR_PROFILES } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
 import { useMemo, useState } from 'react';
-import { tutors } from '../../lib/tutorOptions';
 import AuthPromptModal from './AuthPromptModal';
 import FilterBar, { type LandingFilters } from './FilterBar';
 import LandingTutorCard from './LandingTutorCard';
@@ -21,7 +21,7 @@ export default function TutorExplorer() {
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   const filteredTutors = useMemo(() => {
-    return tutors.filter((t) => {
+    return TUTOR_PROFILES.filter((t) => {
       if (filters.subjects.length > 0 && !filters.subjects.some((s) => t.subjects.includes(s))) return false;
       if (filters.levels.length > 0 && !filters.levels.some((l) => t.levels.includes(l))) return false;
       if (filters.styles.length > 0 && !filters.styles.some((s) => t.learningStyles.includes(s))) return false;

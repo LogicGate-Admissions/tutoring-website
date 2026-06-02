@@ -1,10 +1,10 @@
-import DualCTA from '../components/landing/DualCTA';
-import Footer from '../components/landing/Footer';
-import HeroSection from '../components/landing/HeroSection';
-import HowItWorks from '../components/landing/HowItWorks';
-import Navbar from '../components/landing/Navbar';
-import TrustBar from '../components/landing/TrustBar';
-import TutorExplorer from '../components/landing/TutorExplorer';
+import DualCTA from '@/domains/landing/components/DualCTA';
+import Footer from '@/domains/landing/components/Footer';
+import HeroSection from '@/domains/landing/components/HeroSection';
+import HowItWorks from '@/domains/landing/components/HowItWorks';
+import Navbar from '@/domains/landing/components/Navbar';
+import TrustBar from '@/domains/landing/components/TrustBar';
+import TutorExplorer from '@/domains/landing/components/TutorExplorer';
 
 export default function LandingPage() {
   return (

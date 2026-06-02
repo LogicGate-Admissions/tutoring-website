@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  LEARNING_STYLE_OPTIONS,
+  QUALIFICATION_CATEGORIES,
+  SUBJECT_OPTIONS_BY_CATEGORY,
+} from '@/domains/students/learning-profile/constants/learningProfileOptions';
+
 export type LandingFilters = {
   subjects: string[];
   maxPrice: number;
@@ -8,9 +14,9 @@ export type LandingFilters = {
   styles: string[];
 };
 
-const subjectOptions = ['Maths', 'Further Maths', 'Physics', 'Chemistry', 'Biology', 'Computer Science', 'Economics', 'TMUA', 'MAT', 'STEP', 'UCAT', 'ESAT'];
-const levelOptions = ['GCSE', 'A-level', 'IB', 'University admissions'];
-const styleOptions = ['Visual explanations', 'Past-paper drilling', 'Step-by-step examples', 'Socratic questioning', 'Timed practice', 'Interactive coding', 'Essay planning'];
+const subjectOptions = [...new Set(Object.values(SUBJECT_OPTIONS_BY_CATEGORY).flat())].sort();
+const levelOptions = QUALIFICATION_CATEGORIES;
+const styleOptions = LEARNING_STYLE_OPTIONS.map((s) => s.label);
 
 type ChipProps = {
   label: string;

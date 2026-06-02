@@ -1,4 +1,5 @@
-import type { Tutor } from '../../lib/tutorOptions';
+import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
+import { tutorInitials } from '@/domains/tutors/tutor-discovery/utils/tutorDisplay';
 
 type LandingTutorCardProps = {
   tutor: Tutor;
@@ -9,10 +10,6 @@ function avatarColor(name: string) {
   const colors = ['bg-cyan-100', 'bg-green-100', 'bg-purple-100', 'bg-yellow-100', 'bg-pink-100', 'bg-orange-100'];
   const index = Math.abs(name.split('').reduce((t, c) => t + c.charCodeAt(0), 0)) % colors.length;
   return colors[index] ?? 'bg-cyan-100';
-}
-
-function initials(name: string) {
-  return name.split(' ').map((p) => p[0]).join('').toUpperCase();
 }
 
 export default function LandingTutorCard({ tutor, onGateClick }: LandingTutorCardProps) {
@@ -35,7 +32,7 @@ export default function LandingTutorCard({ tutor, onGateClick }: LandingTutorCar
         <div
           className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-slate-950 ${avatarColor(tutor.name)} text-lg font-black shadow-[3px_3px_0_#0f172a]`}
         >
-          {initials(tutor.name)}
+          {tutorInitials(tutor.name)}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
