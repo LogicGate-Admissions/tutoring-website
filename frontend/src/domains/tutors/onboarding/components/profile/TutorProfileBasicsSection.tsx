@@ -7,7 +7,9 @@
  */
 
 import { Card } from '@/shared/components/Card';
+import { SearchableMultiSelect } from '@/shared/components/SearchableMultiSelect';
 import { UNIVERSITY_OPTIONS } from '@/domains/students/learning-profile/constants/learningProfileOptions';
+import { DEGREE_OPTIONS } from '@/domains/tutors/onboarding/constants/tutorOnboardingOptions';
 import type { TutorProfileDraft } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 
 type TutorProfileBasicsSectionProps = {
@@ -59,20 +61,26 @@ export function TutorProfileBasicsSection({
         />
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <TextField
-            id="university"
+          <SearchableMultiSelect
             label="University"
-            value={profile.university}
-            placeholder={UNIVERSITY_OPTIONS[0]}
-            onChange={(value) => onChangeTextField('university', value)}
+            options={[...UNIVERSITY_OPTIONS]}
+            selectedOptions={profile.university ? [profile.university] : []}
+            getOptionKey={(university) => university}
+            getOptionLabel={(university) => university}
+            onSelect={(university) => onChangeTextField('university', university)}
+            onRemove={() => onChangeTextField('university', '')}
+            emptyMessage="No universities found."
           />
 
-          <TextField
-            id="degree"
+          <SearchableMultiSelect
             label="Degree"
-            value={profile.degree}
-            placeholder="e.g. Mathematics BSc"
-            onChange={(value) => onChangeTextField('degree', value)}
+            options={[...DEGREE_OPTIONS]}
+            selectedOptions={profile.degree ? [profile.degree] : []}
+            getOptionKey={(degree) => degree}
+            getOptionLabel={(degree) => degree}
+            onSelect={(degree) => onChangeTextField('degree', degree)}
+            onRemove={() => onChangeTextField('degree', '')}
+            emptyMessage="No degrees found."
           />
         </div>
 
