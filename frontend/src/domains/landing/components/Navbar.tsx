@@ -15,105 +15,100 @@ export default function Navbar() {
 
   const handleBrowseTutors = () => {
     setMenuOpen(false);
-    const el = document.getElementById('tutor-explorer');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('tutor-explorer')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-between px-6 transition-all duration-300 lg:px-12 ${
+        className={`fixed top-0 left-0 right-0 z-50 h-16 border-b transition-all duration-200 ${
           scrolled
-            ? 'bg-brand-primary shadow-[0_4px_0_rgba(0,0,0,0.15)]'
-            : 'bg-brand-primary/90 backdrop-blur-md'
+            ? 'border-slate-200 bg-white/95 backdrop-blur-sm'
+            : 'border-transparent bg-[#f8f7f4]/95 backdrop-blur-sm'
         }`}
       >
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-white/80 bg-brand-accent font-black text-sm text-slate-950 shadow-[2px_2px_0_rgba(255,255,255,0.3)] transition group-hover:shadow-[3px_3px_0_rgba(255,255,255,0.3)]">
-            TM
-          </div>
-          <span className="font-serif text-lg font-bold text-white tracking-tight">
-            TutorMatch
-          </span>
-        </Link>
+        <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-6 lg:px-8">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950 text-[10px] font-bold text-white">
+              TM
+            </div>
+            <span className="text-base font-semibold tracking-[-0.02em] text-slate-950">
+              Tutorly
+            </span>
+          </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden items-center gap-6 md:flex">
+          {/* Desktop nav */}
+          <div className="hidden items-center gap-6 md:flex">
+            <button
+              type="button"
+              onClick={handleBrowseTutors}
+              className="text-sm font-medium text-slate-600 transition hover:text-slate-950"
+            >
+              Browse Tutors
+            </button>
+            <Link
+              href="/signup?role=tutor"
+              className="text-sm font-medium text-slate-600 transition hover:text-slate-950"
+            >
+              For Tutors
+            </Link>
+            <Link
+              href="/signup?role=student"
+              className="rounded-full bg-slate-950 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+            >
+              Get Started
+            </Link>
+          </div>
+
+          {/* Mobile hamburger */}
           <button
             type="button"
-            onClick={handleBrowseTutors}
-            className="text-sm font-semibold text-white/80 transition hover:text-white"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            className="flex h-9 w-9 flex-col items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white md:hidden"
           >
-            Browse Tutors
+            <span className={`block h-px w-4 bg-slate-950 transition-all duration-200 ${menuOpen ? 'translate-y-[7px] rotate-45' : ''}`} />
+            <span className={`block h-px w-4 bg-slate-950 transition-all duration-200 ${menuOpen ? 'opacity-0' : ''}`} />
+            <span className={`block h-px w-4 bg-slate-950 transition-all duration-200 ${menuOpen ? '-translate-y-[7px] -rotate-45' : ''}`} />
           </button>
-          <Link
-            href="/signup?role=tutor"
-            className="text-sm font-semibold text-white/80 transition hover:text-white"
-          >
-            For Tutors
-          </Link>
-          <Link
-            href="/signup?role=student"
-            className="rounded-xl border-2 border-white bg-brand-accent px-5 py-2 text-sm font-bold text-slate-950 shadow-[3px_3px_0_rgba(255,255,255,0.4)] transition hover:brightness-105 hover:shadow-[4px_4px_0_rgba(255,255,255,0.4)] active:translate-x-px active:translate-y-px active:shadow-[2px_2px_0_rgba(255,255,255,0.4)]"
-          >
-            Get Started
-          </Link>
         </div>
-
-        {/* Mobile hamburger */}
-        <button
-          type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={menuOpen}
-          className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-white/40 md:hidden"
-        >
-          <span
-            className={`block h-0.5 w-5 bg-white transition-all duration-200 ${menuOpen ? 'translate-y-2 rotate-45' : ''}`}
-          />
-          <span
-            className={`block h-0.5 w-5 bg-white transition-all duration-200 ${menuOpen ? 'opacity-0' : ''}`}
-          />
-          <span
-            className={`block h-0.5 w-5 bg-white transition-all duration-200 ${menuOpen ? '-translate-y-2 -rotate-45' : ''}`}
-          />
-        </button>
       </nav>
 
       {/* Mobile drawer */}
       {menuOpen && (
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMenuOpen(false)}>
           <div
-            className="absolute top-16 left-0 right-0 border-t-2 border-white/20 bg-brand-primary p-6 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
+            className="absolute top-16 left-0 right-0 border-b border-slate-200 bg-white p-6 shadow-sm"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               <button
                 type="button"
                 onClick={handleBrowseTutors}
-                className="rounded-xl border-2 border-white/30 px-5 py-3 text-left text-sm font-semibold text-white transition hover:border-white/60 hover:bg-white/10"
+                className="rounded-2xl border border-slate-200 px-5 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 Browse Tutors
               </button>
               <Link
                 href="/signup?role=tutor"
                 onClick={() => setMenuOpen(false)}
-                className="rounded-xl border-2 border-white/30 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/60 hover:bg-white/10"
+                className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 For Tutors
               </Link>
               <Link
                 href="/signup?role=student"
                 onClick={() => setMenuOpen(false)}
-                className="rounded-xl border-2 border-white bg-brand-accent px-5 py-3 text-center text-sm font-bold text-slate-950 shadow-[3px_3px_0_rgba(255,255,255,0.4)]"
+                className="rounded-full bg-slate-950 px-5 py-3 text-center text-sm font-medium text-white transition hover:bg-slate-800"
               >
                 Get Started — It&apos;s Free
               </Link>
               <Link
-                href="/onboarding"
+                href="/login"
                 onClick={() => setMenuOpen(false)}
-                className="text-center text-sm font-semibold text-white/60 transition hover:text-white/80"
+                className="text-center text-sm font-medium text-slate-500 transition hover:text-slate-950"
               >
                 Already have an account? Log in
               </Link>

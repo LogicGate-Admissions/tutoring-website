@@ -5,6 +5,7 @@ import {
   QUALIFICATION_CATEGORIES,
   SUBJECT_OPTIONS_BY_CATEGORY,
 } from '@/domains/students/learning-profile/constants/learningProfileOptions';
+import { cn } from '@/shared/utils/cn';
 
 export type LandingFilters = {
   subjects: string[];
@@ -18,22 +19,17 @@ const subjectOptions = [...new Set(Object.values(SUBJECT_OPTIONS_BY_CATEGORY).fl
 const levelOptions = QUALIFICATION_CATEGORIES;
 const styleOptions = LEARNING_STYLE_OPTIONS.map((s) => s.label);
 
-type ChipProps = {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-};
-
-function Chip({ label, active, onClick }: ChipProps) {
+function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border-2 border-slate-950 px-3 py-1.5 text-xs font-bold transition ${
+      className={cn(
+        'rounded-full border px-3 py-1.5 text-xs font-medium transition',
         active
-          ? 'bg-brand-primary text-white shadow-[2px_2px_0_#0f172a]'
-          : 'bg-white text-slate-950 shadow-[2px_2px_0_#0f172a] hover:bg-slate-50'
-      }`}
+          ? 'border-slate-950 bg-slate-950 text-white'
+          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50'
+      )}
     >
       {label}
     </button>
@@ -46,11 +42,8 @@ type FilterBarProps = {
 };
 
 export default function FilterBar({ filters, onChange }: FilterBarProps) {
-  const toggle =<K extends keyof LandingFilters>(
-    key: K extends 'subjects' | 'levels' | 'styles' ? K : never,
-    value: string
-  ) => {
-    const current = filters[key] as string[];
+  const toggle = (key: 'subjects' | 'levels' | 'styles', value: string) => {
+    const current = filters[key];
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
     onChange({ ...filters, [key]: next });
   };
@@ -67,31 +60,22 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
     filters.styles.length > 0;
 
   return (
-    <aside className="space-y-6">
+    <div className="space-y-6">
       {/* Subjects */}
       <div>
-        <p className="mb-2.5 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-          Subject
-        </p>
-        <div className="flex flex-wrap gap-2">
+        <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-slate-500">Subject</p>
+        <div className="flex flex-wrap gap-1.5">
           {subjectOptions.map((s) => (
-            <Chip
-              key={s}
-              label={s}
-              active={filters.subjects.includes(s)}
-              onClick={() => toggle('subjects', s)}
-            />
+            <Chip key={s} label={s} active={filters.subjects.includes(s)} onClick={() => toggle('subjects', s)} />
           ))}
         </div>
       </div>
 
       {/* Price */}
       <div>
-        <div className="mb-2.5 flex items-center justify-between">
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-            Max price
-          </p>
-          <span className="text-xs font-bold text-slate-700">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">Max price</p>
+          <span className="text-xs font-medium text-slate-600">
             {filters.maxPrice >= 100 ? 'Any price' : `Up to £${filters.maxPrice}/hr`}
           </span>
         </div>
@@ -102,10 +86,10 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
           step={5}
           value={filters.maxPrice}
           onChange={(e) => onChange({ ...filters, maxPrice: Number(e.target.value) })}
-          className="w-full cursor-pointer accent-brand-primary"
+          className="w-full cursor-pointer accent-slate-950"
           aria-label="Maximum price per hour"
         />
-        <div className="mt-1 flex justify-between text-[10px] font-semibold text-slate-400">
+        <div className="mt-1 flex justify-between text-[10px] font-medium text-slate-400">
           <span>£15/hr</span>
           <span>Any</span>
         </div>
@@ -113,31 +97,22 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
 
       {/* Level */}
       <div>
-        <p className="mb-2.5 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-          Level
-        </p>
-        <div className="flex flex-wrap gap-2">
+        <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-slate-500">Level</p>
+        <div className="flex flex-wrap gap-1.5">
           {levelOptions.map((l) => (
-            <Chip
-              key={l}
-              label={l}
-              active={filters.levels.includes(l)}
-              onClick={() => toggle('levels', l)}
-            />
+            <Chip key={l} label={l} active={filters.levels.includes(l)} onClick={() => toggle('levels', l)} />
           ))}
         </div>
       </div>
 
       {/* Rating */}
       <div>
-        <p className="mb-2.5 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-          Minimum rating
-        </p>
-        <div className="flex gap-2">
-          {[0, 4.5, 4.8].map((r) => (
+        <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-slate-500">Minimum rating</p>
+        <div className="flex gap-1.5">
+          {([0, 4.5, 4.8] as const).map((r) => (
             <Chip
               key={r}
-              label={r === 0 ? 'Any' : r === 4.5 ? '4.5+' : '4.8+'}
+              label={r === 0 ? 'Any' : `${r}+`}
               active={filters.minRating === r}
               onClick={() => onChange({ ...filters, minRating: r })}
             />
@@ -147,31 +122,23 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
 
       {/* Teaching style */}
       <div>
-        <p className="mb-2.5 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-          Teaching style
-        </p>
-        <div className="flex flex-wrap gap-2">
+        <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-slate-500">Teaching style</p>
+        <div className="flex flex-wrap gap-1.5">
           {styleOptions.map((s) => (
-            <Chip
-              key={s}
-              label={s}
-              active={filters.styles.includes(s)}
-              onClick={() => toggle('styles', s)}
-            />
+            <Chip key={s} label={s} active={filters.styles.includes(s)} onClick={() => toggle('styles', s)} />
           ))}
         </div>
       </div>
 
-      {/* Reset */}
       {hasFilters && (
         <button
           type="button"
           onClick={handleReset}
-          className="text-sm font-semibold text-slate-500 underline underline-offset-2 transition hover:text-slate-950"
+          className="text-sm font-medium text-slate-500 underline underline-offset-2 transition hover:text-slate-950"
         >
           Reset all filters
         </button>
       )}
-    </aside>
+    </div>
   );
 }
