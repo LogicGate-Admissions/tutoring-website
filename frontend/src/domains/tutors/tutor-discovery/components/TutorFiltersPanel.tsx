@@ -60,7 +60,7 @@ export function TutorFiltersPanel({
   const [isLoadingSubjectOptions, setIsLoadingSubjectOptions] = useState(true);
 
   useEffect(() => {
-    /** Load filter subject options from the same Firestore source as onboarding. */
+    /** Load filter subject options from the same source as onboarding. */
     let isMounted = true;
 
     async function loadSubjectOptions() {

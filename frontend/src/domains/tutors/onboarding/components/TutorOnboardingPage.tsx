@@ -5,8 +5,8 @@
  *
  * The tutor onboarding flow mirrors student onboarding as tabs, but it keeps a
  * single draft object because the final Firestore tutor profile needs all
- * sections together. The master subject list comes from Firestore so tutor and
- * student onboarding use the same source of truth.
+ * sections together. The master subject list comes from academicOptionsService
+ * so tutor and student onboarding use the same source of truth.
  */
 
 import { FormEvent, useEffect, useState } from 'react';
@@ -89,7 +89,7 @@ export function TutorOnboardingPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    /** Load Firestore-backed academic subjects shared with student onboarding. */
+    /** Load shared academic subject options used by student and tutor onboarding. */
     let isMounted = true;
 
     async function loadAcademicSubjects() {
@@ -103,9 +103,7 @@ export function TutorOnboardingPage() {
         }
       } catch {
         if (isMounted) {
-          setError(
-            'Could not load subjects from Firebase. Check the academicSubjects collection.'
-          );
+          setError('Could not load subject options. Please refresh the page.');
         }
       } finally {
         if (isMounted) {

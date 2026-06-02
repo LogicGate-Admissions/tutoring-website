@@ -4,9 +4,8 @@
  * File purpose: First student onboarding step for qualifications and subjects.
  *
  * The student chooses the qualifications they study, then chooses subjects
- * inside each qualification. The subject list itself comes from Firestore via
- * academicOptionsService so students and tutors use the same editable source of
- * truth instead of separate hardcoded arrays.
+ * inside each qualification. The subject list comes from academicOptionsService
+ * so students and tutors use the same source of truth.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -89,9 +88,7 @@ export function StudentSubjectsStep() {
         }
       } catch {
         if (isMounted) {
-          setSubjectLoadError(
-            'Could not load subjects from Firebase. Check the academicSubjects collection.'
-          );
+          setSubjectLoadError('Could not load subject options. Please refresh the page.');
         }
       } finally {
         if (isMounted) {

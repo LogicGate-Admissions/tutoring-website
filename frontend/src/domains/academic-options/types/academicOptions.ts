@@ -1,26 +1,42 @@
 /**
- * File purpose: Shared academic option types loaded from Firestore.
+ * File purpose: Shared academic option types.
  *
- * The master subject list is no longer owned by student or tutor UI code.
- * Both account types read the same Firestore-backed academic options so the
- * product cannot drift into two different hardcoded subject lists.
+ * These types describe the master subject options used by:
+ * - student onboarding
+ * - tutor onboarding
+ * - tutor discovery filters
+ *
+ * The option data currently lives in code, while Firestore stores what each
+ * user selected from these options.
  */
 
 import type { QualificationCategory } from '@/domains/students/learning-profile/types/learningProfile';
 
-/** One Firestore document in the academicSubjects collection. */
+/**
+ * One group of subjects under a qualification.
+ *
+ * Example:
+ * {
+ *   id: "a-level",
+ *   category: "A-level",
+ *   subjects: ["Maths", "Physics"]
+ * }
+ */
 export type AcademicSubjectGroup = {
-  /** Firestore document id, for example "gcse" or "a-level". */
   id: string;
-
-  /** Product-facing qualification label used in onboarding and filters. */
   category: QualificationCategory;
-
-  /** Searchable subject names available under this qualification. */
   subjects: string[];
 };
 
-/** Fast lookup shape used by subject picker components. */
+/**
+ * Fast lookup shape used by subject picker components.
+ *
+ * Example:
+ * {
+ *   "GCSE": ["Maths", "Physics"],
+ *   "A-level": ["Maths", "Further Maths"]
+ * }
+ */
 export type SubjectOptionsByCategory = Partial<
   Record<QualificationCategory, string[]>
 >;

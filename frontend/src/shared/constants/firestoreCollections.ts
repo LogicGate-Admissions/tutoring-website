@@ -18,7 +18,4 @@ export const FIRESTORE_COLLECTIONS = {
 
   /** Trial requests between one student and one tutor. */
   trialSessionRequests: 'trialSessionRequests',
-
-  /** Shared subject lists grouped by qualification, edited in Firebase. */
-  academicSubjects: 'academicSubjects',
 } as const;
