@@ -19,10 +19,17 @@ const sourceSerif4 = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "TutorMatch — Find the right tutor",
-  description: "Browse verified tutors across every subject, filter by availability, price, and teaching style — and book a session in minutes.",
+  title: 'Tutorly',
+  description:
+    'A clearer way for students and tutors to prepare, communicate, and share learning support.',
 };
 
+/**
+ * Root layout for the whole app.
+ *
+ * In Next.js, layout.tsx wraps every page inside the folder it belongs to.
+ * This root layout wraps the entire application.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

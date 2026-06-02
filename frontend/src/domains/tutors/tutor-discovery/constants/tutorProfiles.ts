@@ -1,0 +1,152 @@
+import type { Tutor, TutorSortOption } from '@/domains/tutors/tutor-discovery/types/tutor';
+
+/**
+ * Representative tutor data used by the prototype.
+ *
+ * This stays inside tutor discovery because it is only used for browsing.
+ * Later, Firestore can replace this file without rewriting the UI components.
+ */
+export const TUTOR_PROFILES: Tutor[] = [
+  {
+    id: 'maya-patel',
+    name: 'Maya Patel',
+    headline: 'Imperial Maths student focused on exam technique',
+    university: 'Imperial College London',
+    degree: 'Mathematics BSc',
+    subjects: ['Maths', 'Further Maths', 'TMUA', 'MAT'],
+    levels: ['A-level', 'University admissions'],
+    learningStyles: ['Past-paper drilling', 'Step-by-step examples'],
+    pricePerHour: 32,
+    rating: 4.9,
+    reviews: 42,
+    numberOfStudents: 18,
+    availability: 'Weekday evenings',
+    bio: 'I help students turn unclear topics into repeatable exam methods, especially for calculus, algebra and admissions-style problem solving.',
+    hobbies: ['Chess', 'Bouldering', 'Logic puzzles'],
+    personality: ['Patient', 'Structured', 'Calm under pressure'],
+    tags: ['Exam technique', 'Admissions', 'Maths'],
+  },
+  {
+    id: 'daniel-chen',
+    name: 'Daniel Chen',
+    headline: 'Cambridge engineer using visual explanations',
+    university: 'University of Cambridge',
+    degree: 'Engineering MEng',
+    subjects: ['Physics', 'Maths', 'ESAT', 'ENGAA'],
+    levels: ['A-level', 'University admissions'],
+    learningStyles: ['Visual explanations', 'Socratic questioning'],
+    pricePerHour: 35,
+    rating: 4.8,
+    reviews: 36,
+    numberOfStudents: 14,
+    availability: 'Weekend mornings',
+    bio: 'I use sketches, diagrams and guided questioning to help students understand mechanics and problem-solving rather than memorising steps.',
+    hobbies: ['Sketching', 'Cycling', 'Robotics'],
+    personality: ['Encouraging', 'Curious', 'Visual thinker'],
+    tags: ['Physics', 'Visual', 'Engineering'],
+  },
+  {
+    id: 'sophie-williams',
+    name: 'Sophie Williams',
+    headline: 'Oxford biology tutor for structured revision',
+    university: 'University of Oxford',
+    degree: 'Biology BA',
+    subjects: ['Biology', 'Chemistry'],
+    levels: ['GCSE', 'A-level'],
+    learningStyles: ['Step-by-step examples', 'Past-paper drilling'],
+    pricePerHour: 28,
+    rating: 4.7,
+    reviews: 29,
+    numberOfStudents: 21,
+    availability: 'After school',
+    bio: 'I focus on breaking down mark schemes, building revision routines and helping students explain scientific ideas clearly.',
+    hobbies: ['Gardening', 'Reading', 'Running'],
+    personality: ['Friendly', 'Organised', 'Supportive'],
+    tags: ['Biology', 'Revision', 'GCSE'],
+  },
+  {
+    id: 'amina-hussain',
+    name: 'Amina Hussain',
+    headline: 'UCL medical student supporting UCAT and sciences',
+    university: 'University College London',
+    degree: 'Medicine MBBS',
+    subjects: ['Chemistry', 'Biology', 'UCAT'],
+    levels: ['GCSE', 'A-level', 'University admissions'],
+    learningStyles: ['Past-paper drilling', 'Timed practice'],
+    pricePerHour: 30,
+    rating: 4.9,
+    reviews: 51,
+    numberOfStudents: 24,
+    availability: 'Weekday evenings',
+    bio: 'I help students prepare for science exams and admissions tests with realistic timed practice and clear feedback.',
+    hobbies: ['Netball', 'Cooking', 'Podcasts'],
+    personality: ['Motivating', 'Focused', 'Warm'],
+    tags: ['Medicine', 'UCAT', 'Science'],
+  },
+  {
+    id: 'leo-martin',
+    name: 'Leo Martin',
+    headline: 'Warwick computer science tutor for coding confidence',
+    university: 'University of Warwick',
+    degree: 'Computer Science BSc',
+    subjects: ['Computer Science', 'Maths'],
+    levels: ['GCSE', 'A-level', 'IB'],
+    learningStyles: ['Interactive coding', 'Step-by-step examples'],
+    pricePerHour: 25,
+    rating: 4.6,
+    reviews: 24,
+    numberOfStudents: 12,
+    availability: 'Weekend evenings',
+    bio: 'I teach programming and algorithms by building small examples together, then gradually increasing difficulty.',
+    hobbies: ['Gaming', 'Hackathons', 'Football'],
+    personality: ['Relaxed', 'Practical', 'Clear'],
+    tags: ['Coding', 'Algorithms', 'Confidence'],
+  },
+  {
+    id: 'ella-thompson',
+    name: 'Ella Thompson',
+    headline: 'LSE economics tutor for essay structure and maths',
+    university: 'London School of Economics',
+    degree: 'Economics BSc',
+    subjects: ['Economics', 'Maths'],
+    levels: ['A-level', 'IB', 'IAL'],
+    learningStyles: ['Socratic questioning', 'Essay planning'],
+    pricePerHour: 27,
+    rating: 4.8,
+    reviews: 33,
+    numberOfStudents: 16,
+    availability: 'Weekday evenings',
+    bio: 'I help students connect economic theory with strong essay structure, diagrams and quantitative reasoning.',
+    hobbies: ['Debating', 'Photography', 'Tennis'],
+    personality: ['Thoughtful', 'Analytical', 'Direct'],
+    tags: ['Economics', 'Essays', 'A-level'],
+  },
+];
+
+export const TUTOR_SORT_OPTIONS: TutorSortOption[] = [
+  'Best match',
+  'Highest rated',
+  'Lowest price',
+  'Highest price',
+];
+
+export const UNIVERSITY_FILTER_OPTIONS = [
+  'Imperial College London',
+  'University of Cambridge',
+  'University of Oxford',
+  'University College London',
+  'King’s College London',
+  'London School of Economics',
+  'University of Warwick',
+  'University of Manchester',
+  'University of Bristol',
+  'University of Edinburgh',
+];
+
+export const MIN_TUTOR_PRICE_PER_HOUR = Math.min(
+  ...TUTOR_PROFILES.map((tutor) => tutor.pricePerHour)
+);
+
+export const MAX_TUTOR_PRICE_PER_HOUR = Math.max(
+  ...TUTOR_PROFILES.map((tutor) => tutor.pricePerHour)
+);
