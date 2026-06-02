@@ -332,6 +332,7 @@ function PriceField({
         max={MAX_TUTOR_PRICE_PER_HOUR}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
+        className="w-full accent-slate-950"
       />
 
       <input
