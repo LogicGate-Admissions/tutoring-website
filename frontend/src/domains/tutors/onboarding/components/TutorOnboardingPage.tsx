@@ -3,14 +3,20 @@
 /**
  * File purpose: Firebase-backed tutor onboarding page.
  *
- * For now this captures the first public tutor-profile fields. Saving writes to
- * Firestore so the tutor can appear in student discovery without hardcoded data.
+ * This page coordinates the full tutor setup flow:
+ * - confirm the signed-in tutor account
+ * - load any existing tutor profile from Firestore
+ * - collect profile basics, taught subjects, teaching styles, and availability
+ * - save the structured tutor profile back into Firestore
+ * - mark onboarding complete and route the tutor to their dashboard
+ *
+ * Small UI sections live in subfolders so this file stays focused on state and
+ * saving rules instead of long chunks of repeated form markup.
  */
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
-import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { ROUTES } from '@/shared/constants/routes';
@@ -19,53 +25,187 @@ import {
   subscribeToCurrentUser,
 } from '@/domains/auth/services/authService';
 import type { AuthUser } from '@/domains/auth/types/auth';
+import { TutorProfileBasicsSection } from '@/domains/tutors/onboarding/components/profile/TutorProfileBasicsSection';
+import { TutorTeachingStyleSection } from '@/domains/tutors/onboarding/components/profile/TutorTeachingStyleSection';
+import { TutorTeachingSubjectsSection } from '@/domains/tutors/onboarding/components/subjects/TutorTeachingSubjectsSection';
+import { TutorAvailabilitySection } from '@/domains/tutors/onboarding/components/availability/TutorAvailabilitySection';
 import {
+  EMPTY_TUTOR_PROFILE_DRAFT,
+  getTutorProfileDraft,
   saveTutorProfileFromOnboarding,
   type TutorProfileDraft,
 } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
+import type {
+  QualificationCategory,
+  QualificationSubjectSelection,
+  TimeBlock,
+} from '@/domains/students/learning-profile/types/learningProfile';
 
-const EMPTY_PROFILE: TutorProfileDraft = {
-  displayName: '',
-  headline: '',
-  subjects: '',
-  levels: '',
-  learningStyles: '',
-  university: '',
-  degree: '',
-  pricePerHour: 25,
-};
-
+/**
+ * Tutor onboarding page.
+ *
+ * The page owns the draft object because the final save needs all sections at
+ * once. Each child section receives only the slice of data it needs.
+ */
 export function TutorOnboardingPage() {
   const router = useRouter();
   const [currentTutor, setCurrentTutor] = useState<AuthUser | null>(null);
-  const [profile, setProfile] = useState<TutorProfileDraft>(EMPTY_PROFILE);
+  const [profile, setProfile] = useState<TutorProfileDraft>(
+    EMPTY_TUTOR_PROFILE_DRAFT
+  );
+  const [activeCategory, setActiveCategory] = useState<QualificationCategory | ''>('');
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    /** Load the signed-in tutor so the profile can be saved under their uid. */
+    /**
+     * Subscribe to the current Firebase user.
+     *
+     * Auth state is asynchronous in the browser. We wait for Firebase to tell us
+     * who is signed in before loading the tutor profile document.
+     */
     const unsubscribe = subscribeToCurrentUser((user) => {
       const tutor = user?.role === 'tutor' ? user : null;
 
       setCurrentTutor(tutor);
-      setProfile((currentProfile) => ({
-        ...currentProfile,
-        displayName: currentProfile.displayName || tutor?.name || '',
-      }));
+
+      if (!tutor) {
+        setIsLoadingProfile(false);
+        return;
+      }
+
+      void loadTutorProfile(tutor);
     });
 
     return () => unsubscribe();
   }, []);
 
-  function updateProfileField<Field extends keyof TutorProfileDraft>(
-    field: Field,
-    value: TutorProfileDraft[Field]
+  async function loadTutorProfile(tutor: AuthUser) {
+    setIsLoadingProfile(true);
+    setError(null);
+
+    try {
+      /**
+       * Load any existing Firestore profile so tutors can return to onboarding
+       * later and edit what they previously saved.
+       */
+      const savedProfile = await getTutorProfileDraft(tutor.id);
+      const displayName = savedProfile.displayName || tutor.name;
+      const subjectSelections = savedProfile.subjectSelections;
+
+      setProfile({
+        ...savedProfile,
+        displayName,
+      });
+
+      /**
+       * Open the first selected qualification by default so the subject picker
+       * immediately shows useful content when an existing profile loads.
+       */
+      setActiveCategory(subjectSelections[0]?.category ?? '');
+    } catch {
+      setError('Could not load your tutor profile. Please refresh and try again.');
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  }
+
+  function updateTextField(
+    field: 'displayName' | 'headline' | 'university' | 'degree' | 'bio',
+    value: string
   ) {
-    /** Keep field changes tiny and predictable. */
+    /**
+     * Keep basic text field updates small and predictable.
+     *
+     * A generic helper avoids duplicating setProfile blocks for every input.
+     */
     setProfile((currentProfile) => ({
       ...currentProfile,
       [field]: value,
     }));
+  }
+
+  function updatePricePerHour(pricePerHour: number) {
+    /**
+     * Guard against an empty/invalid number input becoming NaN in Firestore.
+     */
+    if (!Number.isFinite(pricePerHour)) return;
+
+    setProfile((currentProfile) => ({
+      ...currentProfile,
+      pricePerHour,
+    }));
+  }
+
+  function updateSubjectSelections(
+    subjectSelections: QualificationSubjectSelection[]
+  ) {
+    /**
+     * Subject selections are structured by qualification. This keeps the tutor
+     * profile compatible with student filters and future matching logic.
+     */
+    setProfile((currentProfile) => ({
+      ...currentProfile,
+      subjectSelections,
+    }));
+  }
+
+  function toggleTeachingStyle(style: string) {
+    /**
+     * Teaching styles use the same labels as student learning preferences so
+     * matching can compare arrays directly later.
+     */
+    setProfile((currentProfile) => {
+      const selected = currentProfile.learningStyles.includes(style);
+
+      return {
+        ...currentProfile,
+        learningStyles: selected
+          ? currentProfile.learningStyles.filter((item) => item !== style)
+          : [...currentProfile.learningStyles, style],
+      };
+    });
+  }
+
+  function updateAvailability(availability: TimeBlock[]) {
+    /**
+     * Availability is stored as structured TimeBlocks, not just display text.
+     * The service later creates a short display summary for tutor cards.
+     */
+    setProfile((currentProfile) => ({
+      ...currentProfile,
+      availability,
+    }));
+  }
+
+  function validateProfile() {
+    /**
+     * Required fields are intentionally minimal for now. We require enough data
+     * for a useful tutor result card, but avoid blocking tutors on optional bio
+     * or availability details during early development.
+     */
+    if (!profile.displayName.trim()) {
+      return 'Please add your display name.';
+    }
+
+    if (!profile.headline.trim()) {
+      return 'Please add a short tutor headline.';
+    }
+
+    const hasAtLeastOneSubject = profile.subjectSelections.some(
+      (selection) => selection.subjects.length > 0
+    );
+
+    if (!hasAtLeastOneSubject) {
+      return 'Please choose at least one qualification and subject you can teach.';
+    }
+
+    if (profile.learningStyles.length === 0) {
+      return 'Please choose at least one teaching style.';
+    }
+
+    return null;
   }
 
   async function finishTutorOnboarding(event: FormEvent<HTMLFormElement>) {
@@ -77,18 +217,27 @@ export function TutorOnboardingPage() {
       return;
     }
 
-    if (!profile.displayName.trim() || !profile.headline.trim() || !profile.subjects.trim()) {
-      setError('Please add your display name, tutor headline, and subjects.');
+    const validationError = validateProfile();
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setIsSaving(true);
 
     try {
-      /** Save public tutor profile first so discovery has real Firebase data. */
+      /**
+       * Save the tutor profile before marking onboarding complete. That way, a
+       * tutor cannot reach the dashboard while their public profile failed to
+       * save.
+       */
       await saveTutorProfileFromOnboarding(currentTutor, profile);
 
-      /** Mark the account as onboarded so future logins can go to dashboard. */
+      /**
+       * Once the Firestore profile exists, future tutor logins can go directly
+       * to the dashboard instead of returning to onboarding.
+       */
       await markOnboardingComplete(currentTutor.id);
 
       router.push(ROUTES.tutorDashboard);
@@ -104,140 +253,54 @@ export function TutorOnboardingPage() {
       <PageHeader
         eyebrow="Tutor onboarding"
         title="Set up your tutor profile"
-        description="Add the first details for your public tutor profile. Students will discover profiles from Firebase."
+        description="Add what you teach, how you teach, your availability, and the profile details students will see."
       />
 
-      <Container className="max-w-3xl py-10">
-        <Card>
-          <form onSubmit={finishTutorOnboarding} className="grid gap-5">
-            <div>
-              <label className="text-sm font-medium text-slate-800" htmlFor="displayName">
-                Display name
-              </label>
-              <input
-                id="displayName"
-                value={profile.displayName}
-                onChange={(event) => updateProfileField('displayName', event.target.value)}
-                placeholder="e.g. Maya Patel"
-                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
+      <Container className="py-10">
+        <form onSubmit={finishTutorOnboarding} className="grid gap-8">
+          {isLoadingProfile ? (
+            <div className="rounded-3xl border border-slate-200 bg-white p-8 text-sm text-slate-600 shadow-sm">
+              Loading your tutor profile...
+            </div>
+          ) : (
+            <>
+              <TutorProfileBasicsSection
+                profile={profile}
+                onChangeTextField={updateTextField}
+                onChangePricePerHour={updatePricePerHour}
               />
-            </div>
 
-            <div>
-              <label className="text-sm font-medium text-slate-800" htmlFor="headline">
-                Tutor headline
-              </label>
-              <input
-                id="headline"
-                value={profile.headline}
-                onChange={(event) => updateProfileField('headline', event.target.value)}
-                placeholder="e.g. A-level Maths tutor focused on exam confidence"
-                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
+              <TutorTeachingSubjectsSection
+                subjectSelections={profile.subjectSelections}
+                activeCategory={activeCategory}
+                onChangeSubjectSelections={updateSubjectSelections}
+                onChangeActiveCategory={setActiveCategory}
               />
-            </div>
 
-            <div>
-              <label className="text-sm font-medium text-slate-800" htmlFor="subjects">
-                Subjects you teach
-              </label>
-              <textarea
-                id="subjects"
-                value={profile.subjects}
-                onChange={(event) => updateProfileField('subjects', event.target.value)}
-                placeholder="e.g. GCSE Maths, A-level Physics, TMUA"
-                rows={4}
-                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
+              <TutorTeachingStyleSection
+                selectedStyles={profile.learningStyles}
+                onToggleStyle={toggleTeachingStyle}
               />
-              <p className="mt-2 text-xs leading-5 text-slate-500">
-                Separate subjects with commas for now. We can replace this with a
-                full multi-select tutor onboarding step later.
-              </p>
-            </div>
 
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-slate-800" htmlFor="levels">
-                  Levels taught
-                </label>
-                <input
-                  id="levels"
-                  value={profile.levels}
-                  onChange={(event) => updateProfileField('levels', event.target.value)}
-                  placeholder="e.g. GCSE, A-level"
-                  className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-800" htmlFor="pricePerHour">
-                  Hourly rate (£)
-                </label>
-                <input
-                  id="pricePerHour"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={profile.pricePerHour}
-                  onChange={(event) => updateProfileField('pricePerHour', Number(event.target.value))}
-                  className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-slate-800" htmlFor="university">
-                  University
-                </label>
-                <input
-                  id="university"
-                  value={profile.university}
-                  onChange={(event) => updateProfileField('university', event.target.value)}
-                  placeholder="e.g. Imperial College London"
-                  className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-slate-800" htmlFor="degree">
-                  Degree
-                </label>
-                <input
-                  id="degree"
-                  value={profile.degree}
-                  onChange={(event) => updateProfileField('degree', event.target.value)}
-                  placeholder="e.g. Mathematics BSc"
-                  className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-slate-800" htmlFor="learningStyles">
-                Teaching styles
-              </label>
-              <input
-                id="learningStyles"
-                value={profile.learningStyles}
-                onChange={(event) => updateProfileField('learningStyles', event.target.value)}
-                placeholder="e.g. Visual explanations, Past-paper drilling"
-                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
+              <TutorAvailabilitySection
+                availability={profile.availability}
+                onChangeAvailability={updateAvailability}
               />
-            </div>
+            </>
+          )}
 
-            {error && (
-              <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {error}
-              </p>
-            )}
+          {error && (
+            <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {error}
+            </p>
+          )}
 
-            <div className="flex justify-end">
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Saving...' : 'Finish setup'}
-              </Button>
-            </div>
-          </form>
-        </Card>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isSaving || isLoadingProfile}>
+              {isSaving ? 'Saving...' : 'Finish setup'}
+            </Button>
+          </div>
+        </form>
       </Container>
     </main>
   );

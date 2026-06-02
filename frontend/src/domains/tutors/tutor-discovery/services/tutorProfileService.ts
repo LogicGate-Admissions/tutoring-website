@@ -1,45 +1,113 @@
 /**
  * File purpose: Firestore service for public tutor profiles.
  *
- * This replaces the old hardcoded `TUTOR_PROFILES` array. Components now ask
- * this service for tutor profiles, which means real tutor sign-ups can create
- * real searchable profiles in Firebase without changing the discovery UI.
+ * React components should not talk to Firestore directly. They call this
+ * service, and this file owns the database shape, defaults, and conversion from
+ * onboarding drafts into the public Tutor model used by tutor discovery.
  */
 
-import { collection, doc, getDocs, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import type { AuthUser } from '@/domains/auth/types/auth';
+import type {
+  QualificationSubjectSelection,
+  TimeBlock,
+} from '@/domains/students/learning-profile/types/learningProfile';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 
-/** Draft fields collected during tutor onboarding. */
+/**
+ * Tutor onboarding draft.
+ *
+ * This is intentionally richer than the public Tutor card model because the
+ * form needs structured editing state, not just display strings.
+ */
 export type TutorProfileDraft = {
   displayName: string;
   headline: string;
-  subjects: string;
-  levels: string;
-  learningStyles: string;
+  subjectSelections: QualificationSubjectSelection[];
+  learningStyles: string[];
   university: string;
   degree: string;
   pricePerHour: number;
+  availability: TimeBlock[];
+  bio: string;
 };
 
-/** Convert a comma-separated text field into a clean array for filtering. */
-function parseCommaSeparatedList(value: string) {
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
+/**
+ * Empty draft used by a new tutor before any Firestore profile exists.
+ */
+export const EMPTY_TUTOR_PROFILE_DRAFT: TutorProfileDraft = {
+  displayName: '',
+  headline: '',
+  subjectSelections: [],
+  learningStyles: [],
+  university: '',
+  degree: '',
+  pricePerHour: 25,
+  availability: [],
+  bio: '',
+};
 
 /** Firestore document reference for one tutor profile keyed by auth uid. */
 function tutorProfileDocumentRef(tutorId: string) {
   return doc(db, FIRESTORE_COLLECTIONS.tutorProfiles, tutorId);
 }
 
-/** Map Firestore data into the Tutor type expected by discovery components. */
+/** Remove blank/duplicate values while preserving the original order. */
+function uniqueNonEmptyValues(values: string[]) {
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean))
+  );
+}
+
+/** Flatten structured qualification selections into public level labels. */
+function levelsFromSubjectSelections(selections: QualificationSubjectSelection[]) {
+  return selections
+    .filter((selection) => selection.subjects.length > 0)
+    .map((selection) => selection.category);
+}
+
+/** Flatten structured qualification selections into public subject labels. */
+function subjectsFromSubjectSelections(selections: QualificationSubjectSelection[]) {
+  return uniqueNonEmptyValues(
+    selections.flatMap((selection) => selection.subjects)
+  );
+}
+
+/** Create a readable availability summary for tutor cards and profile modals. */
+function availabilitySummary(availability: TimeBlock[]) {
+  if (availability.length === 0) {
+    return 'Availability not added yet';
+  }
+
+  const firstBlocks = availability
+    .slice(0, 4)
+    .map((block) => `${block.day} ${block.from}–${block.to}`);
+
+  const remainingCount = Math.max(availability.length - firstBlocks.length, 0);
+  const suffix = remainingCount > 0 ? `, +${remainingCount} more` : '';
+
+  return `${firstBlocks.join(', ')}${suffix}`;
+}
+
+/** Map unknown Firestore profile data into the Tutor model safely. */
 function mapTutorDocument(snapshot: { id: string; data: () => unknown }): Tutor {
-  const data = snapshot.data() as Partial<Tutor>;
+  const data = snapshot.data() as Partial<Tutor> & {
+    availabilityBlocks?: TimeBlock[];
+    subjectSelections?: QualificationSubjectSelection[];
+  };
+
+  const availabilityBlocks = data.availabilityBlocks ?? [];
 
   return {
     id: snapshot.id,
@@ -54,7 +122,8 @@ function mapTutorDocument(snapshot: { id: string; data: () => unknown }): Tutor 
     rating: data.rating ?? 0,
     reviews: data.reviews ?? 0,
     numberOfStudents: data.numberOfStudents ?? 0,
-    availability: data.availability ?? 'Availability not added yet',
+    availability: data.availability ?? availabilitySummary(availabilityBlocks),
+    availabilityBlocks,
     bio: data.bio ?? 'This tutor has not added a full bio yet.',
     hobbies: data.hobbies ?? [],
     personality: data.personality ?? [],
@@ -62,7 +131,23 @@ function mapTutorDocument(snapshot: { id: string; data: () => unknown }): Tutor 
   };
 }
 
-/** Load all public tutor profiles from Firestore. */
+/** Convert a saved Tutor document back into an editable onboarding draft. */
+function tutorToDraft(tutor: Tutor & { subjectSelections?: QualificationSubjectSelection[] }) {
+  return {
+    ...EMPTY_TUTOR_PROFILE_DRAFT,
+    displayName: tutor.name,
+    headline: tutor.headline,
+    subjectSelections: tutor.subjectSelections ?? [],
+    learningStyles: tutor.learningStyles,
+    university: tutor.university === 'University not added yet' ? '' : tutor.university,
+    degree: tutor.degree === 'Degree not added yet' ? '' : tutor.degree,
+    pricePerHour: tutor.pricePerHour,
+    availability: tutor.availabilityBlocks ?? [],
+    bio: tutor.bio === 'This tutor has not added a full bio yet.' ? '' : tutor.bio,
+  } satisfies TutorProfileDraft;
+}
+
+/** Load all public tutor profiles from Firestore for student discovery. */
 export async function getTutorProfiles() {
   const tutorProfilesQuery = query(
     collection(db, FIRESTORE_COLLECTIONS.tutorProfiles),
@@ -73,44 +158,71 @@ export async function getTutorProfiles() {
   return snapshot.docs.map(mapTutorDocument);
 }
 
+/** Load the signed-in tutor's current profile for editing during onboarding. */
+export async function getTutorProfileDraft(tutorId: string) {
+  const snapshot = await getDoc(tutorProfileDocumentRef(tutorId));
+
+  if (!snapshot.exists()) {
+    return EMPTY_TUTOR_PROFILE_DRAFT;
+  }
+
+  const tutor = mapTutorDocument(snapshot) as Tutor & {
+    subjectSelections?: QualificationSubjectSelection[];
+  };
+
+  const rawData = snapshot.data() as {
+    subjectSelections?: QualificationSubjectSelection[];
+  };
+
+  return tutorToDraft({
+    ...tutor,
+    subjectSelections: rawData.subjectSelections ?? [],
+  });
+}
+
 /**
  * Create/update the signed-in tutor's public profile from onboarding.
  *
- * Early onboarding only asks for a few fields. The remaining fields get safe
- * defaults so tutor discovery can render the profile without special cases.
+ * Structured onboarding data is saved as structured data for future editing,
+ * and flattened into simple arrays for the current tutor discovery UI.
  */
 export async function saveTutorProfileFromOnboarding(
   tutor: AuthUser,
   profile: TutorProfileDraft
 ) {
+  const profileRef = tutorProfileDocumentRef(tutor.id);
+  const existingProfile = await getDoc(profileRef);
   const displayName = profile.displayName.trim() || tutor.name;
-  const subjects = parseCommaSeparatedList(profile.subjects);
-  const levels = parseCommaSeparatedList(profile.levels);
-  const learningStyles = parseCommaSeparatedList(profile.learningStyles);
+  const levels = levelsFromSubjectSelections(profile.subjectSelections);
+  const subjects = subjectsFromSubjectSelections(profile.subjectSelections);
+  const learningStyles = uniqueNonEmptyValues(profile.learningStyles);
+  const safePricePerHour = Number.isFinite(profile.pricePerHour)
+    ? profile.pricePerHour
+    : 25;
 
-  await setDoc(
-    tutorProfileDocumentRef(tutor.id),
-    {
+  const profileDocument = {
       name: displayName,
       headline: profile.headline.trim() || 'Tutor profile',
       university: profile.university.trim() || 'University not added yet',
       degree: profile.degree.trim() || 'Degree not added yet',
       subjects,
       levels,
+      subjectSelections: profile.subjectSelections,
       learningStyles,
-      pricePerHour: profile.pricePerHour || 25,
+      pricePerHour: safePricePerHour,
       rating: 0,
       reviews: 0,
       numberOfStudents: 0,
-      availability: 'Availability not added yet',
-      bio: 'This tutor has not added a full bio yet.',
+      availability: availabilitySummary(profile.availability),
+      availabilityBlocks: profile.availability,
+      bio: profile.bio.trim() || 'This tutor has not added a full bio yet.',
       hobbies: [],
-      personality: [],
-      tags: subjects,
-      ownerId: tutor.id,
-      updatedAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
+      personality: learningStyles,
+      tags: uniqueNonEmptyValues([...levels, ...subjects, ...learningStyles]),
+    ownerId: tutor.id,
+    updatedAt: serverTimestamp(),
+    ...(existingProfile.exists() ? {} : { createdAt: serverTimestamp() }),
+  };
+
+  await setDoc(profileRef, profileDocument, { merge: true });
 }

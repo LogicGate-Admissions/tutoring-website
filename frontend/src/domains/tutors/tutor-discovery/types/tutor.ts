@@ -2,7 +2,10 @@
  * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
  */
 
-import type { QualificationCategory } from '@/domains/students/learning-profile/types/learningProfile';
+import type {
+  QualificationCategory,
+  TimeBlock,
+} from '@/domains/students/learning-profile/types/learningProfile';
 
 /**
  * Tutor profile shown to students while browsing.
@@ -21,6 +24,7 @@ export type Tutor = {
   reviews: number;
   numberOfStudents: number;
   availability: string;
+  availabilityBlocks?: TimeBlock[];
   bio: string;
   hobbies: string[];
   personality: string[];
