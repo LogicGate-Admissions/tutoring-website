@@ -17,11 +17,13 @@ export function SubjectPicker({
   subjectOptions,
   activeSubjects,
   onToggleSubject,
+  isLoadingSubjects = false,
 }: {
   activeCategory: QualificationCategory | '';
   subjectOptions: string[];
   activeSubjects: string[];
   onToggleSubject: (subject: string) => void;
+  isLoadingSubjects?: boolean;
 }) {
   return (
     <Card>
@@ -42,6 +44,12 @@ export function SubjectPicker({
 
       {activeCategory && (
         <div className="mt-5">
+          {isLoadingSubjects && (
+            <p className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              Loading subjects from Firebase...
+            </p>
+          )}
+
           <SearchableMultiSelect
             label="Search subjects"
             options={subjectOptions}
@@ -50,7 +58,11 @@ export function SubjectPicker({
             getOptionLabel={(subject) => subject}
             onSelect={onToggleSubject}
             onRemove={onToggleSubject}
-            emptyMessage="No subjects found."
+            emptyMessage={
+              isLoadingSubjects
+                ? 'Loading subjects...'
+                : 'No subjects found for this qualification in Firebase.'
+            }
           />
 
           {activeSubjects.length > 0 && (

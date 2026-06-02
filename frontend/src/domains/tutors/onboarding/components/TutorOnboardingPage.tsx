@@ -3,15 +3,10 @@
 /**
  * File purpose: Firebase-backed tutor onboarding page.
  *
- * This page coordinates the full tutor setup flow:
- * - confirm the signed-in tutor account
- * - load any existing tutor profile from Firestore
- * - collect profile basics, taught subjects, teaching styles, and availability
- * - save the structured tutor profile back into Firestore
- * - mark onboarding complete and route the tutor to their dashboard
- *
- * Small UI sections live in subfolders so this file stays focused on state and
- * saving rules instead of long chunks of repeated form markup.
+ * The tutor onboarding flow mirrors student onboarding as tabs, but it keeps a
+ * single draft object because the final Firestore tutor profile needs all
+ * sections together. The master subject list comes from Firestore so tutor and
+ * student onboarding use the same source of truth.
  */
 
 import { FormEvent, useEffect, useState } from 'react';
@@ -20,11 +15,14 @@ import { Button } from '@/shared/components/Button';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { ROUTES } from '@/shared/constants/routes';
+import { cn } from '@/shared/utils/cn';
 import {
   markOnboardingComplete,
   subscribeToCurrentUser,
 } from '@/domains/auth/services/authService';
 import type { AuthUser } from '@/domains/auth/types/auth';
+import { getSubjectOptionsByCategory } from '@/domains/academic-options/services/academicOptionsService';
+import type { SubjectOptionsByCategory } from '@/domains/academic-options/types/academicOptions';
 import { TutorProfileBasicsSection } from '@/domains/tutors/onboarding/components/profile/TutorProfileBasicsSection';
 import { TutorTeachingStyleSection } from '@/domains/tutors/onboarding/components/profile/TutorTeachingStyleSection';
 import { TutorTeachingSubjectsSection } from '@/domains/tutors/onboarding/components/subjects/TutorTeachingSubjectsSection';
@@ -35,36 +33,120 @@ import {
   saveTutorProfileFromOnboarding,
   type TutorProfileDraft,
 } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
+import type { TutorSubjectRate } from '@/domains/tutors/tutor-discovery/types/tutor';
 import type {
   QualificationCategory,
   QualificationSubjectSelection,
   TimeBlock,
 } from '@/domains/students/learning-profile/types/learningProfile';
 
-/**
- * Tutor onboarding page.
- *
- * The page owns the draft object because the final save needs all sections at
- * once. Each child section receives only the slice of data it needs.
- */
+type TutorOnboardingTab = 'subjects' | 'style' | 'availability' | 'profile';
+
+type TutorOnboardingTabItem = {
+  id: TutorOnboardingTab;
+  label: string;
+  description: string;
+};
+
+/** Tabs shown throughout tutor onboarding. */
+const TUTOR_ONBOARDING_TABS: TutorOnboardingTabItem[] = [
+  {
+    id: 'subjects',
+    label: 'Subjects',
+    description: 'Qualifications, subjects, and per-subject rates',
+  },
+  {
+    id: 'style',
+    label: 'Style',
+    description: 'How you teach and support students',
+  },
+  {
+    id: 'availability',
+    label: 'Availability',
+    description: 'When students can request sessions',
+  },
+  {
+    id: 'profile',
+    label: 'Profile',
+    description: 'Public tutor details and final save',
+  },
+];
+
+/** Tutor onboarding page. */
 export function TutorOnboardingPage() {
   const router = useRouter();
   const [currentTutor, setCurrentTutor] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<TutorProfileDraft>(
     EMPTY_TUTOR_PROFILE_DRAFT
   );
+  const [activeTab, setActiveTab] = useState<TutorOnboardingTab>('subjects');
   const [activeCategory, setActiveCategory] = useState<QualificationCategory | ''>('');
+  const [subjectOptionsByCategory, setSubjectOptionsByCategory] =
+    useState<SubjectOptionsByCategory>({});
   const [error, setError] = useState<string | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    /**
-     * Subscribe to the current Firebase user.
-     *
-     * Auth state is asynchronous in the browser. We wait for Firebase to tell us
-     * who is signed in before loading the tutor profile document.
-     */
+    /** Load Firestore-backed academic subjects shared with student onboarding. */
+    let isMounted = true;
+
+    async function loadAcademicSubjects() {
+      setIsLoadingSubjects(true);
+
+      try {
+        const options = await getSubjectOptionsByCategory();
+
+        if (isMounted) {
+          setSubjectOptionsByCategory(options);
+        }
+      } catch {
+        if (isMounted) {
+          setError(
+            'Could not load subjects from Firebase. Check the academicSubjects collection.'
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingSubjects(false);
+        }
+      }
+    }
+
+    void loadAcademicSubjects();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function loadTutorProfile(tutor: AuthUser) {
+    setIsLoadingProfile(true);
+    setError(null);
+
+    try {
+      /** Load an existing Firestore profile so onboarding can be edited later. */
+      const savedProfile = await getTutorProfileDraft(tutor.id);
+      const displayName = savedProfile.displayName || tutor.name;
+      const subjectSelections = savedProfile.subjectSelections;
+
+      setProfile({
+        ...savedProfile,
+        displayName,
+      });
+
+      /** Open the first selected qualification when returning to onboarding. */
+      setActiveCategory(subjectSelections[0]?.category ?? '');
+    } catch {
+      setError('Could not load your tutor profile. Please refresh and try again.');
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  }
+
+  useEffect(() => {
+    /** Subscribe to Firebase Auth before loading the tutor's profile document. */
     const unsubscribe = subscribeToCurrentUser((user) => {
       const tutor = user?.role === 'tutor' ? user : null;
 
@@ -81,81 +163,35 @@ export function TutorOnboardingPage() {
     return () => unsubscribe();
   }, []);
 
-  async function loadTutorProfile(tutor: AuthUser) {
-    setIsLoadingProfile(true);
-    setError(null);
-
-    try {
-      /**
-       * Load any existing Firestore profile so tutors can return to onboarding
-       * later and edit what they previously saved.
-       */
-      const savedProfile = await getTutorProfileDraft(tutor.id);
-      const displayName = savedProfile.displayName || tutor.name;
-      const subjectSelections = savedProfile.subjectSelections;
-
-      setProfile({
-        ...savedProfile,
-        displayName,
-      });
-
-      /**
-       * Open the first selected qualification by default so the subject picker
-       * immediately shows useful content when an existing profile loads.
-       */
-      setActiveCategory(subjectSelections[0]?.category ?? '');
-    } catch {
-      setError('Could not load your tutor profile. Please refresh and try again.');
-    } finally {
-      setIsLoadingProfile(false);
-    }
-  }
-
   function updateTextField(
     field: 'displayName' | 'headline' | 'university' | 'degree' | 'bio',
     value: string
   ) {
-    /**
-     * Keep basic text field updates small and predictable.
-     *
-     * A generic helper avoids duplicating setProfile blocks for every input.
-     */
+    /** Basic profile fields update one string field at a time. */
     setProfile((currentProfile) => ({
       ...currentProfile,
       [field]: value,
     }));
   }
 
-  function updatePricePerHour(pricePerHour: number) {
-    /**
-     * Guard against an empty/invalid number input becoming NaN in Firestore.
-     */
-    if (!Number.isFinite(pricePerHour)) return;
-
-    setProfile((currentProfile) => ({
-      ...currentProfile,
-      pricePerHour,
-    }));
-  }
-
-  function updateSubjectSelections(
-    subjectSelections: QualificationSubjectSelection[]
-  ) {
-    /**
-     * Subject selections are structured by qualification. This keeps the tutor
-     * profile compatible with student filters and future matching logic.
-     */
+  function updateSubjectSelections(subjectSelections: QualificationSubjectSelection[]) {
+    /** The subject section owns selection rules; the parent stores the result. */
     setProfile((currentProfile) => ({
       ...currentProfile,
       subjectSelections,
     }));
   }
 
+  function updateSubjectRates(subjectRates: TutorSubjectRate[]) {
+    /** Rates stay aligned to selected subjects inside TutorTeachingSubjectsSection. */
+    setProfile((currentProfile) => ({
+      ...currentProfile,
+      subjectRates,
+    }));
+  }
+
   function toggleTeachingStyle(style: string) {
-    /**
-     * Teaching styles use the same labels as student learning preferences so
-     * matching can compare arrays directly later.
-     */
+    /** Teaching styles reuse student learning style labels for direct matching. */
     setProfile((currentProfile) => {
       const selected = currentProfile.learningStyles.includes(style);
 
@@ -169,39 +205,62 @@ export function TutorOnboardingPage() {
   }
 
   function updateAvailability(availability: TimeBlock[]) {
-    /**
-     * Availability is stored as structured TimeBlocks, not just display text.
-     * The service later creates a short display summary for tutor cards.
-     */
+    /** Store structured blocks so future booking can reason about real times. */
     setProfile((currentProfile) => ({
       ...currentProfile,
       availability,
     }));
   }
 
+  function hasAtLeastOneSubject() {
+    return profile.subjectSelections.some(
+      (selection) => selection.subjects.length > 0
+    );
+  }
+
+  function hasRatesForEverySelectedSubject() {
+    const selectedPairs = profile.subjectSelections.flatMap((selection) =>
+      selection.subjects.map((subject) => ({
+        qualification: selection.category,
+        subject,
+      }))
+    );
+
+    return selectedPairs.every((pair) =>
+      profile.subjectRates.some(
+        (rate) =>
+          rate.qualification === pair.qualification &&
+          rate.subject === pair.subject &&
+          Number.isFinite(rate.pricePerHour) &&
+          rate.pricePerHour > 0
+      )
+    );
+  }
+
   function validateProfile() {
-    /**
-     * Required fields are intentionally minimal for now. We require enough data
-     * for a useful tutor result card, but avoid blocking tutors on optional bio
-     * or availability details during early development.
-     */
+    /** Keep validation focused on the data needed for a usable public profile. */
     if (!profile.displayName.trim()) {
+      setActiveTab('profile');
       return 'Please add your display name.';
     }
 
     if (!profile.headline.trim()) {
+      setActiveTab('profile');
       return 'Please add a short tutor headline.';
     }
 
-    const hasAtLeastOneSubject = profile.subjectSelections.some(
-      (selection) => selection.subjects.length > 0
-    );
-
-    if (!hasAtLeastOneSubject) {
+    if (!hasAtLeastOneSubject()) {
+      setActiveTab('subjects');
       return 'Please choose at least one qualification and subject you can teach.';
     }
 
+    if (!hasRatesForEverySelectedSubject()) {
+      setActiveTab('subjects');
+      return 'Please add a rate above £0 for each subject you teach.';
+    }
+
     if (profile.learningStyles.length === 0) {
+      setActiveTab('style');
       return 'Please choose at least one teaching style.';
     }
 
@@ -227,19 +286,9 @@ export function TutorOnboardingPage() {
     setIsSaving(true);
 
     try {
-      /**
-       * Save the tutor profile before marking onboarding complete. That way, a
-       * tutor cannot reach the dashboard while their public profile failed to
-       * save.
-       */
+      /** Save profile first, then mark onboarding complete. */
       await saveTutorProfileFromOnboarding(currentTutor, profile);
-
-      /**
-       * Once the Firestore profile exists, future tutor logins can go directly
-       * to the dashboard instead of returning to onboarding.
-       */
       await markOnboardingComplete(currentTutor.id);
-
       router.push(ROUTES.tutorDashboard);
     } catch {
       setError('Could not save your tutor profile. Please try again.');
@@ -248,45 +297,96 @@ export function TutorOnboardingPage() {
     }
   }
 
+  function renderActiveTab() {
+    if (activeTab === 'subjects') {
+      return (
+        <TutorTeachingSubjectsSection
+          subjectSelections={profile.subjectSelections}
+          subjectRates={profile.subjectRates}
+          activeCategory={activeCategory}
+          subjectOptionsByCategory={subjectOptionsByCategory}
+          isLoadingSubjects={isLoadingSubjects}
+          onChangeSubjectSelections={updateSubjectSelections}
+          onChangeSubjectRates={updateSubjectRates}
+          onChangeActiveCategory={setActiveCategory}
+        />
+      );
+    }
+
+    if (activeTab === 'style') {
+      return (
+        <TutorTeachingStyleSection
+          selectedStyles={profile.learningStyles}
+          onToggleStyle={toggleTeachingStyle}
+        />
+      );
+    }
+
+    if (activeTab === 'availability') {
+      return (
+        <TutorAvailabilitySection
+          availability={profile.availability}
+          onChangeAvailability={updateAvailability}
+        />
+      );
+    }
+
+    return (
+      <TutorProfileBasicsSection
+        profile={profile}
+        onChangeTextField={updateTextField}
+      />
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
       <PageHeader
         eyebrow="Tutor onboarding"
         title="Set up your tutor profile"
-        description="Add what you teach, how you teach, your availability, and the profile details students will see."
+        description="Use the tabs to add what you teach, how you teach, when you are free, and what students will see."
       />
 
       <Container className="py-10">
         <form onSubmit={finishTutorOnboarding} className="grid gap-8">
+          <div className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
+            <div className="grid gap-2 md:grid-cols-4">
+              {TUTOR_ONBOARDING_TABS.map((tab) => {
+                const isActive = tab.id === activeTab;
+
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'rounded-2xl px-4 py-3 text-left transition',
+                      isActive
+                        ? 'bg-slate-950 text-white'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="block text-sm font-semibold">{tab.label}</span>
+                    <span
+                      className={cn(
+                        'mt-1 block text-xs leading-5',
+                        isActive ? 'text-slate-300' : 'text-slate-500'
+                      )}
+                    >
+                      {tab.description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {isLoadingProfile ? (
             <div className="rounded-3xl border border-slate-200 bg-white p-8 text-sm text-slate-600 shadow-sm">
               Loading your tutor profile...
             </div>
           ) : (
-            <>
-              <TutorProfileBasicsSection
-                profile={profile}
-                onChangeTextField={updateTextField}
-                onChangePricePerHour={updatePricePerHour}
-              />
-
-              <TutorTeachingSubjectsSection
-                subjectSelections={profile.subjectSelections}
-                activeCategory={activeCategory}
-                onChangeSubjectSelections={updateSubjectSelections}
-                onChangeActiveCategory={setActiveCategory}
-              />
-
-              <TutorTeachingStyleSection
-                selectedStyles={profile.learningStyles}
-                onToggleStyle={toggleTeachingStyle}
-              />
-
-              <TutorAvailabilitySection
-                availability={profile.availability}
-                onChangeAvailability={updateAvailability}
-              />
-            </>
+            renderActiveTab()
           )}
 
           {error && (

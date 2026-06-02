@@ -1,14 +1,23 @@
 'use client';
 
 /**
- * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ * File purpose: First student onboarding step for qualifications and subjects.
+ *
+ * The student chooses the qualifications they study, then chooses subjects
+ * inside each qualification. The subject list itself comes from Firestore via
+ * academicOptionsService so students and tutors use the same editable source of
+ * truth instead of separate hardcoded arrays.
  */
 
 import { useEffect, useMemo, useState } from 'react';
 import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
-import { SUBJECT_OPTIONS_BY_CATEGORY } from '@/domains/students/learning-profile/constants/learningProfileOptions';
+import {
+  getSubjectOptionsByCategory,
+  getSubjectsForQualification,
+} from '@/domains/academic-options/services/academicOptionsService';
+import type { SubjectOptionsByCategory } from '@/domains/academic-options/types/academicOptions';
 import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import { QualificationSelector } from '@/domains/students/learning-profile/components/subjects/QualificationSelector';
 import { SubjectPicker } from '@/domains/students/learning-profile/components/subjects/SubjectPicker';
@@ -27,26 +36,25 @@ import type {
 } from '@/domains/students/learning-profile/types/learningProfile';
 
 /**
- * First student onboarding step.
+ * Student subject onboarding step.
  *
- * Subjects are grouped by qualification so GCSE Maths and A-level Maths remain
- * different choices. The component owns the selection state, while smaller
- * child components render the summary, qualification cards, and subject picker.
+ * State stays here because the page must save the complete subject selection
+ * when the user navigates away through the bottom onboarding tabs.
  */
 export function StudentSubjectsStep() {
   const [subjectSelections, setSubjectSelections] = useState<
     QualificationSubjectSelection[]
   >([]);
-
   const [activeCategory, setActiveCategory] = useState<
     QualificationCategory | ''
   >('');
+  const [subjectOptionsByCategory, setSubjectOptionsByCategory] =
+    useState<SubjectOptionsByCategory>({});
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
+  const [subjectLoadError, setSubjectLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    /**
-     * Load the signed-in student's saved Firestore profile after Firebase Auth
-     * has restored the browser session.
-     */
+    /** Load the signed-in student's existing onboarding selections. */
     let isMounted = true;
 
     async function loadProfile() {
@@ -65,6 +73,40 @@ export function StudentSubjectsStep() {
     };
   }, []);
 
+  useEffect(() => {
+    /** Load editable master subject options from Firestore. */
+    let isMounted = true;
+
+    async function loadAcademicSubjects() {
+      setIsLoadingSubjects(true);
+      setSubjectLoadError(null);
+
+      try {
+        const options = await getSubjectOptionsByCategory();
+
+        if (isMounted) {
+          setSubjectOptionsByCategory(options);
+        }
+      } catch {
+        if (isMounted) {
+          setSubjectLoadError(
+            'Could not load subjects from Firebase. Check the academicSubjects collection.'
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingSubjects(false);
+        }
+      }
+    }
+
+    void loadAcademicSubjects();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const selectedCategories = getSelectedCategories(subjectSelections);
 
   const activeSubjects = getSubjectsForCategory(
@@ -72,19 +114,16 @@ export function StudentSubjectsStep() {
     activeCategory
   );
 
-  /**
-   * Do not show subjects already selected for the active qualification in the
-   * combobox options, because selected items are already shown as pills.
-   */
+  /** Hide already-selected subjects because selected subjects appear as pills. */
   const subjectOptions = useMemo(() => {
-    if (!activeCategory) return [];
-
-    return SUBJECT_OPTIONS_BY_CATEGORY[activeCategory].filter(
-      (subject) => !activeSubjects.includes(subject)
-    );
-  }, [activeCategory, activeSubjects]);
+    return getSubjectsForQualification(
+      subjectOptionsByCategory,
+      activeCategory
+    ).filter((subject) => !activeSubjects.includes(subject));
+  }, [activeCategory, activeSubjects, subjectOptionsByCategory]);
 
   function chooseCategory(category: QualificationCategory) {
+    /** Selecting an existing category switches the picker to that category. */
     const alreadySelected = subjectSelections.some(
       (selection) => selection.category === category
     );
@@ -94,6 +133,7 @@ export function StudentSubjectsStep() {
       return;
     }
 
+    /** New categories start with no subjects until the student chooses them. */
     setSubjectSelections((currentSelections) => [
       ...currentSelections,
       { category, subjects: [] },
@@ -103,6 +143,7 @@ export function StudentSubjectsStep() {
   }
 
   function removeCategory(category: QualificationCategory) {
+    /** Removing a qualification also removes all subjects inside it. */
     setSubjectSelections((currentSelections) => {
       const nextSelections = currentSelections.filter(
         (selection) => selection.category !== category
@@ -119,6 +160,7 @@ export function StudentSubjectsStep() {
   function toggleSubject(subject: string) {
     if (!activeCategory) return;
 
+    /** Toggle only inside the currently active qualification. */
     setSubjectSelections((currentSelections) =>
       currentSelections.map((selection) => {
         if (selection.category !== activeCategory) return selection;
@@ -136,11 +178,13 @@ export function StudentSubjectsStep() {
   }
 
   function clearSelection() {
+    /** Reset both the selected data and the active editor panel. */
     setSubjectSelections([]);
     setActiveCategory('');
   }
 
   function saveDraftProfile() {
+    /** Save without blocking navigation; Firestore updates in the background. */
     void updateStoredLearningProfile({ subjectSelections });
   }
 
@@ -157,6 +201,12 @@ export function StudentSubjectsStep() {
       </Container>
 
       <Container className="py-10 pb-28">
+        {subjectLoadError && (
+          <p className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {subjectLoadError}
+          </p>
+        )}
+
         <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <aside className="grid gap-6 lg:sticky lg:top-8">
             <SubjectSummaryPanel
@@ -179,6 +229,7 @@ export function StudentSubjectsStep() {
             subjectOptions={subjectOptions}
             activeSubjects={activeSubjects}
             onToggleSubject={toggleSubject}
+            isLoadingSubjects={isLoadingSubjects}
           />
         </div>
       </Container>

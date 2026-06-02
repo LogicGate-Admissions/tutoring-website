@@ -4,7 +4,7 @@
 
 import { Card } from '@/shared/components/Card';
 import { cn } from '@/shared/utils/cn';
-import { QUALIFICATION_CATEGORIES } from '@/domains/students/learning-profile/constants/learningProfileOptions';
+import { QUALIFICATION_CATEGORIES } from '@/domains/academic-options/services/academicOptionsService';
 import type { QualificationCategory } from '@/domains/students/learning-profile/types/learningProfile';
 
 /**

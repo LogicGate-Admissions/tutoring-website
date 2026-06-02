@@ -2,85 +2,14 @@
  * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
  */
 
-import type { Day, QualificationCategory, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
+import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
 
-export const QUALIFICATION_CATEGORIES: QualificationCategory[] = [
-  'A-level',
-  'GCSE',
-  'University admissions',
-  'IB',
-  'IGCSE',
-  'IAL',
-  'Scottish Highers',
-];
-
-export const SUBJECT_OPTIONS_BY_CATEGORY: Record<QualificationCategory, string[]> = {
-  'A-level': [
-    'Maths',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'Further Maths',
-    'Computer Science',
-    'Economics',
-    'English Literature',
-  ],
-  GCSE: [
-    'Maths',
-    'English',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'Computer Science',
-    'Combined Science',
-  ],
-  'University admissions': [
-    'TMUA',
-    'MAT',
-    'STEP',
-    'ESAT',
-    'UCAT',
-    'LNAT',
-    'ENGAA',
-    'TSA',
-    'Interview preparation',
-    'Personal statement',
-  ],
-  IB: [
-    'Maths AA HL',
-    'Maths AI HL',
-    'Physics HL',
-    'Chemistry HL',
-    'Biology HL',
-    'Economics HL',
-    'Computer Science HL',
-  ],
-  IGCSE: [
-    'Maths',
-    'English',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'Computer Science',
-    'Business',
-  ],
-  IAL: [
-    'Maths',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'Further Maths',
-    'Economics',
-  ],
-  'Scottish Highers': [
-    'Maths',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'Computing Science',
-    'English',
-  ],
-};
+/**
+ * Learning style and availability constants stay in code because they define
+ * product interaction patterns, not editable academic content.
+ *
+ * The master subject list now lives in Firestore via academicOptionsService.
+ */
 
 export const LEARNING_STYLE_OPTIONS = [
   {
@@ -203,67 +132,3 @@ export const DEFAULT_LEARNING_PROFILE = {
   availability: [],
 } satisfies import('@/domains/students/learning-profile/types/learningProfile').StudentLearningProfile;
 
-/**
- * Subjects shown before the user clicks "More subjects".
- *
- * These are the common STEM subjects students are most likely to look for
- * first. The full list is still available afterwards.
- */
-export const PRIMARY_SUBJECTS_BY_CATEGORY: Record<
-  QualificationCategory,
-  string[]
-> = {
-  'A-level': [
-    'Maths',
-    'Further Maths',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'Computer Science',
-  ],
-  GCSE: [
-    'Maths',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'Computer Science',
-    'Combined Science',
-  ],
-  'University admissions': [
-    'TMUA',
-    'MAT',
-    'STEP',
-    'ESAT',
-    'UCAT',
-    'Interview preparation',
-  ],
-  IB: [
-    'Maths AA HL',
-    'Maths AI HL',
-    'Physics HL',
-    'Chemistry HL',
-    'Biology HL',
-    'Computer Science HL',
-  ],
-  IGCSE: [
-    'Maths',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'Computer Science',
-  ],
-  IAL: [
-    'Maths',
-    'Further Maths',
-    'Physics',
-    'Chemistry',
-    'Biology',
-  ],
-  'Scottish Highers': [
-    'Maths',
-    'Physics',
-    'Chemistry',
-    'Biology',
-    'Computing Science',
-  ],
-};

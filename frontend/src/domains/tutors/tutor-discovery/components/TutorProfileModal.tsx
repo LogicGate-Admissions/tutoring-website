@@ -79,7 +79,7 @@ export function TutorProfileModal({
 
         {/* Phase 2: show decision-making stats as separate blocks. */}
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <ProfileStat label="per hour" value={`£${tutor.pricePerHour}`} />
+          <ProfileStat label="from per hour" value={`£${tutor.pricePerHour}`} />
           <ProfileStat
             label={`${tutor.reviews} reviews`}
             value={`★ ${tutor.rating.toFixed(1)}`}
@@ -95,6 +95,27 @@ export function TutorProfileModal({
           <ProfileSection title="About">
             <p className="text-sm leading-6 text-slate-700">{tutor.bio}</p>
           </ProfileSection>
+
+
+          {tutor.subjectRates && tutor.subjectRates.length > 0 && (
+            <ProfileSection title="Subject rates">
+              <div className="grid gap-2">
+                {tutor.subjectRates.map((rate) => (
+                  <div
+                    key={`${rate.qualification}-${rate.subject}`}
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+                  >
+                    <span className="font-medium text-slate-800">
+                      {rate.qualification} · {rate.subject}
+                    </span>
+                    <span className="font-semibold text-slate-950">
+                      £{rate.pricePerHour}/hr
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </ProfileSection>
+          )}
 
           <div className="grid gap-5 md:grid-cols-2">
             <ProfileSection title="Levels taught">

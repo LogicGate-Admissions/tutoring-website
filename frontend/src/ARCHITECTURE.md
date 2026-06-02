@@ -121,3 +121,52 @@ SearchableMultiSelect.test.tsx
 ```
 
 Prefer testing pure utilities first because they are easier and more reliable than full page tests.
+
+## Firebase-backed academic subjects
+
+The master subject list is no longer stored in React constants. Both student
+onboarding and tutor onboarding read subjects from Firestore through:
+
+```txt
+src/domains/academic-options/services/academicOptionsService.ts
+```
+
+Create one document per qualification inside Firestore:
+
+```txt
+academicSubjects/gcse
+  category: "GCSE"
+  subjects: ["Maths", "English", "Physics", "Chemistry", "Biology"]
+
+academicSubjects/a-level
+  category: "A-level"
+  subjects: ["Maths", "Further Maths", "Physics", "Chemistry", "Biology"]
+
+academicSubjects/university-admissions
+  category: "University admissions"
+  subjects: ["TMUA", "MAT", "STEP", "UCAT", "LNAT"]
+```
+
+The collection is intentionally shared. If the team adds a subject in Firebase,
+it appears in both student onboarding and tutor onboarding without changing
+code.
+
+## Tutor onboarding tabs
+
+Tutor onboarding is now a single route with tabs:
+
+```txt
+Subjects | Style | Availability | Profile
+```
+
+The Subjects tab stores per-subject rates:
+
+```txt
+subjectRates: [
+  { qualification: "GCSE", subject: "Maths", pricePerHour: 25 },
+  { qualification: "A-level", subject: "Maths", pricePerHour: 35 }
+]
+```
+
+The public tutor card uses the cheapest rate as `pricePerHour`, while the tutor
+profile modal shows the full rate table.

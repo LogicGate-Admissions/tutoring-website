@@ -14,11 +14,15 @@ import { getFirestore } from 'firebase/firestore';
  * Firebase client configuration.
  *
  * Important:
- * Next.js only exposes browser environment variables when they start with
- * NEXT_PUBLIC_ and are accessed directly.
+ * Next.js only exposes browser environment variables when they:
+ * 1. start with NEXT_PUBLIC_
+ * 2. are accessed directly, for example:
+ *    process.env.NEXT_PUBLIC_FIREBASE_API_KEY
  *
- * Do not use dynamic access like process.env[name] here, because the browser
- * bundle may not replace it correctly.
+ * Do not use dynamic access like process.env[name].
+ * Next.js may not replace that correctly in the browser bundle, which causes
+ * Firebase to receive the demo/fallback key and throw:
+ * auth/api-key-not-valid
  */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -33,8 +37,8 @@ const firebaseConfig = {
 /**
  * Fail early if Firebase config is missing.
  *
- * This gives a clear error instead of letting Firebase fail later with a vague
- * auth/api-key-not-valid message.
+ * This gives us a clear setup error instead of letting Firebase fail later
+ * with a vague invalid API key message.
  */
 function assertFirebaseConfigIsPresent() {
   const missingKeys = Object.entries(firebaseConfig)
@@ -48,6 +52,12 @@ function assertFirebaseConfigIsPresent() {
   }
 }
 
+/**
+ * Check the Firebase config before initialising the SDK.
+ *
+ * This protects local development and deployment from silently using an
+ * incomplete Firebase configuration.
+ */
 assertFirebaseConfigIsPresent();
 
 /**
@@ -78,6 +88,7 @@ export const auth = getAuth(firebaseApp);
  * - user role documents
  * - student profiles
  * - tutor profiles
+ * - academic subject options
  * - trial session requests
  */
 export const db = getFirestore(firebaseApp);
@@ -85,6 +96,6 @@ export const db = getFirestore(firebaseApp);
 /**
  * Google sign-in provider.
  *
- * This provider is passed into signInWithPopup() inside the auth service.
+ * Passed into signInWithPopup() inside the auth service.
  */
 export const googleProvider = new GoogleAuthProvider();

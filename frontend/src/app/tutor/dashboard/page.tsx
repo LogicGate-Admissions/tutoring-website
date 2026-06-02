@@ -1,15 +1,18 @@
 /**
  * File purpose: Tutor dashboard route.
  *
- * The dashboard is intentionally empty for now. Tutor-side features can be
- * added here without changing the login/onboarding flow.
+ * The tutor dashboard starts simple but now has left-side tabs into the tutor
+ * areas the team will build out next: trial requests and profile onboarding.
  */
 
+import Link from 'next/link';
 import { RequireAuth } from '@/domains/auth/components/RequireAuth';
 import { SignOutButton } from '@/domains/auth/components/SignOutButton';
+import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
-import { Container } from '@/shared/components/Container';
+import { DashboardShell } from '@/shared/components/dashboard/DashboardShell';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { ROUTES } from '@/shared/constants/routes';
 
 /** URL: /tutor/dashboard */
 export default function TutorDashboardPage() {
@@ -19,15 +22,52 @@ export default function TutorDashboardPage() {
         <PageHeader
           eyebrow="Tutor area"
           title="Tutor dashboard"
-          description="Dashboard features will be added here as the project develops."
+          description="Use the left tabs to review student trial requests or update your tutor profile."
         />
 
-        <Container className="py-10">
-          <Card className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-slate-600">No dashboard widgets have been added yet.</p>
-            <SignOutButton />
+        <DashboardShell
+          navItems={[
+            {
+              label: 'Dashboard',
+              href: ROUTES.tutorDashboard,
+              active: true,
+              description: 'Tutor overview',
+            },
+            {
+              label: 'Trial requests',
+              href: ROUTES.tutorTrialSessions,
+              description: 'Student requirements and requests',
+            },
+            {
+              label: 'Tutor profile',
+              href: ROUTES.tutorOnboarding,
+              description: 'Subjects, rates, availability',
+            },
+          ]}
+          action={<SignOutButton />}
+        >
+          <Card className="grid gap-5">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
+                Tutor workspace
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Dashboard widgets will be added here. For now, tutors can review
+                incoming student trial requests and update their Firestore tutor
+                profile.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link href={ROUTES.tutorTrialSessions}>
+                <Button>View trial requests</Button>
+              </Link>
+              <Link href={ROUTES.tutorOnboarding}>
+                <Button variant="secondary">Edit tutor profile</Button>
+              </Link>
+            </div>
           </Card>
-        </Container>
+        </DashboardShell>
       </main>
     </RequireAuth>
   );

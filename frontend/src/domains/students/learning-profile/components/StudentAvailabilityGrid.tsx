@@ -19,7 +19,6 @@ import {
   normaliseGridRange,
   SLOT_MINUTES,
   snapMouseYToGridMinutes,
-  TIME_SLOTS,
 } from '@/domains/students/learning-profile/utils/availabilityGridMath';
 import {
   DayColumn,

@@ -55,7 +55,7 @@ export function TutorCard({
             label={`${tutor.reviews} reviews`}
             value={`★ ${tutor.rating.toFixed(1)}`}
           />
-          <CardMetric label="per hour" value={`£${tutor.pricePerHour}`} />
+          <CardMetric label="from per hour" value={`£${tutor.pricePerHour}`} />
         </div>
 
         {/* Phase 3: show teachable scope in clearly labelled groups. */}

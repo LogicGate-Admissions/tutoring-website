@@ -1,20 +1,22 @@
 'use client';
 
 /**
- * File purpose: Tutor-facing page for reviewing real Firebase trial requests.
+ * File purpose: Tutor-facing page for reviewing Firebase trial requests.
  *
- * Requests are filtered by the signed-in tutor's Firebase uid. There is no mock
- * tutor selector anymore because account identity now comes from Firebase Auth.
+ * Requests are filtered by the signed-in tutor's Firebase uid. The left-side
+ * dashboard tabs keep tutor navigation consistent with the tutor dashboard.
  */
 
 import { useEffect, useState } from 'react';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
-import { Container } from '@/shared/components/Container';
+import { DashboardShell } from '@/shared/components/dashboard/DashboardShell';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { ROUTES } from '@/shared/constants/routes';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import type { AuthUser } from '@/domains/auth/types/auth';
+import { SignOutButton } from '@/domains/auth/components/SignOutButton';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import {
   subscribeToTutorTrialSessions,
@@ -49,27 +51,45 @@ export function TutorTrialSessionsPage() {
       <PageHeader
         eyebrow="Tutor area"
         title="Trial session requests"
-        description="Review student context and accept or reject trial requests asynchronously."
+        description="Review student requirements and accept or reject trial requests asynchronously."
       />
 
-      <Container className="grid gap-6 py-10 lg:grid-cols-[320px_1fr]">
-        <aside className="space-y-5">
+      <DashboardShell
+        navItems={[
+          {
+            label: 'Dashboard',
+            href: ROUTES.tutorDashboard,
+            description: 'Tutor overview',
+          },
+          {
+            label: 'Trial requests',
+            href: ROUTES.tutorTrialSessions,
+            active: true,
+            description: 'Student requirements',
+          },
+          {
+            label: 'Tutor profile',
+            href: ROUTES.tutorOnboarding,
+            description: 'Subjects, rates, availability',
+          },
+        ]}
+        action={<SignOutButton />}
+      >
+        <div className="grid gap-6">
           <Card>
-            <h2 className="text-lg font-semibold">Signed in tutor</h2>
-            <div className="mt-4 grid gap-3 text-sm text-slate-600">
+            <h2 className="text-lg font-semibold">Request summary</h2>
+            <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
               <p><span className="font-medium text-slate-950">Tutor:</span> {currentTutor?.name ?? 'Loading...'}</p>
               <p><span className="font-medium text-slate-950">Pending:</span> {pendingRequests.length}</p>
               <p><span className="font-medium text-slate-950">Total:</span> {requests.length}</p>
             </div>
           </Card>
-        </aside>
 
-        <section className="grid gap-5">
           {requests.length === 0 && (
             <Card>
               <p className="font-medium">No trial requests yet.</p>
               <p className="mt-2 text-sm text-slate-600">
-                When students request a trial with you, their requests will appear here.
+                When students request a trial with you, their requirements will appear here.
               </p>
             </Card>
           )}
@@ -114,8 +134,8 @@ export function TutorTrialSessionsPage() {
               </div>
             </Card>
           ))}
-        </section>
-      </Container>
+        </div>
+      </DashboardShell>
     </main>
   );
 }

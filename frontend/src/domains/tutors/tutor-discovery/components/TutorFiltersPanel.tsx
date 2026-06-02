@@ -4,12 +4,15 @@
  * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
  */
 
+import { useEffect, useState } from 'react';
 import { Button } from '@/shared/components/Button';
 import { SearchableMultiSelect } from '@/shared/components/SearchableMultiSelect';
+import { LEARNING_STYLE_OPTIONS } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import {
-  LEARNING_STYLE_OPTIONS,
   QUALIFICATION_CATEGORIES,
-} from '@/domains/students/learning-profile/constants/learningProfileOptions';
+  getSubjectOptionsByCategory,
+} from '@/domains/academic-options/services/academicOptionsService';
+import type { SubjectOptionsByCategory } from '@/domains/academic-options/types/academicOptions';
 import {
   TUTOR_SORT_OPTIONS,
   UNIVERSITY_FILTER_OPTIONS,
@@ -52,6 +55,36 @@ export function TutorFiltersPanel({
   onResetToOnboarding,
   onSaveToOnboarding,
 }: TutorFiltersPanelProps) {
+  const [subjectOptionsByCategory, setSubjectOptionsByCategory] =
+    useState<SubjectOptionsByCategory>({});
+  const [isLoadingSubjectOptions, setIsLoadingSubjectOptions] = useState(true);
+
+  useEffect(() => {
+    /** Load filter subject options from the same Firestore source as onboarding. */
+    let isMounted = true;
+
+    async function loadSubjectOptions() {
+      setIsLoadingSubjectOptions(true);
+
+      try {
+        const options = await getSubjectOptionsByCategory();
+
+        if (isMounted) {
+          setSubjectOptionsByCategory(options);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingSubjectOptions(false);
+        }
+      }
+    }
+
+    void loadSubjectOptions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   function addLevel(level: QualificationCategory) {
     if (filters.levels.includes(level)) return;
 
@@ -149,7 +182,7 @@ export function TutorFiltersPanel({
 
         <SearchableMultiSelect
           label="Subjects"
-          options={getSubjectOptionsForLevels(filters.levels)}
+          options={getSubjectOptionsForLevels(filters.levels, subjectOptionsByCategory)}
           selectedOptions={filters.subjects}
           getOptionKey={tutorSubjectFilterKey}
           getOptionLabel={tutorSubjectFilterLabel}
@@ -157,7 +190,11 @@ export function TutorFiltersPanel({
           onRemove={removeSubject}
           disabled={filters.levels.length === 0}
           disabledMessage="Select level(s) first."
-          emptyMessage="No subjects found."
+          emptyMessage={
+            isLoadingSubjectOptions
+              ? 'Loading subjects...'
+              : 'No subjects found in Firebase.'
+          }
         />
 
         <SearchableMultiSelect

@@ -20,8 +20,6 @@ type TutorProfileBasicsSectionProps = {
     value: string
   ) => void;
 
-  /** Updates the tutor hourly rate. */
-  onChangePricePerHour: (value: number) => void;
 };
 
 /**
@@ -29,12 +27,11 @@ type TutorProfileBasicsSectionProps = {
  *
  * These fields become visible to students in tutor discovery, so this section
  * focuses on clear public-facing information: name, headline, institution,
- * degree, rate, and bio.
+ * degree, and bio. Per-subject prices are edited in the Subjects tab.
  */
 export function TutorProfileBasicsSection({
   profile,
   onChangeTextField,
-  onChangePricePerHour,
 }: TutorProfileBasicsSectionProps) {
   return (
     <Card>
@@ -78,19 +75,6 @@ export function TutorProfileBasicsSection({
             onChange={(value) => onChangeTextField('degree', value)}
           />
         </div>
-
-        <label className="grid gap-2 text-sm font-medium text-slate-800" htmlFor="pricePerHour">
-          Hourly rate (£)
-          <input
-            id="pricePerHour"
-            type="number"
-            min={0}
-            max={100}
-            value={profile.pricePerHour}
-            onChange={(event) => onChangePricePerHour(Number(event.target.value))}
-            className="rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-          />
-        </label>
 
         <label className="grid gap-2 text-sm font-medium text-slate-800" htmlFor="bio">
           Short bio

@@ -1,28 +1,29 @@
 /**
- * File purpose: Pure tutor-discovery helper logic. Keep matching rules here instead of inside React components.
+ * File purpose: Pure tutor-discovery helper logic for building filter options.
+ *
+ * Subject options are passed in from Firestore-backed academicOptionsService.
+ * This file stays pure so it can be unit tested without Firebase.
  */
 
-import {
-  SUBJECT_OPTIONS_BY_CATEGORY,
-} from '@/domains/students/learning-profile/constants/learningProfileOptions';
+import { getSubjectsForQualification } from '@/domains/academic-options/services/academicOptionsService';
+import type { SubjectOptionsByCategory } from '@/domains/academic-options/types/academicOptions';
 import type { QualificationCategory } from '@/domains/students/learning-profile/types/learningProfile';
 import type { TutorSubjectFilter } from '@/domains/tutors/tutor-discovery/types/tutor';
 
-/**
- * Build subject options from the currently selected qualification levels.
- *
- * We keep the level on each option because GCSE Maths and A-level Maths should
- * be treated as different tutor-matching filters, even though the label text is
- * both "Maths".
- */
+/** Build level-specific subject filter options from selected qualification levels. */
 export function getSubjectOptionsForLevels(
-  levels: QualificationCategory[]
+  levels: QualificationCategory[],
+  optionsByCategory: SubjectOptionsByCategory
 ): TutorSubjectFilter[] {
   return levels.flatMap((level) =>
-    SUBJECT_OPTIONS_BY_CATEGORY[level].map((subject) => ({ level, subject }))
+    getSubjectsForQualification(optionsByCategory, level).map((subject) => ({
+      level,
+      subject,
+    }))
   );
 }
 
+/** Compare filters by both qualification and subject name. */
 export function subjectFiltersMatch(
   first: TutorSubjectFilter,
   second: TutorSubjectFilter

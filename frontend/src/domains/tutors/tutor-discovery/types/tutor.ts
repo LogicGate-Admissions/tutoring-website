@@ -1,5 +1,9 @@
 /**
- * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ * File purpose: Tutor discovery data types.
+ *
+ * These types describe the public tutor profile shape consumed by cards,
+ * profile modals, filters, and sorting. Firestore mapping belongs in the
+ * tutorProfileService, not in React components.
  */
 
 import type {
@@ -7,9 +11,14 @@ import type {
   TimeBlock,
 } from '@/domains/students/learning-profile/types/learningProfile';
 
-/**
- * Tutor profile shown to students while browsing.
- */
+/** Per-qualification, per-subject pricing set during tutor onboarding. */
+export type TutorSubjectRate = {
+  qualification: QualificationCategory;
+  subject: string;
+  pricePerHour: number;
+};
+
+/** Tutor profile shown to students while browsing. */
 export type Tutor = {
   id: string;
   name: string;
@@ -19,7 +28,13 @@ export type Tutor = {
   subjects: string[];
   levels: string[];
   learningStyles: string[];
+
+  /** Cheapest hourly rate across the tutor's selected subjects. */
   pricePerHour: number;
+
+  /** Full rate list shown inside the tutor profile modal. */
+  subjectRates?: TutorSubjectRate[];
+
   rating: number;
   reviews: number;
   numberOfStudents: number;
@@ -37,24 +52,13 @@ export type TutorSortOption =
   | 'Lowest price'
   | 'Highest price';
 
-/**
- * A subject filter is qualification-specific.
- *
- * This means GCSE Maths and A-level Maths are no longer treated as the same
- * selected filter, even though they share the same subject name.
- */
+/** Level-specific subject filter, e.g. GCSE Maths vs A-level Maths. */
 export type TutorSubjectFilter = {
   level: QualificationCategory;
   subject: string;
 };
 
-/**
- * Filters students can apply while browsing tutors.
- *
- * These are separate from onboarding.
- * Tutor filters can be edited freely without changing the student's saved
- * onboarding profile unless the user explicitly presses "Save to profile".
- */
+/** Filters students can apply while browsing tutors. */
 export type TutorFilters = {
   subjects: TutorSubjectFilter[];
   levels: QualificationCategory[];
