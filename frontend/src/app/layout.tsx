@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Tutorly',
+  title: 'LogicGate',
   description:
     'A clearer way for students and tutors to prepare, communicate, and share learning support.',
 };

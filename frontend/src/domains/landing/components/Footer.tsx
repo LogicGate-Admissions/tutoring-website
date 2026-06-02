@@ -34,7 +34,7 @@ export default function Footer() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-[10px] font-bold text-slate-950">
                 TM
               </div>
-              <span className="text-base font-semibold tracking-[-0.02em] text-white">Tutorly</span>
+              <span className="text-base font-semibold tracking-[-0.02em] text-white">LogicGate</span>
             </div>
             <p className="mt-4 max-w-[200px] text-sm leading-6 text-slate-400">
               Connecting students with expert tutors from the UK&apos;s top universities.
@@ -60,7 +60,7 @@ export default function Footer() {
 
         <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-slate-800 pt-8 sm:flex-row">
           <p className="text-xs font-medium text-slate-500">
-            &copy; 2025 Tutorly. All rights reserved.
+            &copy; 2025 LogicGate. All rights reserved.
           </p>
           <div className="flex gap-6">
             <Link href={ROUTES.home} className="text-xs font-medium text-slate-500 transition hover:text-slate-300">Privacy Policy</Link>

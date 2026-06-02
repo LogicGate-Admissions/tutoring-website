@@ -39,7 +39,7 @@ export default function Navbar() {
               TM
             </div>
             <span className="text-base font-semibold tracking-[-0.02em] text-slate-950">
-              Tutorly
+              LogicGate
             </span>
           </Link>
 
