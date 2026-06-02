@@ -1,3 +1,7 @@
+/**
+ * File purpose: Next.js route entry file. Keep this thin and delegate product logic to domains/.
+ */
+
 import type { Metadata } from 'next';
 import './globals.css';
 

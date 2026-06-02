@@ -1,3 +1,7 @@
+/**
+ * File purpose: Small subject-selection UI/helper file. It keeps StudentSubjectsStep readable.
+ */
+
 import { Card } from '@/shared/components/Card';
 import { SearchableMultiSelect } from '@/shared/components/SearchableMultiSelect';
 import type { QualificationCategory } from '@/domains/students/learning-profile/types/learningProfile';

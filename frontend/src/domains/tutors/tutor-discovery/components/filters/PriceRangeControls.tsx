@@ -1,3 +1,7 @@
+/**
+ * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ */
+
 import {
   MAX_TUTOR_PRICE_PER_HOUR,
   MIN_TUTOR_PRICE_PER_HOUR,

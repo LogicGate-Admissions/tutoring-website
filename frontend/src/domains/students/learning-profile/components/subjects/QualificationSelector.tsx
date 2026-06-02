@@ -1,3 +1,7 @@
+/**
+ * File purpose: Small subject-selection UI/helper file. It keeps StudentSubjectsStep readable.
+ */
+
 import { Card } from '@/shared/components/Card';
 import { cn } from '@/shared/utils/cn';
 import { QUALIFICATION_CATEGORIES } from '@/domains/students/learning-profile/constants/learningProfileOptions';

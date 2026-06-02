@@ -1,30 +1,36 @@
 'use client';
 
+/**
+ * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ */
+
+/**
+ * Student onboarding preferences page.
+ *
+ * This page owns the selected preference state and passes simple callbacks to
+ * smaller section components. Keeping the page at this level makes it easier to
+ * replace localStorage with Firestore later because all saving happens here.
+ */
+
 import { useState } from 'react';
 import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
-import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
-import { SearchableMultiSelect } from '@/shared/components/SearchableMultiSelect';
-import {
-  LEARNING_STYLE_OPTIONS,
-  UNIVERSITY_OPTIONS,
-} from '@/domains/students/learning-profile/constants/learningProfileOptions';
-import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
 import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
+import { LearningStyleSection } from '@/domains/students/learning-profile/components/preferences/LearningStyleSection';
+import { PreferredUniversitiesSection } from '@/domains/students/learning-profile/components/preferences/PreferredUniversitiesSection';
+import {
+  addUniqueValue,
+  removeValue,
+  toggleSelectedValue,
+} from '@/domains/students/learning-profile/components/preferences/PreferenceSelectionHelpers';
 import {
   getStoredLearningProfile,
   updateStoredLearningProfile,
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
 
-/**
- * Second student onboarding step.
- *
- * This captures matching preferences:
- * - how the student prefers to learn
- * - which university backgrounds they prefer tutors to have
- */
 export function StudentPreferencesStep() {
+  /** Read once on load. Later this will come from the logged-in student's profile. */
   const storedProfile = getStoredLearningProfile();
 
   const [selectedStyles, setSelectedStyles] = useState<string[]>(
@@ -36,29 +42,28 @@ export function StudentPreferencesStep() {
   );
 
   function toggleStyle(style: string) {
+    /** Toggling is isolated in a helper so this handler stays self-explanatory. */
     setSelectedStyles((currentStyles) =>
-      currentStyles.includes(style)
-        ? currentStyles.filter((item) => item !== style)
-        : [...currentStyles, style]
+      toggleSelectedValue(currentStyles, style)
     );
   }
 
   function addUniversity(university: string) {
-    if (!university || preferredUniversities.includes(university)) return;
-
-    setPreferredUniversities((currentUniversities) => [
-      ...currentUniversities,
-      university,
-    ]);
+    /** Add only if it is not already present. */
+    setPreferredUniversities((currentUniversities) =>
+      addUniqueValue(currentUniversities, university)
+    );
   }
 
   function removeUniversity(university: string) {
+    /** Remove by value rather than index because option order can change later. */
     setPreferredUniversities((currentUniversities) =>
-      currentUniversities.filter((item) => item !== university)
+      removeValue(currentUniversities, university)
     );
   }
 
   function saveDraftProfile() {
+    /** Save partial progress whenever the student navigates away. */
     updateStoredLearningProfile({
       learningStyles: selectedStyles,
       preferredUniversities,
@@ -78,45 +83,16 @@ export function StudentPreferencesStep() {
       </Container>
 
       <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card>
-          <h2 className="text-xl font-semibold">Learning style</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Select any styles that would make tutoring feel more useful for you.
-          </p>
+        <LearningStyleSection
+          selectedStyles={selectedStyles}
+          onToggleStyle={toggleStyle}
+        />
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {LEARNING_STYLE_OPTIONS.map((style) => (
-              <OptionCard
-                key={style.label}
-                title={style.label}
-                description={style.description}
-                selected={selectedStyles.includes(style.label)}
-                onToggle={() => toggleStyle(style.label)}
-              />
-            ))}
-          </div>
-        </Card>
-
-        <Card>
-          <h2 className="text-xl font-semibold">Preferred universities</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Add universities you would prefer tutors to come from. You can
-            leave this blank if you do not mind.
-          </p>
-
-          <div className="mt-5">
-            <SearchableMultiSelect
-              label="Search universities"
-              options={[...UNIVERSITY_OPTIONS]}
-              selectedOptions={preferredUniversities}
-              getOptionKey={(university) => university}
-              getOptionLabel={(university) => university}
-              onSelect={addUniversity}
-              onRemove={removeUniversity}
-              emptyMessage="No universities found."
-            />
-          </div>
-        </Card>
+        <PreferredUniversitiesSection
+          preferredUniversities={preferredUniversities}
+          onAddUniversity={addUniversity}
+          onRemoveUniversity={removeUniversity}
+        />
       </Container>
 
       <StudentOnboardingSectionBar

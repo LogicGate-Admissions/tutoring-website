@@ -1,3 +1,7 @@
+/**
+ * File purpose: Small availability UI building block. It keeps StudentAvailabilityStep readable.
+ */
+
 import { MouseEvent } from 'react';
 import { DAYS } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';

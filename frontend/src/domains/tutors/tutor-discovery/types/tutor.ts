@@ -1,3 +1,7 @@
+/**
+ * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ */
+
 import type { QualificationCategory } from '@/domains/students/learning-profile/types/learningProfile';
 
 /**

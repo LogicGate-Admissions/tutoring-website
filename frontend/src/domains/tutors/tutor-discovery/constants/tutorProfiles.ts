@@ -1,3 +1,7 @@
+/**
+ * File purpose: Temporary static data used before the real database/auth system is connected.
+ */
+
 import type { Tutor, TutorSortOption } from '@/domains/tutors/tutor-discovery/types/tutor';
 
 /**

@@ -1,3 +1,7 @@
+/**
+ * File purpose: Pure tutor-discovery helper logic. Keep matching rules here instead of inside React components.
+ */
+
 import type { TutorSubjectFilter } from '@/domains/tutors/tutor-discovery/types/tutor';
 
 /**

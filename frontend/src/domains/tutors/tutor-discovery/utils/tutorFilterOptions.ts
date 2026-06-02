@@ -1,3 +1,7 @@
+/**
+ * File purpose: Pure tutor-discovery helper logic. Keep matching rules here instead of inside React components.
+ */
+
 import {
   SUBJECT_OPTIONS_BY_CATEGORY,
 } from '@/domains/students/learning-profile/constants/learningProfileOptions';

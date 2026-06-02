@@ -1,3 +1,7 @@
+/**
+ * File purpose: Small availability UI building block. It keeps StudentAvailabilityStep readable.
+ */
+
 import { Button } from '@/shared/components/Button';
 import { cn } from '@/shared/utils/cn';
 import { DAYS } from '@/domains/students/learning-profile/constants/learningProfileOptions';

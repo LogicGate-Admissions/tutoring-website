@@ -1,3 +1,7 @@
+/**
+ * File purpose: Small availability UI building block. It keeps StudentAvailabilityStep readable.
+ */
+
 import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
 import { AVAILABILITY_PRESETS } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 

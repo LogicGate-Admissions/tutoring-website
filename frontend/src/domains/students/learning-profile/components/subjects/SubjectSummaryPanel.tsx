@@ -1,3 +1,7 @@
+/**
+ * File purpose: Small subject-selection UI/helper file. It keeps StudentSubjectsStep readable.
+ */
+
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';

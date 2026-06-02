@@ -1,4 +1,8 @@
 /**
+ * File purpose: Temporary account model/mock data used until Firebase Authentication is connected.
+ */
+
+/**
  * Supported account roles.
  *
  * We keep this strict so random role names cannot accidentally enter the app.

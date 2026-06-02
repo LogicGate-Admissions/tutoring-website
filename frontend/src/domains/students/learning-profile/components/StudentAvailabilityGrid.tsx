@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ */
+
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { DAYS } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import type {

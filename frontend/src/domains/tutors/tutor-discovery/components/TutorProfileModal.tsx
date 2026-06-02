@@ -1,3 +1,7 @@
+/**
+ * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ */
+
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { HomeLinkButton } from '@/shared/components/HomeLinkButton';

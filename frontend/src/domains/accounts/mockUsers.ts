@@ -1,3 +1,7 @@
+/**
+ * File purpose: Temporary account model/mock data used until Firebase Authentication is connected.
+ */
+
 import type { AppUser } from '@/domains/accounts/types';
 
 /**

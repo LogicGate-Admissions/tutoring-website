@@ -1,3 +1,7 @@
+/**
+ * File purpose: Shared library setup file. Keep third-party initialisation isolated here.
+ */
+
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 

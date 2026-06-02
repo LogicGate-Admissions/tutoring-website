@@ -1,4 +1,8 @@
 /**
+ * File purpose: Shared constant used across domains to avoid duplicated string literals.
+ */
+
+/**
  * Central route names for the application.
  *
  * Use these constants instead of hard-coding route strings in components.

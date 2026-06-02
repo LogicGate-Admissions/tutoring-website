@@ -1,4 +1,8 @@
 /**
+ * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ */
+
+/**
  * Current lifecycle states for a trial session request.
  */
 export type TrialSessionStatus = 'pending' | 'accepted' | 'rejected';

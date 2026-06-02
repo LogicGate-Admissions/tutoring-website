@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * File purpose: Landing-page component. It should reuse domain components rather than duplicating product logic.
+ */
+
 import { useMemo, useState } from 'react';
 import { Card } from '@/shared/components/Card';
 import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';

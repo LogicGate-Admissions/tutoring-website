@@ -1,3 +1,7 @@
+/**
+ * File purpose: Learning-profile persistence boundary. Replace this layer when moving from localStorage to Firestore.
+ */
+
 import { DEFAULT_LEARNING_PROFILE } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import type {
   QualificationCategory,

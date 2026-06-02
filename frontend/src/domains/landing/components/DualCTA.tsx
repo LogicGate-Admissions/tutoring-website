@@ -1,3 +1,7 @@
+/**
+ * File purpose: Landing-page component. It should reuse domain components rather than duplicating product logic.
+ */
+
 import Link from 'next/link';
 import { ROUTES } from '@/shared/constants/routes';
 

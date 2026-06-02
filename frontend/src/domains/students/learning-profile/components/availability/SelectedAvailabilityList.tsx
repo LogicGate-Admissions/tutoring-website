@@ -1,3 +1,7 @@
+/**
+ * File purpose: Small availability UI building block. It keeps StudentAvailabilityStep readable.
+ */
+
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';

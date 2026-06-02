@@ -1,3 +1,7 @@
+/**
+ * File purpose: Pure learning-profile helper logic. Keep this free from React so it is easy to test.
+ */
+
 import type { TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
 import {
   minutesToTime,

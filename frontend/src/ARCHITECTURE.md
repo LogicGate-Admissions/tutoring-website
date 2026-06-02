@@ -80,3 +80,49 @@ This keeps parallel work safer:
 - A person working on tutor matching should usually stay in `tutors/tutor-discovery/`.
 - A person working on trial requests should usually stay in `sessions/trial-sessions/`.
 - A person changing reusable UI should work in `shared/components/` and expect wider impact.
+
+## Current hard-coded data and how we will remove it
+
+At the moment, several files are intentionally static because the project does not
+have login and database writes connected yet:
+
+- `domains/accounts/mockUsers.ts` contains temporary student/tutor identities.
+- `domains/tutors/tutor-discovery/constants/tutorProfiles.ts` contains temporary tutor profiles.
+- `domains/students/learning-profile/constants/learningProfileOptions.ts` contains stable option lists such as subjects, learning styles, universities, and availability presets.
+
+Do not replace every constant with Firebase at once. Use a staged approach:
+
+1. Keep stable product vocabulary in constants.
+   Subjects, qualification labels, learning-style labels, and preset labels are
+   product configuration. These can remain local constants until the team needs
+   an admin panel to edit them.
+
+2. Move user-owned data behind services first.
+   Student learning profiles, tutor profiles, and trial-session requests should
+   be loaded through service functions. Components should not know whether data
+   came from localStorage, mock arrays, or Firestore.
+
+3. Add repository/service interfaces before Firebase.
+   For example, `tutorProfileService.getTutorProfiles()` can return the same
+   data as `TUTOR_PROFILES` today, then later read from Firestore without
+   changing the UI components.
+
+4. Once login is added, connect services to the authenticated user.
+   Student pages should load the current student profile by `auth.currentUser.uid`.
+   Tutor pages should load tutor-owned sessions and tutor-owned profile data by
+   the same authenticated user id.
+
+This keeps the code testable and stops Firebase details from leaking into every
+component.
+
+## Learning-profile component folders
+
+The learning-profile domain is split by onboarding area:
+
+- `components/subjects/` contains subject and qualification selection UI.
+- `components/preferences/` contains learning-style and university preference UI.
+- `components/availability/` contains availability presets, timetable, and manual time UI.
+
+The page-level components (`StudentSubjectsStep`, `StudentPreferencesStep`, and
+`StudentAvailabilityStep`) should coordinate state and saving. Smaller folder
+components should render one clear part of the page.

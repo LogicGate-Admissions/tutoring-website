@@ -1,3 +1,7 @@
+/**
+ * File purpose: Pure tutor-discovery helper logic. Keep matching rules here instead of inside React components.
+ */
+
 import {
   MAX_TUTOR_PRICE_PER_HOUR,
   MIN_TUTOR_PRICE_PER_HOUR,

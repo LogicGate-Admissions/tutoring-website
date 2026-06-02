@@ -1,4 +1,8 @@
 /**
+ * File purpose: Shared constant used across domains to avoid duplicated string literals.
+ */
+
+/**
  * Firestore collection names used by the app.
  *
  * Keeping names in one file avoids typo bugs such as writing

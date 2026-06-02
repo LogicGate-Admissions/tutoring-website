@@ -1,3 +1,7 @@
+/**
+ * File purpose: Landing-page component. It should reuse domain components rather than duplicating product logic.
+ */
+
 const steps = [
   {
     number: '1',

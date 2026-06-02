@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ */
+
 import { cn } from '@/shared/utils/cn';
 
 type OptionCardProps = {

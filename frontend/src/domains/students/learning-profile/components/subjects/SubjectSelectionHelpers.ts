@@ -1,3 +1,7 @@
+/**
+ * File purpose: Small subject-selection UI/helper file. It keeps StudentSubjectsStep readable.
+ */
+
 import type {
   QualificationCategory,
   QualificationSubjectSelection,

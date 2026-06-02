@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ */
+
 import { useMemo, useState } from 'react';
 import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Container } from '@/shared/components/Container';

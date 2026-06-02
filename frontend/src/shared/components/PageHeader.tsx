@@ -1,3 +1,7 @@
+/**
+ * File purpose: Reusable UI component shared across domains. Keep it generic and product-agnostic.
+ */
+
 import { Container } from '@/shared/components/Container';
 
 type PageHeaderProps = {

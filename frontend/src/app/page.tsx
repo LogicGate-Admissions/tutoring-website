@@ -1,3 +1,7 @@
+/**
+ * File purpose: Next.js route entry file. Keep this thin and delegate product logic to domains/.
+ */
+
 import DualCTA from '@/domains/landing/components/DualCTA';
 import Footer from '@/domains/landing/components/Footer';
 import HeroSection from '@/domains/landing/components/HeroSection';

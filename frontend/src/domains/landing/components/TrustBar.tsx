@@ -1,3 +1,7 @@
+/**
+ * File purpose: Landing-page component. It should reuse domain components rather than duplicating product logic.
+ */
+
 const signals = [
   { label: '1,200+', sub: 'Verified tutors' },
   { label: '4.9 / 5', sub: 'Average rating' },

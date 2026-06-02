@@ -1,3 +1,7 @@
+/**
+ * File purpose: Next.js route entry file. Keep this thin and delegate product logic to domains/.
+ */
+
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';

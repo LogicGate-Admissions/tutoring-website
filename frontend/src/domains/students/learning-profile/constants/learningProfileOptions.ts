@@ -1,3 +1,7 @@
+/**
+ * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ */
+
 import type { Day, QualificationCategory, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
 
 export const QUALIFICATION_CATEGORIES: QualificationCategory[] = [
