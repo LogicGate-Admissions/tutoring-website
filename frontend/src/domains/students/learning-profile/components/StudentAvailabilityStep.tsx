@@ -7,6 +7,7 @@ import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { cn } from '@/shared/utils/cn';
 import { OptionCard } from '@/domains/students/learning-profile/components/OptionCard';
 import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
 import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
@@ -16,6 +17,7 @@ import {
 } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import {
   blockFullyContains,
+  blockTouchesOrOverlaps,
   createManualTimeBlock,
   mergeTimeBlocks,
   timeBlockLabel,
@@ -30,15 +32,6 @@ import type {
   TimeBlock,
 } from '@/domains/students/learning-profile/types/learningProfile';
 
-/**
- * Checks whether a saved/merged time block fully covers another time block.
- *
- * Example:
- * saved block:  Mon 16:00–21:00
- * preset block: Mon 16:00–18:00
- *
- * This returns true because the saved block contains the preset block.
- */
 function blockCoversBlock(savedBlock: TimeBlock, targetBlock: TimeBlock) {
   if (savedBlock.day !== targetBlock.day) return false;
 
@@ -48,13 +41,6 @@ function blockCoversBlock(savedBlock: TimeBlock, targetBlock: TimeBlock) {
   );
 }
 
-/**
- * Works out which preset cards should appear selected when the page loads.
- *
- * This is deliberately based on time coverage, not exact block equality.
- * That means presets stay highlighted even when neighbouring times have
- * been merged into one larger availability block.
- */
 function getInitialSelectedPresetIds(savedAvailability: TimeBlock[]) {
   return AVAILABILITY_PRESETS.filter((preset) =>
     preset.blocks.every((presetBlock) =>
@@ -68,11 +54,9 @@ function getInitialSelectedPresetIds(savedAvailability: TimeBlock[]) {
 /**
  * Final student onboarding step.
  *
- * The important idea here is that selected preset cards and selected
- * availability blocks are not exactly the same thing.
- *
- * Preset cards need to stay highlighted.
- * Availability blocks need to stay readable, so overlapping times are merged.
+ * Presets and manual times are kept as separate pieces of state so preset
+ * cards can stay highlighted while the saved availability remains a clean,
+ * merged list of blocks.
  */
 export function StudentAvailabilityStep() {
   const storedProfile = getStoredLearningProfile();
@@ -86,8 +70,7 @@ export function StudentAvailabilityStep() {
   );
 
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-
-  const [manualDay, setManualDay] = useState<Day>('Mon');
+  const [manualDays, setManualDays] = useState<Day[]>(['Mon']);
   const [manualFrom, setManualFrom] = useState('18:00');
   const [manualTo, setManualTo] = useState('19:00');
 
@@ -111,20 +94,29 @@ export function StudentAvailabilityStep() {
     });
   }
 
-  function addManualBlock() {
+  function toggleManualDay(day: Day) {
+    setManualDays((currentDays) => {
+      if (currentDays.includes(day)) {
+        return currentDays.filter((item) => item !== day);
+      }
+
+      return [...currentDays, day];
+    });
+  }
+
+  function addManualBlocks() {
+    if (manualDays.length === 0) return;
     if (timeToMinutes(manualFrom) >= timeToMinutes(manualTo)) return;
 
-    const newManualBlock = createManualTimeBlock(
-      manualDay,
-      manualFrom,
-      manualTo
+    const newManualBlocks = manualDays.map((day) =>
+      createManualTimeBlock(day, manualFrom, manualTo)
     );
 
     setCustomBlocks((currentBlocks) =>
-      mergeTimeBlocks([...currentBlocks, newManualBlock])
+      mergeTimeBlocks([...currentBlocks, ...newManualBlocks])
     );
 
-    setSelectedBlockId(newManualBlock.id);
+    setSelectedBlockId(newManualBlocks.at(-1)?.id ?? null);
   }
 
   function addGridRange(day: Day, from: string, to: string) {
@@ -137,52 +129,119 @@ export function StudentAvailabilityStep() {
     setSelectedBlockId(newManualBlock.id);
   }
 
-  function resizeCustomBlock(blockId: string, from: string, to: string) {
-    setCustomBlocks((currentBlocks) => {
-      const blockToResize = currentBlocks.find((block) => block.id === blockId);
+  function resizeAvailabilityBlock(blockId: string, from: string, to: string) {
+    const blockToResize = availability.find((block) => block.id === blockId);
 
-      if (!blockToResize) {
-        return currentBlocks;
-      }
+    if (!blockToResize) return;
 
-      const resizedBlock: TimeBlock = {
-        ...blockToResize,
-        from,
-        to,
-      };
-
-      const otherBlocks = currentBlocks.filter((block) => block.id !== blockId);
-
-      return mergeTimeBlocks([...otherBlocks, resizedBlock]);
-    });
-  }
-
-  function deleteCustomBlock(blockId: string) {
-    setCustomBlocks((currentBlocks) =>
-      currentBlocks.filter((block) => block.id !== blockId)
+    const customBlockToResize = customBlocks.find(
+      (block) => block.id === blockId
     );
 
-    setSelectedBlockId((currentSelectedBlockId) =>
-      currentSelectedBlockId === blockId ? null : currentSelectedBlockId
-    );
-  }
+    /**
+     * Normal manual block resize:
+     * update the existing manual block.
+     */
+    if (customBlockToResize) {
+      setCustomBlocks((currentBlocks) => {
+        const resizedBlock: TimeBlock = {
+          ...customBlockToResize,
+          from,
+          to,
+        };
 
-  function removeBlock(blockToRemove: TimeBlock) {
-    setCustomBlocks((currentBlocks) =>
-      currentBlocks.filter((block) => !blockFullyContains(blockToRemove, block))
+        const otherBlocks = currentBlocks.filter(
+          (block) => block.id !== blockId
+        );
+
+        return mergeTimeBlocks([...otherBlocks, resizedBlock]);
+      });
+
+      return;
+    }
+
+    /**
+     * Preset block resize:
+     * convert the resized preset into a manual block.
+     *
+     * This is important because a preset is generated from the preset card.
+     * Once the user edits it manually, it should become custom availability.
+     */
+    const resizedManualBlock = createManualTimeBlock(
+      blockToResize.day,
+      from,
+      to
     );
 
     setSelectedPresetIds((currentPresetIds) =>
       currentPresetIds.filter((presetId) => {
         const preset = AVAILABILITY_PRESETS.find((item) => item.id === presetId);
+
         if (!preset) return false;
 
         return !preset.blocks.every((presetBlock) =>
-          blockCoversBlock(blockToRemove, presetBlock)
+          blockCoversBlock(blockToResize, presetBlock)
         );
       })
     );
 
+    setCustomBlocks((currentBlocks) =>
+      mergeTimeBlocks([
+        ...currentBlocks.filter(
+          (block) => !blockFullyContains(blockToResize, block)
+        ),
+        resizedManualBlock,
+      ])
+    );
+
+    setSelectedBlockId(resizedManualBlock.id);
+  }
+
+  function removeBlock(blockToRemove: TimeBlock) {
+    const affectedPresets = AVAILABILITY_PRESETS.filter((preset) =>
+      selectedPresetIds.includes(preset.id)
+    ).filter((preset) =>
+      preset.blocks.some((presetBlock) =>
+        blockTouchesOrOverlaps(blockToRemove, presetBlock)
+      )
+    );
+
+    const affectedPresetIds = affectedPresets.map((preset) => preset.id);
+
+    /**
+     * Presets are generated from the selected preset cards.
+     *
+     * If the user deletes one visible block from the grid, we remove any
+     * preset that contributed to that block. For multi-day presets, we add
+     * back the unaffected days as manual blocks so only the deleted visible
+     * block disappears.
+     */
+    const unaffectedPresetBlocks = affectedPresets
+      .flatMap((preset) => preset.blocks)
+      .filter((presetBlock) => !blockFullyContains(blockToRemove, presetBlock))
+      .map((presetBlock) =>
+        createManualTimeBlock(presetBlock.day, presetBlock.from, presetBlock.to)
+      );
+
+    setSelectedPresetIds((currentPresetIds) =>
+      currentPresetIds.filter((presetId) => !affectedPresetIds.includes(presetId))
+    );
+
+    setCustomBlocks((currentBlocks) =>
+      mergeTimeBlocks([
+        ...currentBlocks.filter(
+          (customBlock) => !blockFullyContains(blockToRemove, customBlock)
+        ),
+        ...unaffectedPresetBlocks,
+      ])
+    );
+
+    setSelectedBlockId(null);
+  }
+
+  function clearAvailability() {
+    setSelectedPresetIds([]);
+    setCustomBlocks([]);
     setSelectedBlockId(null);
   }
 
@@ -205,6 +264,10 @@ export function StudentAvailabilityStep() {
       <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <h2 className="text-xl font-semibold">Quick presets</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Presets appear directly on the timetable below, so students can see
+            what they have selected.
+          </p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {AVAILABILITY_PRESETS.map((preset) => (
@@ -221,22 +284,36 @@ export function StudentAvailabilityStep() {
 
         <Card>
           <h2 className="text-xl font-semibold">Add a manual time</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Pick one or more days, then add the same time block to all of them.
+          </p>
 
           <div className="mt-5 grid gap-4">
-            <label className="grid gap-2 text-sm font-medium text-slate-700">
-              Day
-              <select
-                value={manualDay}
-                onChange={(event) => setManualDay(event.target.value as Day)}
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950"
-              >
-                {DAYS.map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div>
+              <p className="text-sm font-medium text-slate-700">Days</p>
+
+              <div className="mt-2 grid grid-cols-7 gap-2">
+                {DAYS.map((day) => {
+                  const selected = manualDays.includes(day);
+
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => toggleManualDay(day)}
+                      className={cn(
+                        'rounded-xl border px-2 py-2 text-sm font-medium transition',
+                        selected
+                          ? 'border-slate-950 bg-slate-950 text-white'
+                          : 'border-slate-300 bg-white text-slate-700 hover:border-slate-500'
+                      )}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <label className="grid gap-2 text-sm font-medium text-slate-700">
@@ -260,7 +337,11 @@ export function StudentAvailabilityStep() {
               </label>
             </div>
 
-            <Button variant="secondary" onClick={addManualBlock}>
+            <Button
+              variant="secondary"
+              disabled={manualDays.length === 0}
+              onClick={addManualBlocks}
+            >
               Add time
             </Button>
           </div>
@@ -269,17 +350,18 @@ export function StudentAvailabilityStep() {
         <Card className="lg:col-span-2">
           <h2 className="text-xl font-semibold">Timetable selection</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Drag across 30-minute slots to add availability, then adjust blocks if needed.
+            Drag across 30-minute slots to add availability, then adjust blocks
+            if needed.
           </p>
 
           <div className="mt-5">
             <StudentAvailabilityGrid
-              blocks={customBlocks}
+              blocks={availability}
               selectedBlockId={selectedBlockId}
               onSelectBlock={setSelectedBlockId}
               onAddTimeRange={addGridRange}
-              onDeleteBlock={deleteCustomBlock}
-              onResizeBlock={resizeCustomBlock}
+              onDeleteBlock={removeBlock}
+              onResizeBlock={resizeAvailabilityBlock}
             />
           </div>
         </Card>
@@ -292,6 +374,15 @@ export function StudentAvailabilityStep() {
                 These times will be used when you request a trial session.
               </p>
             </div>
+
+            <Button
+              variant="ghost"
+              disabled={availability.length === 0}
+              onClick={clearAvailability}
+              className="w-fit px-4 py-2"
+            >
+              Clear
+            </Button>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">

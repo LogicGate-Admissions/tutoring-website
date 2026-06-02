@@ -82,8 +82,24 @@ export function mergeTimeBlocks(blocks: TimeBlock[]) {
         ...mergedBlocks.slice(0, -1),
         {
           ...lastBlock,
-          from: timeToMinutes(lastBlock.from) <= timeToMinutes(block.from) ? lastBlock.from : block.from,
-          to: timeToMinutes(lastBlock.to) >= timeToMinutes(block.to) ? lastBlock.to : block.to,
+          from:
+            timeToMinutes(lastBlock.from) <= timeToMinutes(block.from)
+              ? lastBlock.from
+              : block.from,
+          to:
+            timeToMinutes(lastBlock.to) >= timeToMinutes(block.to)
+              ? lastBlock.to
+              : block.to,
+
+          /**
+           * If a manual block is merged with a preset block, treat the result
+           * as manual. Otherwise edited/extended availability can accidentally
+           * behave like a preset.
+           */
+          source:
+            lastBlock.source === 'manual' || block.source === 'manual'
+              ? 'manual'
+              : 'preset',
         },
       ];
     }, []);

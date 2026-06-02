@@ -28,30 +28,51 @@ function hasSelectedUniversity(tutor: Tutor, selectedUniversities: string[]) {
   );
 }
 
-/**
- * Checks whether a tutor matches at least one selected level-specific subject.
- *
- * Important:
- * Our current tutor data stores subjects and levels separately, not as pairs.
- * So this means:
- *
- * Tutor teaches the selected subject AND teaches the selected level.
- *
- * Later, if tutor profiles become more detailed, we can store pairs like:
- * [{ level: 'GCSE', subject: 'Maths' }]
- */
-function hasSelectedSubjectMatch(
+function matchesSelectedSubject(
+  tutor: Tutor,
+  selectedSubject: TutorSubjectFilter
+) {
+  return (
+    includesNormalised(tutor.subjects, selectedSubject.subject) &&
+    includesNormalised(tutor.levels, selectedSubject.level)
+  );
+}
+
+function hasAnySelectedSubjectMatch(
   tutor: Tutor,
   selectedSubjects: TutorSubjectFilter[]
 ) {
   if (selectedSubjects.length === 0) return true;
 
-  return selectedSubjects.some((selectedSubject) => {
-    return (
-      includesNormalised(tutor.subjects, selectedSubject.subject) &&
-      includesNormalised(tutor.levels, selectedSubject.level)
-    );
-  });
+  return selectedSubjects.some((selectedSubject) =>
+    matchesSelectedSubject(tutor, selectedSubject)
+  );
+}
+
+/**
+ * Applies the level/subject part of tutor matching.
+ *
+ * The important behaviour is UNION, not intersection:
+ * - selected levels can match a tutor
+ * - selected level-specific subjects can also match a tutor
+ * - when both are selected, a tutor only needs to match one of those groups
+ *
+ * Other filters such as university, learning style and price still narrow the
+ * results afterwards.
+ */
+function matchesLevelOrSubjectFilters(tutor: Tutor, filters: TutorFilters) {
+  const hasLevelFilters = filters.levels.length > 0;
+  const hasSubjectFilters = filters.subjects.length > 0;
+
+  if (!hasLevelFilters && !hasSubjectFilters) return true;
+
+  const matchesLevel =
+    hasLevelFilters && hasAnyStringMatch(tutor.levels, filters.levels);
+
+  const matchesSubject =
+    hasSubjectFilters && hasAnySelectedSubjectMatch(tutor, filters.subjects);
+
+  return matchesLevel || matchesSubject;
 }
 
 function scoreTutor(tutor: Tutor, filters: TutorFilters) {
@@ -59,12 +80,9 @@ function scoreTutor(tutor: Tutor, filters: TutorFilters) {
 
   score += tutor.rating * 10;
 
-  score += filters.subjects.filter((selectedSubject) => {
-    return (
-      includesNormalised(tutor.subjects, selectedSubject.subject) &&
-      includesNormalised(tutor.levels, selectedSubject.level)
-    );
-  }).length * 20;
+  score += filters.subjects.filter((selectedSubject) =>
+    matchesSelectedSubject(tutor, selectedSubject)
+  ).length * 20;
 
   score += filters.levels.filter((level) =>
     includesNormalised(tutor.levels, level)
@@ -85,8 +103,7 @@ function scoreTutor(tutor: Tutor, filters: TutorFilters) {
 export function filterTutors(tutors: Tutor[], filters: TutorFilters) {
   const filteredTutors = tutors.filter((tutor) => {
     return (
-      hasSelectedSubjectMatch(tutor, filters.subjects) &&
-      hasAnyStringMatch(tutor.levels, filters.levels) &&
+      matchesLevelOrSubjectFilters(tutor, filters) &&
       hasAnyStringMatch(tutor.learningStyles, filters.learningStyles) &&
       hasSelectedUniversity(tutor, filters.universities) &&
       tutor.pricePerHour >= filters.minPricePerHour &&

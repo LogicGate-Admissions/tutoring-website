@@ -1,6 +1,6 @@
 'use client';
 
-import { MouseEvent, useMemo, useRef, useState } from 'react';
+import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { DAYS } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import type {
   Day,
@@ -18,7 +18,7 @@ type StudentAvailabilityGridProps = {
   selectedBlockId: string | null;
   onSelectBlock: (blockId: string) => void;
   onAddTimeRange: (day: Day, from: string, to: string) => void;
-  onDeleteBlock: (blockId: string) => void;
+  onDeleteBlock: (block: TimeBlock) => void;
   onResizeBlock: (blockId: string, from: string, to: string) => void;
 };
 
@@ -65,6 +65,21 @@ function normaliseRange(start: number, end: number) {
   };
 }
 
+function eventStartedInsideFormControl(event: globalThis.KeyboardEvent) {
+  const target = event.target as HTMLElement | null;
+
+  return Boolean(
+    target?.closest('input, textarea, select, [contenteditable="true"]')
+  );
+}
+
+/**
+ * Interactive weekly availability grid.
+ *
+ * Preset and manual blocks are both rendered so quick presets visibly appear
+ * on the timetable. Only manual blocks can be resized, but any selected block
+ * can be removed with Backspace/Delete.
+ */
 export function StudentAvailabilityGrid({
   blocks,
   selectedBlockId,
@@ -89,6 +104,26 @@ export function StudentAvailabilityGrid({
     );
   }, [blocks, resizeDraft]);
 
+  useEffect(() => {
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (eventStartedInsideFormControl(event)) return;
+      if (event.key !== 'Backspace' && event.key !== 'Delete') return;
+      if (!selectedBlockId) return;
+
+      const selectedBlock = visibleBlocks.find(
+        (block) => block.id === selectedBlockId
+      );
+
+      if (!selectedBlock) return;
+
+      event.preventDefault();
+      onDeleteBlock(selectedBlock);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onDeleteBlock, selectedBlockId, visibleBlocks]);
+
   const createDraftBlock = dragCreate
     ? {
         id: 'draft-create',
@@ -98,7 +133,10 @@ export function StudentAvailabilityGrid({
       }
     : null;
 
-  function getMinutesFromMouse(day: Day, event: MouseEvent | globalThis.MouseEvent) {
+  function getMinutesFromMouse(
+    day: Day,
+    event: MouseEvent | globalThis.MouseEvent
+  ) {
     const dayColumn = dayColumnRefs.current[day];
 
     if (!dayColumn) {
@@ -147,7 +185,10 @@ export function StudentAvailabilityGrid({
 
   function handleMouseUp() {
     if (dragCreate) {
-      const range = normaliseRange(dragCreate.startMinutes, dragCreate.endMinutes);
+      const range = normaliseRange(
+        dragCreate.startMinutes,
+        dragCreate.endMinutes
+      );
       onAddTimeRange(dragCreate.day, range.from, range.to);
       setDragCreate(null);
     }
@@ -272,22 +313,27 @@ export function StudentAvailabilityGrid({
                 />
               ))}
 
-              {[...visibleBlocks, ...(createDraftBlock?.day === day ? [createDraftBlock] : [])]
+              {[
+                ...visibleBlocks,
+                ...(createDraftBlock?.day === day ? [createDraftBlock] : []),
+              ]
                 .filter((block) => block.day === day)
                 .map((block) => {
                   const isDraft = block.id === 'draft-create';
                   const selected = block.id === selectedBlockId || isDraft;
+                  const canResize = !isDraft;
 
                   return (
                     <button
                       key={block.id}
                       type="button"
                       onClick={() => !isDraft && onSelectBlock(block.id)}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
+                      onKeyDown={(event) => {
+                        if (isDraft) return;
 
-                        if (!isDraft) {
-                          onDeleteBlock(block.id);
+                        if (event.key === 'Backspace' || event.key === 'Delete') {
+                          event.preventDefault();
+                          onDeleteBlock(block);
                         }
                       }}
                       style={blockStyle(block)}
@@ -297,9 +343,11 @@ export function StudentAvailabilityGrid({
                           : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
                       }`}
                     >
-                      {!isDraft && (
+                      {canResize && (
                         <span
-                          onMouseDown={(event) => startResize(block, 'top', event)}
+                          onMouseDown={(event) =>
+                            startResize(block, 'top', event)
+                          }
                           className="absolute left-1 right-1 top-0 h-1.5 cursor-ns-resize rounded-full bg-slate-900/20"
                         />
                       )}
@@ -308,9 +356,11 @@ export function StudentAvailabilityGrid({
                         {block.from}–{block.to}
                       </span>
 
-                      {!isDraft && (
+                      {canResize && (
                         <span
-                          onMouseDown={(event) => startResize(block, 'bottom', event)}
+                          onMouseDown={(event) =>
+                            startResize(block, 'bottom', event)
+                          }
                           className="absolute bottom-0 left-1 right-1 h-1.5 cursor-ns-resize rounded-full bg-slate-900/20"
                         />
                       )}
@@ -323,8 +373,8 @@ export function StudentAvailabilityGrid({
       </div>
 
       <p className="mt-3 text-xs text-slate-500">
-        Drag across 30-minute slots to add a block. Drag top/bottom handles to resize.
-        Right-click any block to remove it.
+        Drag across 30-minute slots to add a block. Drag the top or bottom edge of
+        any block to resize it. Click a block, then press Backspace/Delete to remove it.
       </p>
     </div>
   );

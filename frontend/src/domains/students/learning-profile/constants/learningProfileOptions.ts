@@ -151,6 +151,14 @@ export const AVAILABILITY_PRESETS = [
     ),
   },
   {
+    id: 'weekday-afternoons',
+    label: 'Weekday afternoons',
+    description: 'Mon–Fri, 13:00–17:00',
+    blocks: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) =>
+      presetBlock('weekday-afternoons', day as Day, '13:00', '17:00')
+    ),
+  },
+  {
     id: 'weekday-evenings',
     label: 'Weekday evenings',
     description: 'Mon–Fri, 18:00–21:00',
@@ -164,6 +172,14 @@ export const AVAILABILITY_PRESETS = [
     description: 'Sat–Sun, 09:00–12:00',
     blocks: ['Sat', 'Sun'].map((day) =>
       presetBlock('weekend-mornings', day as Day, '09:00', '12:00')
+    ),
+  },
+  {
+    id: 'weekend-afternoons',
+    label: 'Weekend afternoons',
+    description: 'Sat–Sun, 13:00–17:00',
+    blocks: ['Sat', 'Sun'].map((day) =>
+      presetBlock('weekend-afternoons', day as Day, '13:00', '17:00')
     ),
   },
   {
