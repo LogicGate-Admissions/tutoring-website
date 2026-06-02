@@ -1,22 +1,5 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
-import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const sourceSerif4 = Source_Serif_4({
-  variable: "--font-source-serif-4",
-  subsets: ["latin"],
-  axes: ["opsz"],
-});
+import type { Metadata } from 'next';
+import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Tutorly',
@@ -27,8 +10,8 @@ export const metadata: Metadata = {
 /**
  * Root layout for the whole app.
  *
- * In Next.js, layout.tsx wraps every page inside the folder it belongs to.
- * This root layout wraps the entire application.
+ * It avoids external web fonts so local builds and CI do not depend on Google
+ * Fonts being reachable during the production build.
  */
 export default function RootLayout({
   children,
@@ -36,11 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif4.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className="h-full antialiased">
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }

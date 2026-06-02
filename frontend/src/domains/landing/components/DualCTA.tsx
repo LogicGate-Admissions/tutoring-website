@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ROUTES } from '@/shared/constants/routes';
 
 export default function DualCTA() {
   return (
@@ -17,7 +18,7 @@ export default function DualCTA() {
               Join students already learning with our vetted tutors from Oxford, Cambridge, Imperial, and more.
             </p>
             <Link
-              href="/signup?role=student"
+              href={ROUTES.studentOnboardingSubjects}
               className="mt-8 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white px-6 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
             >
               Sign up as a student
@@ -37,7 +38,7 @@ export default function DualCTA() {
               Set your own hours, subjects, and rates. Reach students who are actively looking for you.
             </p>
             <Link
-              href="/signup?role=tutor"
+              href={ROUTES.tutorDashboard}
               className="mt-8 inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-50"
             >
               Apply as a tutor

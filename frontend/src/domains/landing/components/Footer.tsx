@@ -1,21 +1,21 @@
 import Link from 'next/link';
+import { ROUTES } from '@/shared/constants/routes';
 
 const links = {
   Platform: [
     { label: 'Browse Tutors', href: '/#tutor-explorer' },
     { label: 'How It Works', href: '/#how-it-works' },
-    { label: 'Subjects', href: '/subjects' },
+    { label: 'Student Profile', href: ROUTES.studentOnboardingSubjects },
   ],
-  Company: [
-    { label: 'About', href: '/about' },
-    { label: 'Careers', href: '/careers' },
-    { label: 'Blog', href: '/blog' },
-    { label: 'Contact', href: '/contact' },
+  Students: [
+    { label: 'Start onboarding', href: ROUTES.studentOnboardingSubjects },
+    { label: 'Find tutors', href: ROUTES.studentTutors },
+    { label: 'Student dashboard', href: ROUTES.studentDashboard },
   ],
-  'For Tutors': [
-    { label: 'Apply', href: '/signup?role=tutor' },
-    { label: 'Resources', href: '/tutor-resources' },
-    { label: 'FAQ', href: '/faq' },
+  Tutors: [
+    { label: 'Tutor dashboard', href: ROUTES.tutorDashboard },
+    { label: 'Trial requests', href: ROUTES.tutorTrialSessions },
+    { label: 'For tutors', href: '/#for-tutors' },
   ],
 };
 
@@ -59,8 +59,8 @@ export default function Footer() {
             &copy; 2025 Tutorly. All rights reserved.
           </p>
           <div className="flex gap-6">
-            <Link href="/privacy" className="text-xs font-medium text-slate-500 transition hover:text-slate-300">Privacy Policy</Link>
-            <Link href="/terms" className="text-xs font-medium text-slate-500 transition hover:text-slate-300">Terms of Service</Link>
+            <Link href={ROUTES.home} className="text-xs font-medium text-slate-500 transition hover:text-slate-300">Privacy Policy</Link>
+            <Link href={ROUTES.home} className="text-xs font-medium text-slate-500 transition hover:text-slate-300">Terms of Service</Link>
           </div>
         </div>
       </div>

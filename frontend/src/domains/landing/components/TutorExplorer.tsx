@@ -1,121 +1,148 @@
 'use client';
 
-import { TUTOR_PROFILES } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
 import { useMemo, useState } from 'react';
+import { Card } from '@/shared/components/Card';
+import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
+import { TutorFiltersPanel } from '@/domains/tutors/tutor-discovery/components/TutorFiltersPanel';
+import { TUTOR_PROFILES } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
+import { filterTutors } from '@/domains/tutors/tutor-discovery/utils/filterTutors';
+import { DEFAULT_TUTOR_FILTERS } from '@/domains/tutors/tutor-discovery/utils/tutorFilterMapping';
+import type { TutorFilters } from '@/domains/tutors/tutor-discovery/types/tutor';
 import AuthPromptModal from './AuthPromptModal';
-import FilterBar, { type LandingFilters } from './FilterBar';
-import LandingTutorCard from './LandingTutorCard';
 
 const PAGE_SIZE = 8;
 
+function activeFilterCount(filters: TutorFilters) {
+  return (
+    filters.subjects.length +
+    filters.levels.length +
+    filters.learningStyles.length +
+    filters.universities.length +
+    (filters.minPricePerHour !== DEFAULT_TUTOR_FILTERS.minPricePerHour ? 1 : 0) +
+    (filters.maxPricePerHour !== DEFAULT_TUTOR_FILTERS.maxPricePerHour ? 1 : 0) +
+    (filters.sortBy !== DEFAULT_TUTOR_FILTERS.sortBy ? 1 : 0)
+  );
+}
+
+/**
+ * Public tutor explorer shown on the landing page.
+ *
+ * It reuses the real tutor discovery filters and cards so the public preview
+ * matches the signed-in student experience. Profile/booking actions are gated
+ * behind the auth prompt because landing-page visitors have not signed in yet.
+ */
 export default function TutorExplorer() {
-  const [filters, setFilters] = useState<LandingFilters>({
-    subjects: [],
-    maxPrice: 100,
-    levels: [],
-    minRating: 0,
-    styles: [],
-  });
+  const [filters, setFilters] = useState<TutorFilters>(DEFAULT_TUTOR_FILTERS);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [modalOpen, setModalOpen] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
-  const filteredTutors = useMemo(() => {
-    return TUTOR_PROFILES.filter((t) => {
-      if (filters.subjects.length > 0 && !filters.subjects.some((s) => t.subjects.includes(s))) return false;
-      if (filters.levels.length > 0 && !filters.levels.some((l) => t.levels.includes(l))) return false;
-      if (filters.styles.length > 0 && !filters.styles.some((s) => t.learningStyles.includes(s))) return false;
-      if (t.pricePerHour > filters.maxPrice && filters.maxPrice < 100) return false;
-      if (t.rating < filters.minRating) return false;
-      return true;
-    });
-  }, [filters]);
-
-  const handleFilterChange = (next: LandingFilters) => {
-    setFilters(next);
-    setVisibleCount(PAGE_SIZE);
-  };
+  const filteredTutors = useMemo(
+    () => filterTutors(TUTOR_PROFILES, filters),
+    [filters]
+  );
 
   const visibleTutors = filteredTutors.slice(0, visibleCount);
   const hasMore = visibleCount < filteredTutors.length;
+  const numberOfActiveFilters = activeFilterCount(filters);
 
-  const activeFilterCount =
-    filters.subjects.length +
-    filters.levels.length +
-    filters.styles.length +
-    (filters.maxPrice < 100 ? 1 : 0) +
-    (filters.minRating > 0 ? 1 : 0);
+  function handleFilterChange(nextFilters: TutorFilters) {
+    setFilters(nextFilters);
+    setVisibleCount(PAGE_SIZE);
+  }
+
+  function clearFilters() {
+    handleFilterChange(DEFAULT_TUTOR_FILTERS);
+  }
+
+  function openAuthPrompt() {
+    setModalOpen(true);
+  }
 
   return (
     <section id="tutor-explorer" className="bg-white py-20">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        {/* Section header */}
         <div className="mb-10">
           <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-950 text-wrap-balance lg:text-4xl">
             Browse tutors — no account needed
           </h2>
           <p className="mt-3 max-w-xl text-base leading-7 text-slate-600">
-            Filter by subject, price, level, and teaching style. Create an account when you find someone you like.
+            Explore the same matching filters students use after onboarding.
+            Create an account when you are ready to view full profiles or book.
           </p>
         </div>
 
-        {/* Mobile filter toggle */}
         <div className="mb-6 lg:hidden">
           <button
             type="button"
-            onClick={() => setFiltersExpanded((v) => !v)}
+            onClick={() => setFiltersExpanded((current) => !current)}
             className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h18M6 12h12M10 20h4" />
-            </svg>
+            <span aria-hidden="true">☰</span>
             {filtersExpanded ? 'Hide filters' : 'Show filters'}
-            {activeFilterCount > 0 && (
+            {numberOfActiveFilters > 0 && (
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-950 text-[10px] font-semibold text-white">
-                {activeFilterCount}
+                {numberOfActiveFilters}
               </span>
             )}
           </button>
         </div>
 
-        {/* Mobile filter panel */}
         {filtersExpanded && (
-          <div className="mb-8 rounded-3xl border border-slate-200 bg-[#f8f7f4] p-6 shadow-sm lg:hidden">
-            <FilterBar filters={filters} onChange={handleFilterChange} />
+          <div className="mb-8 lg:hidden">
+            <TutorFiltersPanel
+              filters={filters}
+              onChange={handleFilterChange}
+              onClear={clearFilters}
+            />
           </div>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-          {/* Desktop sidebar */}
+        <div className="grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
           <div className="hidden lg:block">
-            <div className="sticky top-20 rounded-3xl border border-slate-200 bg-[#f8f7f4] p-6 shadow-sm">
-              <FilterBar filters={filters} onChange={handleFilterChange} />
+            <div className="sticky top-20">
+              <TutorFiltersPanel
+                filters={filters}
+                onChange={handleFilterChange}
+                onClear={clearFilters}
+              />
             </div>
           </div>
 
-          {/* Card grid */}
           <div>
-            <p className="mb-5 text-sm font-medium text-slate-500">
-              {filteredTutors.length === 0
-                ? 'No tutors match'
-                : `${filteredTutors.length} tutor${filteredTutors.length === 1 ? '' : 's'} found`}
-            </p>
+            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                  Tutor results
+                </p>
+                <h3 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+                  {filteredTutors.length === 0
+                    ? 'No tutors match'
+                    : `${filteredTutors.length} available match${filteredTutors.length === 1 ? '' : 'es'}`}
+                </h3>
+              </div>
+
+              <p className="max-w-md text-sm leading-6 text-slate-600">
+                This is a preview. Opening profiles or booking a trial asks the
+                visitor to create a student account first.
+              </p>
+            </div>
 
             {filteredTutors.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-                <p className="text-base font-semibold text-slate-950">No tutors found</p>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Try widening your filters — we have tutors for many subjects and levels.
+              <Card>
+                <p className="font-medium">No tutors match these filters.</p>
+                <p className="mt-2 text-sm text-slate-600">
+                  Try increasing the max price or clearing one of the filters.
                 </p>
-              </div>
+              </Card>
             ) : (
               <>
-                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
                   {visibleTutors.map((tutor) => (
-                    <LandingTutorCard
+                    <TutorCard
                       key={tutor.id}
                       tutor={tutor}
-                      onGateClick={() => setModalOpen(true)}
+                      onViewProfile={openAuthPrompt}
                     />
                   ))}
                 </div>
@@ -124,7 +151,7 @@ export default function TutorExplorer() {
                   <div className="mt-10 flex justify-center">
                     <button
                       type="button"
-                      onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                      onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}
                       className="rounded-full border border-slate-300 bg-white px-8 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                     >
                       Load more tutors
@@ -137,7 +164,11 @@ export default function TutorExplorer() {
         </div>
       </div>
 
-      <AuthPromptModal isOpen={modalOpen} reason="view_profile" onClose={() => setModalOpen(false)} />
+      <AuthPromptModal
+        isOpen={modalOpen}
+        reason="view_profile"
+        onClose={() => setModalOpen(false)}
+      />
     </section>
   );
 }

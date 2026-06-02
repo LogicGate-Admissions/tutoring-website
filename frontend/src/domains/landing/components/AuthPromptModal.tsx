@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ROUTES } from '@/shared/constants/routes';
 import { useEffect, useRef } from 'react';
 
 type AuthPromptModalProps = {
@@ -56,7 +57,7 @@ export default function AuthPromptModal({ isOpen, onClose }: AuthPromptModalProp
 
         <div className="mt-7 flex flex-col gap-3">
           <Link
-            href="/signup?method=google&role=student"
+            href={ROUTES.studentOnboardingSubjects}
             className="flex items-center justify-center gap-3 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-50"
           >
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -65,23 +66,23 @@ export default function AuthPromptModal({ isOpen, onClose }: AuthPromptModalProp
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
             </svg>
-            Sign up with Google
+            Start with Google
           </Link>
 
           <Link
-            href="/signup?role=student"
+            href={ROUTES.studentOnboardingSubjects}
             className="flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
           >
-            Sign up with email
+            Start with email
           </Link>
         </div>
 
         <div className="mt-6 text-center">
           <Link
-            href="/login"
+            href={ROUTES.studentDashboard}
             className="text-sm font-medium text-slate-500 transition hover:text-slate-950 underline underline-offset-2"
           >
-            Already have an account? Log in
+            Already have an account? Continue
           </Link>
         </div>
       </div>

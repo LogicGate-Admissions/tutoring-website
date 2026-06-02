@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { ROUTES } from '@/shared/constants/routes';
 
 function HeroCardMockup() {
   return (
@@ -49,12 +49,6 @@ function HeroCardMockup() {
 }
 
 export default function HeroSection() {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   const handleBrowseTutors = () => {
     document.getElementById('tutor-explorer')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -65,28 +59,28 @@ export default function HeroSection() {
         {/* Left: text */}
         <div className="flex-1 text-center lg:text-left">
           <p
-            className={`text-sm font-medium uppercase tracking-[0.2em] text-slate-500 transition-opacity duration-500 ${mounted ? 'opacity-100' : 'opacity-0'}`}
+            className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500 transition-opacity duration-500 opacity-100"
           >
             For students
           </p>
 
           <h1
-            className={`mt-4 max-w-2xl text-5xl font-semibold tracking-[-0.04em] text-slate-950 text-wrap-balance transition-all duration-500 lg:text-7xl ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+            className="mt-4 max-w-2xl text-5xl font-semibold tracking-[-0.04em] text-slate-950 text-wrap-balance transition-all duration-500 lg:text-7xl opacity-100 translate-y-0"
           >
             Find the right tutor.
           </h1>
 
           <p
-            className={`mt-6 max-w-xl text-lg leading-8 text-slate-600 text-wrap-pretty transition-all delay-100 duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+            className="mt-6 max-w-xl text-lg leading-8 text-slate-600 text-wrap-pretty transition-all delay-100 duration-500 opacity-100 translate-y-0"
           >
             Browse verified tutors across every subject, filter by budget and teaching style, and book a session in minutes.
           </p>
 
           <div
-            className={`mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start transition-all delay-200 duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+            className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start transition-all delay-200 duration-500 opacity-100 translate-y-0"
           >
             <Link
-              href="/signup?role=student"
+              href={ROUTES.studentOnboardingSubjects}
               className="rounded-full bg-slate-950 px-8 py-3.5 text-sm font-medium text-white transition hover:bg-slate-800"
             >
               Get Started — It&apos;s Free
@@ -103,7 +97,7 @@ export default function HeroSection() {
 
         {/* Right: floating card mockup */}
         <div
-          className={`relative flex items-center justify-center lg:flex-1 transition-all delay-150 duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+          className="relative flex items-center justify-center lg:flex-1 transition-all delay-150 duration-500 opacity-100 translate-y-0"
         >
           <HeroCardMockup />
 

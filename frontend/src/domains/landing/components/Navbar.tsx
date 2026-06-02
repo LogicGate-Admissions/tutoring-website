@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ROUTES } from '@/shared/constants/routes';
 import { useEffect, useState } from 'react';
 
 export default function Navbar() {
@@ -29,7 +30,7 @@ export default function Navbar() {
       >
         <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-6 lg:px-8">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href={ROUTES.home} className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950 text-[10px] font-bold text-white">
               TM
             </div>
@@ -48,13 +49,13 @@ export default function Navbar() {
               Browse Tutors
             </button>
             <Link
-              href="/signup?role=tutor"
+              href={ROUTES.tutorDashboard}
               className="text-sm font-medium text-slate-600 transition hover:text-slate-950"
             >
               For Tutors
             </Link>
             <Link
-              href="/signup?role=student"
+              href={ROUTES.studentOnboardingSubjects}
               className="rounded-full bg-slate-950 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
             >
               Get Started
@@ -92,21 +93,21 @@ export default function Navbar() {
                 Browse Tutors
               </button>
               <Link
-                href="/signup?role=tutor"
+                href={ROUTES.tutorDashboard}
                 onClick={() => setMenuOpen(false)}
                 className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 For Tutors
               </Link>
               <Link
-                href="/signup?role=student"
+                href={ROUTES.studentOnboardingSubjects}
                 onClick={() => setMenuOpen(false)}
                 className="rounded-full bg-slate-950 px-5 py-3 text-center text-sm font-medium text-white transition hover:bg-slate-800"
               >
                 Get Started — It&apos;s Free
               </Link>
               <Link
-                href="/login"
+                href={ROUTES.studentDashboard}
                 onClick={() => setMenuOpen(false)}
                 className="text-center text-sm font-medium text-slate-500 transition hover:text-slate-950"
               >

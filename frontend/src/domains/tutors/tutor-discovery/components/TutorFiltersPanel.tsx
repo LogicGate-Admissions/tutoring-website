@@ -27,8 +27,8 @@ type TutorFiltersPanelProps = {
   filters: TutorFilters;
   onChange: (filters: TutorFilters) => void;
   onClear: () => void;
-  onResetToOnboarding: () => void;
-  onSaveToOnboarding: () => void;
+  onResetToOnboarding?: () => void;
+  onSaveToOnboarding?: () => void;
 };
 
 /**
@@ -175,23 +175,29 @@ export function TutorFiltersPanel({
         </Button>
       </div>
 
-      <div className="mt-4 grid gap-3">
-        <Button
-          variant="secondary"
-          onClick={onResetToOnboarding}
-          className="w-full px-4 py-2"
-        >
-          Reset to profile
-        </Button>
+      {(onResetToOnboarding || onSaveToOnboarding) && (
+        <div className="mt-4 grid gap-3">
+          {onResetToOnboarding && (
+            <Button
+              variant="secondary"
+              onClick={onResetToOnboarding}
+              className="w-full px-4 py-2"
+            >
+              Reset to profile
+            </Button>
+          )}
 
-        <Button
-          variant="secondary"
-          onClick={onSaveToOnboarding}
-          className="w-full px-4 py-2"
-        >
-          Save filters to profile
-        </Button>
-      </div>
+          {onSaveToOnboarding && (
+            <Button
+              variant="secondary"
+              onClick={onSaveToOnboarding}
+              className="w-full px-4 py-2"
+            >
+              Save filters to profile
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Phase 6: searchable matching criteria. */}
       <div className="mt-6 grid gap-6">

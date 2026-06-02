@@ -33,7 +33,7 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section className="border-t border-slate-200 bg-[#f8f7f4] py-24">
+    <section id="how-it-works" className="border-t border-slate-200 bg-[#f8f7f4] py-24">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="text-center">
           <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-950 lg:text-4xl">
