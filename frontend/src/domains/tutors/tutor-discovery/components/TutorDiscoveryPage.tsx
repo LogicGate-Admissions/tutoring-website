@@ -12,7 +12,6 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
@@ -242,8 +241,6 @@ export function TutorDiscoveryPage() {
       />
 
       <Container className="flex items-center gap-3 py-4">
-        <HomeLinkButton />
-
         <Link href={ROUTES.studentOnboardingSubjects}>
           <Button variant="secondary">← Edit profile</Button>
         </Link>

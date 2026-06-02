@@ -12,12 +12,14 @@ import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { DashboardShell } from '@/shared/components/dashboard/DashboardShell';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { AppTopNav } from '@/shared/components/AppTopNav';
 import { ROUTES } from '@/shared/constants/routes';
 
 /** URL: /tutor/dashboard */
 export default function TutorDashboardPage() {
   return (
     <RequireAuth role="tutor">
+      <AppTopNav userType="tutor" />
       <main className="min-h-screen bg-[#f8f7f4]">
         <PageHeader
           eyebrow="Tutor area"

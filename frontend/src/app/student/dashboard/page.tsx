@@ -13,12 +13,14 @@ import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { DashboardShell } from '@/shared/components/dashboard/DashboardShell';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { AppTopNav } from '@/shared/components/AppTopNav';
 import { ROUTES } from '@/shared/constants/routes';
 
 /** URL: /student/dashboard */
 export default function StudentDashboardPage() {
   return (
     <RequireAuth role="student">
+      <AppTopNav userType="student" />
       <main className="min-h-screen bg-[#f8f7f4]">
         <PageHeader
           eyebrow="Student area"

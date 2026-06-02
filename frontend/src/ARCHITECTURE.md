@@ -122,34 +122,19 @@ SearchableMultiSelect.test.tsx
 
 Prefer testing pure utilities first because they are easier and more reliable than full page tests.
 
-## Firebase-backed academic subjects
+## Code-backed academic subjects
 
-The master subject list is no longer stored in React constants. Both student
-onboarding and tutor onboarding read subjects from Firestore through:
+The master subject list is stable product configuration, so it currently lives
+in code rather than Firestore:
 
 ```txt
 src/domains/academic-options/services/academicOptionsService.ts
 ```
 
-Create one document per qualification inside Firestore:
-
-```txt
-academicSubjects/gcse
-  category: "GCSE"
-  subjects: ["Maths", "English", "Physics", "Chemistry", "Biology"]
-
-academicSubjects/a-level
-  category: "A-level"
-  subjects: ["Maths", "Further Maths", "Physics", "Chemistry", "Biology"]
-
-academicSubjects/university-admissions
-  category: "University admissions"
-  subjects: ["TMUA", "MAT", "STEP", "UCAT", "LNAT"]
-```
-
-The collection is intentionally shared. If the team adds a subject in Firebase,
-it appears in both student onboarding and tutor onboarding without changing
-code.
+Student onboarding, tutor onboarding, and tutor filters all read from this same
+service. Firestore stores each user's selected subjects, tutor rates, and
+profile data, but it does not need to store the master list of available
+subjects for this prototype.
 
 ## Tutor onboarding tabs
 

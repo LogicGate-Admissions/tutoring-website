@@ -5,7 +5,6 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
@@ -202,9 +201,6 @@ export function StudentAvailabilityStep() {
         description="Choose common times or add your own."
       />
 
-      <Container className="pt-4">
-        <HomeLinkButton />
-      </Container>
 
       <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>

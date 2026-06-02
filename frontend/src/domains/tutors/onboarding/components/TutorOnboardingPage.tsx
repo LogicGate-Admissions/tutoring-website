@@ -3,13 +3,11 @@
 /**
  * File purpose: Firebase-backed tutor onboarding page.
  *
- * The tutor onboarding flow mirrors student onboarding as tabs, but it keeps a
- * single draft object because the final Firestore tutor profile needs all
- * sections together. The master subject list comes from academicOptionsService
- * so tutor and student onboarding use the same source of truth.
+ * Tutor onboarding mirrors student onboarding: tabs are used for direct section
+ * navigation, while Back / Next / Finish buttons provide a guided flow.
  */
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
 import { Container } from '@/shared/components/Container';
@@ -23,10 +21,10 @@ import {
 import type { AuthUser } from '@/domains/auth/types/auth';
 import { getSubjectOptionsByCategory } from '@/domains/academic-options/services/academicOptionsService';
 import type { SubjectOptionsByCategory } from '@/domains/academic-options/types/academicOptions';
+import { TutorAvailabilitySection } from '@/domains/tutors/onboarding/components/availability/TutorAvailabilitySection';
 import { TutorProfileBasicsSection } from '@/domains/tutors/onboarding/components/profile/TutorProfileBasicsSection';
 import { TutorTeachingStyleSection } from '@/domains/tutors/onboarding/components/profile/TutorTeachingStyleSection';
 import { TutorTeachingSubjectsSection } from '@/domains/tutors/onboarding/components/subjects/TutorTeachingSubjectsSection';
-import { TutorAvailabilitySection } from '@/domains/tutors/onboarding/components/availability/TutorAvailabilitySection';
 import {
   EMPTY_TUTOR_PROFILE_DRAFT,
   getTutorProfileDraft,
@@ -53,24 +51,43 @@ const TUTOR_ONBOARDING_TABS: TutorOnboardingTabItem[] = [
   {
     id: 'subjects',
     label: 'Subjects',
-    description: 'Qualifications, subjects, and per-subject rates',
+    description: 'Qualifications, subjects, and rates',
   },
   {
     id: 'style',
     label: 'Style',
-    description: 'How you teach and support students',
+    description: 'How you teach students',
   },
   {
     id: 'availability',
     label: 'Availability',
-    description: 'When students can request sessions',
+    description: 'When students can request you',
   },
   {
     id: 'profile',
     label: 'Profile',
-    description: 'Public tutor details and final save',
+    description: 'Public tutor details',
   },
 ];
+
+const TUTOR_TAB_ORDER: TutorOnboardingTab[] = [
+  'subjects',
+  'style',
+  'availability',
+  'profile',
+];
+
+function getTabIndex(tab: TutorOnboardingTab) {
+  return TUTOR_TAB_ORDER.indexOf(tab);
+}
+
+function getPreviousTab(tab: TutorOnboardingTab) {
+  return TUTOR_TAB_ORDER[getTabIndex(tab) - 1] ?? null;
+}
+
+function getNextTab(tab: TutorOnboardingTab) {
+  return TUTOR_TAB_ORDER[getTabIndex(tab) + 1] ?? null;
+}
 
 /** Tutor onboarding page. */
 export function TutorOnboardingPage() {
@@ -80,13 +97,39 @@ export function TutorOnboardingPage() {
     EMPTY_TUTOR_PROFILE_DRAFT
   );
   const [activeTab, setActiveTab] = useState<TutorOnboardingTab>('subjects');
-  const [activeCategory, setActiveCategory] = useState<QualificationCategory | ''>('');
+  const [activeCategory, setActiveCategory] = useState<QualificationCategory | ''>(
+    ''
+  );
   const [subjectOptionsByCategory, setSubjectOptionsByCategory] =
     useState<SubjectOptionsByCategory>({});
   const [error, setError] = useState<string | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  const loadTutorProfile = useCallback(async (tutor: AuthUser) => {
+    setIsLoadingProfile(true);
+    setError(null);
+
+    try {
+      /** Load an existing Firestore profile so onboarding can be edited later. */
+      const savedProfile = await getTutorProfileDraft(tutor.id);
+      const displayName = savedProfile.displayName || tutor.name;
+      const subjectSelections = savedProfile.subjectSelections;
+
+      setProfile({
+        ...savedProfile,
+        displayName,
+      });
+
+      /** Open the first selected qualification when returning to onboarding. */
+      setActiveCategory(subjectSelections[0]?.category ?? '');
+    } catch {
+      setError('Could not load your tutor profile. Please refresh and try again.');
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  }, []);
 
   useEffect(() => {
     /** Load shared academic subject options used by student and tutor onboarding. */
@@ -119,30 +162,6 @@ export function TutorOnboardingPage() {
     };
   }, []);
 
-  async function loadTutorProfile(tutor: AuthUser) {
-    setIsLoadingProfile(true);
-    setError(null);
-
-    try {
-      /** Load an existing Firestore profile so onboarding can be edited later. */
-      const savedProfile = await getTutorProfileDraft(tutor.id);
-      const displayName = savedProfile.displayName || tutor.name;
-      const subjectSelections = savedProfile.subjectSelections;
-
-      setProfile({
-        ...savedProfile,
-        displayName,
-      });
-
-      /** Open the first selected qualification when returning to onboarding. */
-      setActiveCategory(subjectSelections[0]?.category ?? '');
-    } catch {
-      setError('Could not load your tutor profile. Please refresh and try again.');
-    } finally {
-      setIsLoadingProfile(false);
-    }
-  }
-
   useEffect(() => {
     /** Subscribe to Firebase Auth before loading the tutor's profile document. */
     const unsubscribe = subscribeToCurrentUser((user) => {
@@ -159,21 +178,21 @@ export function TutorOnboardingPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [loadTutorProfile]);
 
   function updateTextField(
     field: 'displayName' | 'headline' | 'university' | 'degree' | 'bio',
     value: string
   ) {
-    /** Basic profile fields update one string field at a time. */
     setProfile((currentProfile) => ({
       ...currentProfile,
       [field]: value,
     }));
   }
 
-  function updateSubjectSelections(subjectSelections: QualificationSubjectSelection[]) {
-    /** The subject section owns selection rules; the parent stores the result. */
+  function updateSubjectSelections(
+    subjectSelections: QualificationSubjectSelection[]
+  ) {
     setProfile((currentProfile) => ({
       ...currentProfile,
       subjectSelections,
@@ -181,7 +200,6 @@ export function TutorOnboardingPage() {
   }
 
   function updateSubjectRates(subjectRates: TutorSubjectRate[]) {
-    /** Rates stay aligned to selected subjects inside TutorTeachingSubjectsSection. */
     setProfile((currentProfile) => ({
       ...currentProfile,
       subjectRates,
@@ -189,7 +207,6 @@ export function TutorOnboardingPage() {
   }
 
   function toggleTeachingStyle(style: string) {
-    /** Teaching styles reuse student learning style labels for direct matching. */
     setProfile((currentProfile) => {
       const selected = currentProfile.learningStyles.includes(style);
 
@@ -203,7 +220,6 @@ export function TutorOnboardingPage() {
   }
 
   function updateAvailability(availability: TimeBlock[]) {
-    /** Store structured blocks so future booking can reason about real times. */
     setProfile((currentProfile) => ({
       ...currentProfile,
       availability,
@@ -236,7 +252,6 @@ export function TutorOnboardingPage() {
   }
 
   function validateProfile() {
-    /** Keep validation focused on the data needed for a usable public profile. */
     if (!profile.displayName.trim()) {
       setActiveTab('profile');
       return 'Please add your display name.';
@@ -265,8 +280,8 @@ export function TutorOnboardingPage() {
     return null;
   }
 
-  async function finishTutorOnboarding(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function finishTutorOnboarding(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     setError(null);
 
     if (!currentTutor) {
@@ -293,6 +308,22 @@ export function TutorOnboardingPage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function goBack() {
+    const previousTab = getPreviousTab(activeTab);
+    if (previousTab) setActiveTab(previousTab);
+  }
+
+  function goForward() {
+    const nextTab = getNextTab(activeTab);
+
+    if (nextTab) {
+      setActiveTab(nextTab);
+      return;
+    }
+
+    void finishTutorOnboarding();
   }
 
   function renderActiveTab() {
@@ -337,6 +368,9 @@ export function TutorOnboardingPage() {
     );
   }
 
+  const previousTab = getPreviousTab(activeTab);
+  const isFinalTab = !getNextTab(activeTab);
+
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
       <PageHeader
@@ -345,9 +379,9 @@ export function TutorOnboardingPage() {
         description="Use the tabs to add what you teach, how you teach, when you are free, and what students will see."
       />
 
-      <Container className="py-10">
+      <Container className="py-10 pb-28">
         <form onSubmit={finishTutorOnboarding} className="grid gap-8">
-          <div className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
             <div className="grid gap-2 md:grid-cols-4">
               {TUTOR_ONBOARDING_TABS.map((tab) => {
                 const isActive = tab.id === activeTab;
@@ -361,7 +395,7 @@ export function TutorOnboardingPage() {
                       'rounded-2xl px-4 py-3 text-left transition',
                       isActive
                         ? 'bg-slate-950 text-white'
-                        : 'text-slate-700 hover:bg-slate-50'
+                        : 'text-slate-700 hover:bg-white'
                     )}
                   >
                     <span className="block text-sm font-semibold">{tab.label}</span>
@@ -393,10 +427,24 @@ export function TutorOnboardingPage() {
             </p>
           )}
 
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isSaving || isLoadingProfile}>
-              {isSaving ? 'Saving...' : 'Finish setup'}
-            </Button>
+          <div className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            {previousTab ? (
+              <Button type="button" variant="secondary" onClick={goBack}>
+                Back
+              </Button>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+
+            {isFinalTab ? (
+              <Button type="submit" disabled={isSaving || isLoadingProfile}>
+                {isSaving ? 'Saving...' : 'Finish'}
+              </Button>
+            ) : (
+              <Button type="button" onClick={goForward}>
+                Next
+              </Button>
+            )}
           </div>
         </form>
       </Container>

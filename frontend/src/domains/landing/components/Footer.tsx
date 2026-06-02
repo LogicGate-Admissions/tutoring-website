@@ -60,7 +60,7 @@ export default function Footer() {
 
         <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-slate-800 pt-8 sm:flex-row">
           <p className="text-xs font-medium text-slate-500">
-            &copy; 2026 LogicGate. All rights reserved.
+            &copy; 2025 LogicGate. All rights reserved.
           </p>
           <div className="flex gap-6">
             <Link href={ROUTES.home} className="text-xs font-medium text-slate-500 transition hover:text-slate-300">Privacy Policy</Link>

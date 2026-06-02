@@ -4,12 +4,11 @@
  * File purpose: First student onboarding step for qualifications and subjects.
  *
  * The student chooses the qualifications they study, then chooses subjects
- * inside each qualification. The subject list comes from academicOptionsService
- * so students and tutors use the same source of truth.
+ * inside each qualification. The subject list itself comes from academicOptionsService so students and tutors use the same source
+ * of truth.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
 import {
@@ -73,7 +72,7 @@ export function StudentSubjectsStep() {
   }, []);
 
   useEffect(() => {
-    /** Load editable master subject options from Firestore. */
+    /** Load shared master subject options. */
     let isMounted = true;
 
     async function loadAcademicSubjects() {
@@ -88,7 +87,9 @@ export function StudentSubjectsStep() {
         }
       } catch {
         if (isMounted) {
-          setSubjectLoadError('Could not load subject options. Please refresh the page.');
+          setSubjectLoadError(
+            'Could not load subject options. Please refresh the page.'
+          );
         }
       } finally {
         if (isMounted) {
@@ -193,9 +194,6 @@ export function StudentSubjectsStep() {
         description="Choose your qualifications, then pick the subjects under each one."
       />
 
-      <Container className="pt-4">
-        <HomeLinkButton />
-      </Container>
 
       <Container className="py-10 pb-28">
         {subjectLoadError && (

@@ -1,7 +1,7 @@
 /**
  * File purpose: Pure tutor-discovery helper logic for building filter options.
  *
- * Subject options are passed in from Firestore-backed academicOptionsService.
+ * Subject options are passed in from academicOptionsService.
  * This file stays pure so it can be unit tested without Firebase.
  */
 

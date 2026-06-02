@@ -1,17 +1,9 @@
 /**
- * File purpose: Shared academic option data used by both students and tutors.
+ * File purpose: Shared academic option data used by students and tutors.
  *
- * We keep these options in code because they are stable product configuration,
- * not user-created data.
- *
+ * These are stable product options, so they live in code rather than Firestore.
  * Firestore should store what users select from these lists, not the master
  * option lists themselves.
- *
- * This means:
- * - student onboarding reads these options from code
- * - tutor onboarding reads these options from code
- * - tutor filters read these options from code
- * - Firestore stores the selected subjects/qualifications per user
  */
 
 import type { QualificationCategory } from '@/domains/students/learning-profile/types/learningProfile';
@@ -20,14 +12,10 @@ import type {
   SubjectOptionsByCategory,
 } from '@/domains/academic-options/types/academicOptions';
 
-/**
- * Qualification categories shown in onboarding and tutor filters.
- *
- * These values must match the QualificationCategory union type exactly.
- */
+/** Qualification categories shown in onboarding and tutor filters. */
 export const QUALIFICATION_CATEGORIES: QualificationCategory[] = [
-  'GCSE',
   'A-level',
+  'GCSE',
   'University admissions',
   'IB',
   'IGCSE',
@@ -38,25 +26,10 @@ export const QUALIFICATION_CATEGORIES: QualificationCategory[] = [
 /**
  * Master subject list grouped by qualification.
  *
- * This is the single source of truth for subject options.
- * Do not create separate student/tutor subject arrays elsewhere.
+ * This is the single source of truth for subject options across student
+ * onboarding, tutor onboarding, and tutor discovery filters.
  */
 export const SUBJECT_OPTIONS_BY_CATEGORY: SubjectOptionsByCategory = {
-  GCSE: [
-    'Maths',
-    'English Language',
-    'English Literature',
-    'Biology',
-    'Chemistry',
-    'Physics',
-    'Computer Science',
-    'History',
-    'Geography',
-    'Economics',
-    'Business',
-    'Psychology',
-  ],
-
   'A-level': [
     'Maths',
     'Further Maths',
@@ -72,17 +45,21 @@ export const SUBJECT_OPTIONS_BY_CATEGORY: SubjectOptionsByCategory = {
     'English Literature',
     'Politics',
   ],
-
-  'University admissions': [
-    'TMUA',
-    'MAT',
-    'STEP',
-    'UCAT',
-    'LNAT',
-    'ESAT',
-    'PAT',
+  GCSE: [
+    'Maths',
+    'English Language',
+    'English Literature',
+    'Biology',
+    'Chemistry',
+    'Physics',
+    'Computer Science',
+    'History',
+    'Geography',
+    'Economics',
+    'Business',
+    'Psychology',
   ],
-
+  'University admissions': ['TMUA', 'MAT', 'STEP', 'UCAT', 'LNAT', 'ESAT', 'PAT'],
   IB: [
     'Mathematics AA',
     'Mathematics AI',
@@ -97,7 +74,6 @@ export const SUBJECT_OPTIONS_BY_CATEGORY: SubjectOptionsByCategory = {
     'Geography',
     'Psychology',
   ],
-
   IGCSE: [
     'Maths',
     'English Language',
@@ -111,7 +87,6 @@ export const SUBJECT_OPTIONS_BY_CATEGORY: SubjectOptionsByCategory = {
     'Economics',
     'Business',
   ],
-
   IAL: [
     'Maths',
     'Further Maths',
@@ -122,7 +97,6 @@ export const SUBJECT_OPTIONS_BY_CATEGORY: SubjectOptionsByCategory = {
     'Economics',
     'Business',
   ],
-
   'Scottish Highers': [
     'Mathematics',
     'English',
@@ -136,13 +110,7 @@ export const SUBJECT_OPTIONS_BY_CATEGORY: SubjectOptionsByCategory = {
   ],
 };
 
-/**
- * Build the same group shape that the UI already expects.
- *
- * Keeping this function means the student/tutor components do not need a big
- * rewrite. They can still call getAcademicSubjectGroups(), but now the data
- * comes from code instead of Firestore.
- */
+/** Build the group shape already used by the onboarding UI. */
 export async function getAcademicSubjectGroups(): Promise<AcademicSubjectGroup[]> {
   return QUALIFICATION_CATEGORIES.map((category) => ({
     id: category.toLowerCase().replaceAll(' ', '-'),
@@ -151,22 +119,12 @@ export async function getAcademicSubjectGroups(): Promise<AcademicSubjectGroup[]
   }));
 }
 
-/**
- * Return a qualification -> subjects lookup.
- *
- * This is async only to avoid changing all existing call sites.
- * The data itself is local and returns immediately.
- */
+/** Return a qualification -> subjects lookup. Async keeps existing call sites stable. */
 export async function getSubjectOptionsByCategory(): Promise<SubjectOptionsByCategory> {
   return SUBJECT_OPTIONS_BY_CATEGORY;
 }
 
-/**
- * Safely read the subject list for one qualification.
- *
- * Components should use this helper instead of indexing the object directly,
- * because it handles the empty category state cleanly.
- */
+/** Safely read subjects for one qualification. */
 export function getSubjectsForQualification(
   optionsByCategory: SubjectOptionsByCategory,
   category: QualificationCategory | ''

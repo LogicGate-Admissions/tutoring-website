@@ -13,7 +13,6 @@
  */
 
 import { useEffect, useState } from 'react';
-import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
@@ -96,9 +95,6 @@ export function StudentPreferencesStep() {
         description="Choose how you prefer to learn and whether you have a tutor university preference."
       />
 
-      <Container className="pt-4">
-        <HomeLinkButton />
-      </Container>
 
       <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[1.1fr_0.9fr]">
         <LearningStyleSection

@@ -1,0 +1,50 @@
+'use client';
+
+/**
+ * File purpose: Shared top navigation for authenticated student/tutor areas.
+ *
+ * The app pages need two always-available shortcuts:
+ * - the logo returns to the public landing page
+ * - the Dashboard button returns to the correct role dashboard
+ */
+
+import Link from 'next/link';
+import { Container } from '@/shared/components/Container';
+import { ROUTES } from '@/shared/constants/routes';
+
+type AppTopNavProps = {
+  /** Determines whether the dashboard button points to student or tutor area. */
+  userType: 'student' | 'tutor';
+};
+
+/** Shared header used by signed-in student and tutor pages. */
+export function AppTopNav({ userType }: AppTopNavProps) {
+  const dashboardHref =
+    userType === 'student' ? ROUTES.studentDashboard : ROUTES.tutorDashboard;
+
+  return (
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <Container className="flex items-center justify-between py-4">
+        <Link
+          href={ROUTES.home}
+          className="flex items-center gap-3 rounded-2xl text-slate-950 transition hover:opacity-80"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-bold text-white">
+            LG
+          </span>
+          <span className="leading-tight">
+            <span className="block text-sm font-bold">LogicGate</span>
+            <span className="block text-xs text-slate-500">Admissions</span>
+          </span>
+        </Link>
+
+        <Link
+          href={dashboardHref}
+          className="rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-800 transition hover:border-slate-950 hover:bg-slate-50"
+        >
+          Dashboard
+        </Link>
+      </Container>
+    </header>
+  );
+}

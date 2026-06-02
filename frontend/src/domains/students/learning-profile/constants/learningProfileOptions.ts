@@ -8,7 +8,7 @@ import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/l
  * Learning style and availability constants stay in code because they define
  * product interaction patterns, not editable academic content.
  *
- * The master subject list now lives in Firestore via academicOptionsService.
+ * The master subject list lives in academicOptionsService.
  */
 
 export const LEARNING_STYLE_OPTIONS = [
