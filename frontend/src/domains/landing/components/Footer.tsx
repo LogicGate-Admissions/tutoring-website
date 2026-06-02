@@ -9,15 +9,15 @@ const links = {
   Platform: [
     { label: 'Browse Tutors', href: '/#tutor-explorer' },
     { label: 'How It Works', href: '/#how-it-works' },
-    { label: 'Student Profile', href: ROUTES.studentOnboardingSubjects },
+    { label: 'Student Profile', href: ROUTES.studentLogin },
   ],
   Students: [
-    { label: 'Start onboarding', href: ROUTES.studentOnboardingSubjects },
+    { label: 'Start onboarding', href: ROUTES.studentLogin },
     { label: 'Find tutors', href: ROUTES.studentTutors },
-    { label: 'Student dashboard', href: ROUTES.studentDashboard },
+    { label: 'Student dashboard', href: ROUTES.studentLogin },
   ],
   Tutors: [
-    { label: 'Tutor dashboard', href: ROUTES.tutorDashboard },
+    { label: 'Tutor dashboard', href: ROUTES.tutorLogin },
     { label: 'Trial requests', href: ROUTES.tutorTrialSessions },
     { label: 'For tutors', href: '/#for-tutors' },
   ],

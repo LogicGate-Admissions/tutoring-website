@@ -61,7 +61,7 @@ export default function AuthPromptModal({ isOpen, onClose }: AuthPromptModalProp
 
         <div className="mt-7 flex flex-col gap-3">
           <Link
-            href={ROUTES.studentOnboardingSubjects}
+            href={ROUTES.studentLogin}
             className="flex items-center justify-center gap-3 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-50"
           >
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -74,7 +74,7 @@ export default function AuthPromptModal({ isOpen, onClose }: AuthPromptModalProp
           </Link>
 
           <Link
-            href={ROUTES.studentOnboardingSubjects}
+            href={ROUTES.studentLogin}
             className="flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
           >
             Start with email
@@ -83,7 +83,7 @@ export default function AuthPromptModal({ isOpen, onClose }: AuthPromptModalProp
 
         <div className="mt-6 text-center">
           <Link
-            href={ROUTES.studentDashboard}
+            href={ROUTES.studentLogin}
             className="text-sm font-medium text-slate-500 transition hover:text-slate-950 underline underline-offset-2"
           >
             Already have an account? Continue

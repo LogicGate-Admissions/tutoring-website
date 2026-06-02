@@ -1,9 +1,11 @@
 /**
- * File purpose: Next.js route entry file. Keep this thin and delegate product logic to domains/.
+ * File purpose: Backwards-compatible onboarding redirect.
  */
 
 import { redirect } from 'next/navigation';
+import { ROUTES } from '@/shared/constants/routes';
 
+/** Old /onboarding URL now starts the student login/onboarding flow. */
 export default function OnboardingRedirect() {
-  redirect('/student/onboarding/subjects');
+  redirect(ROUTES.studentLogin);
 }

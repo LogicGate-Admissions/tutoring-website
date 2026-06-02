@@ -1,12 +1,15 @@
 /**
- * File purpose: Next.js route entry file. Keep this thin and delegate product logic to domains/.
+ * File purpose: Student tutor discovery route.
  */
 
+import { RequireAuth } from '@/domains/auth/components/RequireAuth';
 import { TutorDiscoveryPage } from '@/domains/tutors/tutor-discovery/components/TutorDiscoveryPage';
 
-/**
- * URL: /student/tutors
- */
+/** URL: /student/tutors */
 export default function StudentTutorsPage() {
-  return <TutorDiscoveryPage />;
+  return (
+    <RequireAuth role="student">
+      <TutorDiscoveryPage />
+    </RequireAuth>
+  );
 }

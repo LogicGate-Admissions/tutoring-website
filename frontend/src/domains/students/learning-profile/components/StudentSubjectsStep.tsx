@@ -4,7 +4,7 @@
  * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
@@ -34,15 +34,36 @@ import type {
  * child components render the summary, qualification cards, and subject picker.
  */
 export function StudentSubjectsStep() {
-  const initialProfile = getStoredLearningProfile();
-
   const [subjectSelections, setSubjectSelections] = useState<
     QualificationSubjectSelection[]
-  >(initialProfile.subjectSelections);
+  >([]);
 
   const [activeCategory, setActiveCategory] = useState<
     QualificationCategory | ''
-  >(initialProfile.subjectSelections[0]?.category ?? '');
+  >('');
+
+  useEffect(() => {
+    /**
+     * Load the signed-in student's saved Firestore profile after Firebase Auth
+     * has restored the browser session.
+     */
+    let isMounted = true;
+
+    async function loadProfile() {
+      const profile = await getStoredLearningProfile();
+
+      if (!isMounted) return;
+
+      setSubjectSelections(profile.subjectSelections);
+      setActiveCategory(profile.subjectSelections[0]?.category ?? '');
+    }
+
+    void loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const selectedCategories = getSelectedCategories(subjectSelections);
 
@@ -120,7 +141,7 @@ export function StudentSubjectsStep() {
   }
 
   function saveDraftProfile() {
-    updateStoredLearningProfile({ subjectSelections });
+    void updateStoredLearningProfile({ subjectSelections });
   }
 
   return (

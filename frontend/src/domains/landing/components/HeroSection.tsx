@@ -84,7 +84,7 @@ export default function HeroSection() {
             className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start transition-all delay-200 duration-500 opacity-100 translate-y-0"
           >
             <Link
-              href={ROUTES.studentOnboardingSubjects}
+              href={ROUTES.studentLogin}
               className="rounded-full bg-slate-950 px-8 py-3.5 text-sm font-medium text-white transition hover:bg-slate-800"
             >
               Get Started — It&apos;s Free

@@ -4,14 +4,14 @@
  * File purpose: Landing-page component. It should reuse domain components rather than duplicating product logic.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/shared/components/Card';
 import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
 import { TutorFiltersPanel } from '@/domains/tutors/tutor-discovery/components/TutorFiltersPanel';
-import { TUTOR_PROFILES } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
+import { getTutorProfiles } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 import { filterTutors } from '@/domains/tutors/tutor-discovery/utils/filterTutors';
 import { DEFAULT_TUTOR_FILTERS } from '@/domains/tutors/tutor-discovery/utils/tutorFilterMapping';
-import type { TutorFilters } from '@/domains/tutors/tutor-discovery/types/tutor';
+import type { Tutor, TutorFilters } from '@/domains/tutors/tutor-discovery/types/tutor';
 import AuthPromptModal from './AuthPromptModal';
 
 const PAGE_SIZE = 8;
@@ -37,13 +37,42 @@ function activeFilterCount(filters: TutorFilters) {
  */
 export default function TutorExplorer() {
   const [filters, setFilters] = useState<TutorFilters>(DEFAULT_TUTOR_FILTERS);
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [isLoadingTutors, setIsLoadingTutors] = useState(true);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [modalOpen, setModalOpen] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
+  useEffect(() => {
+    /** Public preview uses the same Firestore-backed tutor profiles as signed-in discovery. */
+    let isMounted = true;
+
+    async function loadTutors() {
+      setIsLoadingTutors(true);
+
+      try {
+        const profiles = await getTutorProfiles();
+
+        if (isMounted) {
+          setTutors(profiles);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingTutors(false);
+        }
+      }
+    }
+
+    void loadTutors();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const filteredTutors = useMemo(
-    () => filterTutors(TUTOR_PROFILES, filters),
-    [filters]
+    () => filterTutors(tutors, filters),
+    [filters, tutors]
   );
 
   const visibleTutors = filteredTutors.slice(0, visibleCount);
@@ -120,9 +149,11 @@ export default function TutorExplorer() {
                   Tutor results
                 </p>
                 <h3 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-                  {filteredTutors.length === 0
-                    ? 'No tutors match'
-                    : `${filteredTutors.length} available match${filteredTutors.length === 1 ? '' : 'es'}`}
+                  {isLoadingTutors
+                    ? 'Loading tutors'
+                    : filteredTutors.length === 0
+                      ? 'No tutors match'
+                      : `${filteredTutors.length} available match${filteredTutors.length === 1 ? '' : 'es'}`}
                 </h3>
               </div>
 
@@ -132,11 +163,15 @@ export default function TutorExplorer() {
               </p>
             </div>
 
-            {filteredTutors.length === 0 ? (
+            {isLoadingTutors ? (
+              <Card>
+                <p className="text-sm text-slate-600">Loading tutors from Firebase...</p>
+              </Card>
+            ) : filteredTutors.length === 0 ? (
               <Card>
                 <p className="font-medium">No tutors match these filters.</p>
                 <p className="mt-2 text-sm text-slate-600">
-                  Try increasing the max price or clearing one of the filters.
+                  Tutor profiles are now loaded from Firebase. Complete tutor onboarding to publish profiles.
                 </p>
               </Card>
             ) : (

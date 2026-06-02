@@ -1,12 +1,15 @@
 /**
- * File purpose: Next.js route entry file. Keep this thin and delegate product logic to domains/.
+ * File purpose: Tutor trial session requests route.
  */
 
+import { RequireAuth } from '@/domains/auth/components/RequireAuth';
 import { TutorTrialSessionsPage } from '@/domains/sessions/trial-sessions/components/TutorTrialSessionsPage';
 
-/**
- * URL: /tutor/trial-sessions
- */
+/** URL: /tutor/trial-sessions */
 export default function TutorTrialSessionsRoute() {
-  return <TutorTrialSessionsPage />;
+  return (
+    <RequireAuth role="tutor">
+      <TutorTrialSessionsPage />
+    </RequireAuth>
+  );
 }

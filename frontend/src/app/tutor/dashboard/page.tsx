@@ -1,38 +1,34 @@
 /**
- * File purpose: Next.js route entry file. Keep this thin and delegate product logic to domains/.
+ * File purpose: Tutor dashboard route.
+ *
+ * The dashboard is intentionally empty for now. Tutor-side features can be
+ * added here without changing the login/onboarding flow.
  */
 
-import { Button } from '@/shared/components/Button';
+import { RequireAuth } from '@/domains/auth/components/RequireAuth';
+import { SignOutButton } from '@/domains/auth/components/SignOutButton';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
-import { ROUTES } from '@/shared/constants/routes';
 
-/**
- * URL: /tutor/dashboard
- *
- * Small dashboard placeholder for the current tutor system.
- */
+/** URL: /tutor/dashboard */
 export default function TutorDashboardPage() {
   return (
-    <main className="min-h-screen bg-[#f8f7f4]">
-      <PageHeader
-        eyebrow="Tutor area"
-        title="Tutor dashboard"
-        description="A simple starting point for tutor-side workflows."
-      />
+    <RequireAuth role="tutor">
+      <main className="min-h-screen bg-[#f8f7f4]">
+        <PageHeader
+          eyebrow="Tutor area"
+          title="Tutor dashboard"
+          description="Dashboard features will be added here as the project develops."
+        />
 
-      <Container className="py-10">
-        <Card>
-          <h2 className="text-xl font-semibold">Trial session requests</h2>
-          <p className="mt-3 max-w-2xl leading-7 text-slate-600">
-            Review student requests and respond when you are available.
-          </p>
-          <Button href={ROUTES.tutorTrialSessions} className="mt-6">
-            View requests
-          </Button>
-        </Card>
-      </Container>
-    </main>
+        <Container className="py-10">
+          <Card className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-slate-600">No dashboard widgets have been added yet.</p>
+            <SignOutButton />
+          </Card>
+        </Container>
+      </main>
+    </RequireAuth>
   );
 }

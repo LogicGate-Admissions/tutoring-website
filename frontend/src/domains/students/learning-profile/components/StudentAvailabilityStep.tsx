@@ -4,7 +4,7 @@
  * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
@@ -46,20 +46,39 @@ import type {
  * same final timetable.
  */
 export function StudentAvailabilityStep() {
-  const storedProfile = getStoredLearningProfile();
-
   // Presets stay as IDs so cards can be toggled/highlighted cleanly.
-  const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>(
-    getInitialSelectedPresetIds(storedProfile.availability)
-  );
+  const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>([]);
 
   // Manual blocks are the editable blocks the student has added or customised.
-  const [customBlocks, setCustomBlocks] = useState<TimeBlock[]>(
-    storedProfile.availability.filter((block) => block.source === 'manual')
-  );
+  const [customBlocks, setCustomBlocks] = useState<TimeBlock[]>([]);
 
   // The selected block is used by the grid for keyboard delete and styling.
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+
+
+  useEffect(() => {
+    /**
+     * Load saved availability from Firestore once the authenticated student is
+     * available. The UI stores presets and manual blocks separately, so we
+     * split the saved final availability back into those two pieces here.
+     */
+    let isMounted = true;
+
+    async function loadProfile() {
+      const profile = await getStoredLearningProfile();
+
+      if (!isMounted) return;
+
+      setSelectedPresetIds(getInitialSelectedPresetIds(profile.availability));
+      setCustomBlocks(profile.availability.filter((block) => block.source === 'manual'));
+    }
+
+    void loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Manual form defaults to one useful after-school slot.
   const [manualDays, setManualDays] = useState<Day[]>(['Mon']);
@@ -172,7 +191,7 @@ export function StudentAvailabilityStep() {
   }
 
   function saveDraftProfile() {
-    updateStoredLearningProfile({ availability });
+    void updateStoredLearningProfile({ availability });
   }
 
   return (

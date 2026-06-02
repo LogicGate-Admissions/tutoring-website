@@ -1,7 +1,13 @@
 'use client';
 
 /**
- * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ * File purpose: Student-facing tutor discovery page.
+ *
+ * This page now uses real Firebase-backed data:
+ * - current student comes from Firebase Auth + users collection
+ * - student learning profile comes from Firestore
+ * - tutor profiles come from Firestore, not a hardcoded array
+ * - trial session requests are written/read from Firestore
  */
 
 import Link from 'next/link';
@@ -12,7 +18,8 @@ import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { ROUTES } from '@/shared/constants/routes';
-import { MOCK_STUDENT } from '@/domains/accounts/mockUsers';
+import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
+import type { AuthUser } from '@/domains/auth/types/auth';
 import {
   getStoredLearningProfile,
   updateStoredLearningProfile,
@@ -23,10 +30,10 @@ import {
   subscribeToStudentTrialSessions,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
-import { TUTOR_PROFILES } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
 import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
 import { TutorFiltersPanel } from '@/domains/tutors/tutor-discovery/components/TutorFiltersPanel';
 import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
+import { getTutorProfiles } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 import { filterTutors } from '@/domains/tutors/tutor-discovery/utils/filterTutors';
 import {
   DEFAULT_TUTOR_FILTERS,
@@ -37,64 +44,107 @@ import type {
   Tutor,
   TutorFilters,
 } from '@/domains/tutors/tutor-discovery/types/tutor';
-
-function getOnboardingTutorFilters() {
-  return profileToTutorFilters(getStoredLearningProfile());
-}
+import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
 
 /**
  * Student-facing tutor discovery page.
  *
- * Responsibilities are intentionally split:
- * - TutorFiltersPanel owns editing filters.
- * - TutorCard owns compact result display.
- * - TutorProfileModal owns detailed profile actions.
- * - filterTutors owns matching/sorting logic.
+ * Responsibilities stay split:
+ * - services load/save Firebase data
+ * - filterTutors owns matching/sorting logic
+ * - TutorFiltersPanel owns filter editing UI
+ * - TutorCard/TutorProfileModal own tutor presentation
  */
 export function TutorDiscoveryPage() {
-  // Phase 1: initialise page state from the saved onboarding profile.
-  const [filters, setFilters] = useState<TutorFilters>(
-    getOnboardingTutorFilters
-  );
-  const [studentRequests, setStudentRequests] = useState<TrialSessionRequest[]>(
-    []
-  );
+  const [currentStudent, setCurrentStudent] = useState<AuthUser | null>(null);
+  const [studentProfile, setStudentProfile] = useState<StudentLearningProfile | null>(null);
+  const [filters, setFilters] = useState<TutorFilters>(DEFAULT_TUTOR_FILTERS);
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [isLoadingTutors, setIsLoadingTutors] = useState(true);
+  const [studentRequests, setStudentRequests] = useState<TrialSessionRequest[]>([]);
   const [notice, setNotice] = useState('');
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [shortlistedTutorIds, setShortlistedTutorIds] = useState<string[]>([]);
 
-  // Phase 2: keep trial request state synced with Firestore.
   useEffect(() => {
-    const unsubscribe = subscribeToStudentTrialSessions(
-      MOCK_STUDENT.id,
-      setStudentRequests
-    );
+    /** Keep the page aware of the signed-in student for request ownership. */
+    const unsubscribe = subscribeToCurrentUser((user) => {
+      setCurrentStudent(user?.role === 'student' ? user : null);
+    });
 
     return () => unsubscribe();
   }, []);
 
-  // Phase 3: derive display data from state without storing duplicates.
+  useEffect(() => {
+    /** Load the saved onboarding profile and initialise filters from it. */
+    let isMounted = true;
+
+    async function loadStudentProfile() {
+      const profile = await getStoredLearningProfile();
+
+      if (!isMounted) return;
+
+      setStudentProfile(profile);
+      setFilters(profileToTutorFilters(profile));
+    }
+
+    void loadStudentProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    /** Load public tutor profiles from Firestore instead of a local array. */
+    let isMounted = true;
+
+    async function loadTutors() {
+      setIsLoadingTutors(true);
+
+      try {
+        const profiles = await getTutorProfiles();
+
+        if (isMounted) {
+          setTutors(profiles);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingTutors(false);
+        }
+      }
+    }
+
+    void loadTutors();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    /** Keep this student's trial requests live so card statuses update. */
+    if (!currentStudent) return undefined;
+
+    return subscribeToStudentTrialSessions(currentStudent.id, setStudentRequests);
+  }, [currentStudent]);
+
   const filteredTutors = useMemo(
-    () => filterTutors(TUTOR_PROFILES, filters),
-    [filters]
+    () => filterTutors(tutors, filters),
+    [filters, tutors]
   );
 
-  const selectedTutor =
-    TUTOR_PROFILES.find((tutor) => tutor.id === selectedTutorId) ?? null;
+  const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
 
   const selectedTutorRequest = selectedTutor
     ? findExistingRequest(selectedTutor.id)
     : undefined;
 
-  // Phase 4: filter/profile actions are small wrappers around domain helpers.
-  function saveFiltersToOnboardingProfile() {
+  async function saveFiltersToOnboardingProfile() {
     const profileSelections = tutorFiltersToProfileSelections(filters);
+    const nextProfile = await updateStoredLearningProfile(profileSelections);
 
-    updateStoredLearningProfile({
-      ...getStoredLearningProfile(),
-      ...profileSelections,
-    });
-
+    setStudentProfile(nextProfile);
     setNotice('Your learning profile has been updated from these filters.');
   }
 
@@ -103,7 +153,9 @@ export function TutorDiscoveryPage() {
   }
 
   function resetToOnboardingFilters() {
-    setFilters(getOnboardingTutorFilters());
+    if (!studentProfile) return;
+
+    setFilters(profileToTutorFilters(studentProfile));
   }
 
   function findExistingRequest(tutorId: string) {
@@ -136,6 +188,11 @@ export function TutorDiscoveryPage() {
   }
 
   async function requestTrial(tutor: Tutor) {
+    if (!currentStudent) {
+      setNotice('Please log in again before booking a trial.');
+      return;
+    }
+
     const existingRequest = findExistingRequest(tutor.id);
 
     if (existingRequest) {
@@ -143,26 +200,29 @@ export function TutorDiscoveryPage() {
       return;
     }
 
-    const profile = getStoredLearningProfile();
+    const profile = studentProfile ?? (await getStoredLearningProfile());
 
     await createTrialSessionRequest({
       tutorId: tutor.id,
       tutorName: tutor.name,
-      studentId: MOCK_STUDENT.id,
-      studentName: MOCK_STUDENT.name,
+      studentId: currentStudent.id,
+      studentName: currentStudent.name,
       subject:
         filters.subjects[0]?.subject ||
         profile.subjectSelections[0]?.subjects[0] ||
-        tutor.subjects[0],
+        tutor.subjects[0] ||
+        'Not specified',
       level:
         filters.subjects[0]?.level ||
         filters.levels[0] ||
         profile.subjectSelections[0]?.category ||
-        tutor.levels[0],
+        tutor.levels[0] ||
+        'Not specified',
       learningStyle:
         filters.learningStyles[0] ||
         profile.learningStyles[0] ||
-        tutor.learningStyles[0],
+        tutor.learningStyles[0] ||
+        'Not specified',
       preferredTime:
         profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
         tutor.availability,
@@ -175,7 +235,6 @@ export function TutorDiscoveryPage() {
 
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
-      {/* Phase 5: page-level navigation stays outside the filter/results grid. */}
       <PageHeader
         eyebrow="Student area"
         title="Find your match."
@@ -190,7 +249,6 @@ export function TutorDiscoveryPage() {
         </Link>
       </Container>
 
-      {/* Phase 6: filters and results stay in a stable two-column layout. */}
       <Container className="grid items-start gap-8 py-10 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-8">
           <TutorFiltersPanel
@@ -198,7 +256,7 @@ export function TutorDiscoveryPage() {
             onChange={setFilters}
             onClear={clearFilters}
             onResetToOnboarding={resetToOnboardingFilters}
-            onSaveToOnboarding={saveFiltersToOnboardingProfile}
+            onSaveToOnboarding={() => void saveFiltersToOnboardingProfile()}
           />
         </div>
 
@@ -206,9 +264,14 @@ export function TutorDiscoveryPage() {
           <TutorResultsHeader
             notice={notice}
             tutorCount={filteredTutors.length}
+            isLoading={isLoadingTutors}
           />
 
-          {filteredTutors.length === 0 ? (
+          {isLoadingTutors ? (
+            <Card>
+              <p className="text-sm text-slate-600">Loading tutors from Firebase...</p>
+            </Card>
+          ) : filteredTutors.length === 0 ? (
             <NoTutorMatches />
           ) : (
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -225,7 +288,6 @@ export function TutorDiscoveryPage() {
         </section>
       </Container>
 
-      {/* Phase 7: profile details open as an overlay, never as a third column. */}
       {selectedTutor && (
         <TutorProfileModal
           tutor={selectedTutor}
@@ -244,9 +306,11 @@ export function TutorDiscoveryPage() {
 function TutorResultsHeader({
   notice,
   tutorCount,
+  isLoading,
 }: {
   notice: string;
   tutorCount: number;
+  isLoading: boolean;
 }) {
   return (
     <>
@@ -262,7 +326,7 @@ function TutorResultsHeader({
             Tutor results
           </p>
           <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-            {tutorCount} available matches
+            {isLoading ? 'Loading tutors' : `${tutorCount} available matches`}
           </h2>
         </div>
 
@@ -279,7 +343,8 @@ function NoTutorMatches() {
     <Card>
       <p className="font-medium">No tutors match these filters.</p>
       <p className="mt-2 text-sm text-slate-600">
-        Try increasing the max price or clearing one of the filters.
+        Tutor profiles now come from Firebase. Create tutor accounts and complete
+        tutor onboarding to add searchable tutor profiles.
       </p>
     </Card>
   );

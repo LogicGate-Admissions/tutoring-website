@@ -1,12 +1,15 @@
 /**
- * File purpose: Next.js route entry file. Keep this thin and delegate product logic to domains/.
+ * File purpose: Student subjects onboarding route.
  */
 
+import { RequireAuth } from '@/domains/auth/components/RequireAuth';
 import { StudentSubjectsStep } from '@/domains/students/learning-profile/components/StudentSubjectsStep';
 
-/**
- * URL: /student/onboarding/subjects
- */
+/** URL: /student/onboarding/subjects */
 export default function StudentOnboardingSubjectsPage() {
-  return <StudentSubjectsStep />;
+  return (
+    <RequireAuth role="student">
+      <StudentSubjectsStep />
+    </RequireAuth>
+  );
 }

@@ -1,42 +1,28 @@
 'use client';
 
 /**
- * Bottom onboarding tab bar.
+ * File purpose: Bottom onboarding tab bar for the student learning profile.
  *
- * This component appears on each onboarding page and gives the student
- * a consistent way to move between the onboarding sections.
- *
- * We are intentionally keeping this simple for now:
+ * Current UX decision:
+ * - show direct tabs only
  * - no Back button
  * - no Next button
- * - just direct navigation tabs
- *
- * The "Find tutors" tab should always be visible so the student can leave
- * onboarding and browse tutor matches whenever they are ready.
+ * - always show Find tutors so students can leave onboarding when ready
  */
 
 import { useRouter } from 'next/navigation';
 import { Container } from '@/shared/components/Container';
 import { ROUTES } from '@/shared/constants/routes';
+import { getCurrentFirebaseUser, markOnboardingComplete } from '@/domains/auth/services/authService';
 import { cn } from '@/shared/utils/cn';
 
 type OnboardingStep = 'subjects' | 'preferences' | 'availability';
 
 type StudentOnboardingSectionBarProps = {
-  /**
-   * The current onboarding page.
-   *
-   * This is only used to highlight the active tab.
-   */
+  /** Current onboarding section used only to highlight the active tab. */
   currentStep: OnboardingStep;
 
-  /**
-   * Called before navigation.
-   *
-   * Each onboarding page passes a save function here so that if the student
-   * changes subjects, preferences, or availability, those changes are saved
-   * before they move to another onboarding page or Find tutors.
-   */
+  /** Save hook called before moving away from the current onboarding page. */
   onBeforeNavigate?: () => void;
 };
 
@@ -75,18 +61,23 @@ export function StudentOnboardingSectionBar({
 }: StudentOnboardingSectionBarProps) {
   const router = useRouter();
 
-  function navigateTo(href: string) {
-    /**
-     * Save the current onboarding page before moving away.
-     *
-     * This prevents the student from losing changes if they click one of the
-     * bottom tabs immediately after editing the page.
-     */
+  async function navigateTo(href: string) {
+    /** Save draft onboarding changes before leaving the page. */
     onBeforeNavigate?.();
 
     /**
-     * Move to the selected onboarding section or tutor discovery page.
+     * Treat moving from onboarding into tutor discovery as completing the first
+     * student onboarding pass. Future logins can then land on the dashboard.
      */
+    if (href === ROUTES.studentTutors) {
+      const user = getCurrentFirebaseUser();
+
+      if (user) {
+        await markOnboardingComplete(user.uid);
+      }
+    }
+
+    /** Route to the selected onboarding section or tutor discovery. */
     router.push(href);
   }
 
@@ -96,18 +87,14 @@ export function StudentOnboardingSectionBar({
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {ONBOARDING_TABS.map((tab) => {
-              /**
-               * Find tutors is never the active onboarding step because it is
-               * outside the onboarding flow. Subjects, Preferences, and
-               * Availability can be active.
-               */
+              /** Find tutors is outside onboarding, so it is never active here. */
               const isActive = tab.id === currentStep;
 
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => navigateTo(tab.href)}
+                  onClick={() => void navigateTo(tab.href)}
                   className={cn(
                     'rounded-xl px-3 py-2 text-sm font-medium transition',
                     isActive

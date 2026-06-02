@@ -1,5 +1,5 @@
 /**
- * File purpose: Trial-session persistence boundary. Replace this layer when moving from localStorage to Firestore.
+ * File purpose: Firestore persistence boundary for trial-session requests.
  */
 
 import {

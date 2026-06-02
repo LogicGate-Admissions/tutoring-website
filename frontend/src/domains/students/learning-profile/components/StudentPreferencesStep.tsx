@@ -9,10 +9,10 @@
  *
  * This page owns the selected preference state and passes simple callbacks to
  * smaller section components. Keeping the page at this level makes it easier to
- * replace localStorage with Firestore later because all saving happens here.
+ * save Firestore profile data because all persistence happens through one service.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
@@ -30,16 +30,34 @@ import {
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
 
 export function StudentPreferencesStep() {
-  /** Read once on load. Later this will come from the logged-in student's profile. */
-  const storedProfile = getStoredLearningProfile();
-
-  const [selectedStyles, setSelectedStyles] = useState<string[]>(
-    storedProfile.learningStyles
-  );
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
 
   const [preferredUniversities, setPreferredUniversities] = useState<string[]>(
-    storedProfile.preferredUniversities
+    []
   );
+
+  useEffect(() => {
+    /**
+     * Load saved preferences from Firestore after Firebase Auth is ready.
+     * Starting from empty arrays keeps the first render safe and predictable.
+     */
+    let isMounted = true;
+
+    async function loadProfile() {
+      const profile = await getStoredLearningProfile();
+
+      if (!isMounted) return;
+
+      setSelectedStyles(profile.learningStyles);
+      setPreferredUniversities(profile.preferredUniversities);
+    }
+
+    void loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   function toggleStyle(style: string) {
     /** Toggling is isolated in a helper so this handler stays self-explanatory. */
@@ -64,7 +82,7 @@ export function StudentPreferencesStep() {
 
   function saveDraftProfile() {
     /** Save partial progress whenever the student navigates away. */
-    updateStoredLearningProfile({
+    void updateStoredLearningProfile({
       learningStyles: selectedStyles,
       preferredUniversities,
     });

@@ -53,13 +53,13 @@ export default function Navbar() {
               Browse Tutors
             </button>
             <Link
-              href={ROUTES.tutorDashboard}
+              href={ROUTES.tutorLogin}
               className="text-sm font-medium text-slate-600 transition hover:text-slate-950"
             >
               For Tutors
             </Link>
             <Link
-              href={ROUTES.studentOnboardingSubjects}
+              href={ROUTES.studentLogin}
               className="rounded-full bg-slate-950 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
             >
               Get Started
@@ -97,21 +97,21 @@ export default function Navbar() {
                 Browse Tutors
               </button>
               <Link
-                href={ROUTES.tutorDashboard}
+                href={ROUTES.tutorLogin}
                 onClick={() => setMenuOpen(false)}
                 className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 For Tutors
               </Link>
               <Link
-                href={ROUTES.studentOnboardingSubjects}
+                href={ROUTES.studentLogin}
                 onClick={() => setMenuOpen(false)}
                 className="rounded-full bg-slate-950 px-5 py-3 text-center text-sm font-medium text-white transition hover:bg-slate-800"
               >
                 Get Started — It&apos;s Free
               </Link>
               <Link
-                href={ROUTES.studentDashboard}
+                href={ROUTES.studentLogin}
                 onClick={() => setMenuOpen(false)}
                 className="text-center text-sm font-medium text-slate-500 transition hover:text-slate-950"
               >

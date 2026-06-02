@@ -1,13 +1,21 @@
 /**
- * File purpose: Shared constant used across domains to avoid duplicated string literals.
+ * File purpose: One source of truth for Firestore collection names.
+ *
+ * Firestore collection names are plain strings. If we duplicate those strings
+ * across the app, one typo can silently create a second collection. This file
+ * prevents that by making every service import the same names.
  */
 
-/**
- * Firestore collection names used by the app.
- *
- * Keeping names in one file avoids typo bugs such as writing
- * 'trialSessionRequest' in one file and 'trialSessionRequests' in another.
- */
 export const FIRESTORE_COLLECTIONS = {
+  /** User account metadata keyed by Firebase Auth uid. */
+  users: 'users',
+
+  /** Student onboarding/learning profiles keyed by Firebase Auth uid. */
+  studentProfiles: 'studentProfiles',
+
+  /** Tutor public/searchable profiles keyed by Firebase Auth uid. */
+  tutorProfiles: 'tutorProfiles',
+
+  /** Trial requests between one student and one tutor. */
   trialSessionRequests: 'trialSessionRequests',
 } as const;
