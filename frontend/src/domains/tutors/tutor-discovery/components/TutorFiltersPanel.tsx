@@ -5,11 +5,8 @@ import { SearchableMultiSelect } from '@/shared/components/SearchableMultiSelect
 import {
   LEARNING_STYLE_OPTIONS,
   QUALIFICATION_CATEGORIES,
-  SUBJECT_OPTIONS_BY_CATEGORY,
 } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import {
-  MAX_TUTOR_PRICE_PER_HOUR,
-  MIN_TUTOR_PRICE_PER_HOUR,
   TUTOR_SORT_OPTIONS,
   UNIVERSITY_FILTER_OPTIONS,
 } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
@@ -18,10 +15,15 @@ import type {
   TutorFilters,
   TutorSubjectFilter,
 } from '@/domains/tutors/tutor-discovery/types/tutor';
+import { PriceRangeControls } from '@/domains/tutors/tutor-discovery/components/filters/PriceRangeControls';
 import {
   tutorSubjectFilterKey,
   tutorSubjectFilterLabel,
 } from '@/domains/tutors/tutor-discovery/utils/tutorDisplay';
+import {
+  getSubjectOptionsForLevels,
+  subjectFiltersMatch,
+} from '@/domains/tutors/tutor-discovery/utils/tutorFilterOptions';
 
 type TutorFiltersPanelProps = {
   filters: TutorFilters;
@@ -32,26 +34,12 @@ type TutorFiltersPanelProps = {
 };
 
 /**
- * Creates level-specific subject options for the subject combobox.
- *
- * Example output: GCSE · Maths, A-level · Maths.
- * This avoids showing two unclear duplicate "Maths" options.
- */
-function getSubjectOptionsForLevels(levels: QualificationCategory[]) {
-  return levels.flatMap((level) =>
-    SUBJECT_OPTIONS_BY_CATEGORY[level].map((subject) => ({
-      level,
-      subject,
-    }))
-  );
-}
-
-/**
  * Left-side filter panel for student tutor discovery.
  *
- * This component owns temporary browsing filters only. It receives the current
- * filter state from TutorDiscoveryPage and reports changes upward, so the
- * panel can be developed independently from result rendering and booking.
+ * This component only edits temporary browsing filters. It does not fetch tutor
+ * data or save profile data directly. That separation keeps the page easier to
+ * test: the panel emits changes, while TutorDiscoveryPage decides what to do
+ * with those changes.
  */
 export function TutorFiltersPanel({
   filters,
@@ -60,17 +48,17 @@ export function TutorFiltersPanel({
   onResetToOnboarding,
   onSaveToOnboarding,
 }: TutorFiltersPanelProps) {
-  // Phase 1: update qualification-level filters and keep subject filters valid.
   function addLevel(level: QualificationCategory) {
     if (filters.levels.includes(level)) return;
 
-    onChange({
-      ...filters,
-      levels: [...filters.levels, level],
-    });
+    onChange({ ...filters, levels: [...filters.levels, level] });
   }
 
   function removeLevel(level: QualificationCategory) {
+    /**
+     * Removing a level must also remove subjects from that level, otherwise the
+     * user could have a hidden GCSE Maths filter active after removing GCSE.
+     */
     const nextLevels = filters.levels.filter((item) => item !== level);
 
     onChange({
@@ -80,70 +68,44 @@ export function TutorFiltersPanel({
     });
   }
 
-  // Phase 2: update level-specific subject filters.
   function addSubject(subject: TutorSubjectFilter) {
-    const alreadySelected = filters.subjects.some(
-      (selectedSubject) =>
-        selectedSubject.level === subject.level &&
-        selectedSubject.subject === subject.subject
-    );
+    if (filters.subjects.some((selected) => subjectFiltersMatch(selected, subject))) {
+      return;
+    }
 
-    if (alreadySelected) return;
-
-    onChange({
-      ...filters,
-      subjects: [...filters.subjects, subject],
-    });
+    onChange({ ...filters, subjects: [...filters.subjects, subject] });
   }
 
   function removeSubject(subject: TutorSubjectFilter) {
     onChange({
       ...filters,
       subjects: filters.subjects.filter(
-        (selectedSubject) =>
-          selectedSubject.level !== subject.level ||
-          selectedSubject.subject !== subject.subject
+        (selected) => !subjectFiltersMatch(selected, subject)
       ),
     });
   }
 
-  // Phase 3: update simple multi-select filters.
-  function addLearningStyle(learningStyle: string) {
-    if (filters.learningStyles.includes(learningStyle)) return;
+  function addStringFilter(
+    key: 'learningStyles' | 'universities',
+    value: string
+  ) {
+    if (filters[key].includes(value)) return;
 
+    onChange({ ...filters, [key]: [...filters[key], value] });
+  }
+
+  function removeStringFilter(
+    key: 'learningStyles' | 'universities',
+    value: string
+  ) {
     onChange({
       ...filters,
-      learningStyles: [...filters.learningStyles, learningStyle],
+      [key]: filters[key].filter((item) => item !== value),
     });
   }
 
-  function removeLearningStyle(learningStyle: string) {
-    onChange({
-      ...filters,
-      learningStyles: filters.learningStyles.filter(
-        (item) => item !== learningStyle
-      ),
-    });
-  }
-
-  function addUniversity(university: string) {
-    if (filters.universities.includes(university)) return;
-
-    onChange({
-      ...filters,
-      universities: [...filters.universities, university],
-    });
-  }
-
-  function removeUniversity(university: string) {
-    onChange({
-      ...filters,
-      universities: filters.universities.filter((item) => item !== university),
-    });
-  }
-
-  // Phase 4: update numeric filter ranges while keeping min <= max.
   function updateMinimumPrice(value: number) {
+    // Clamp so the range never becomes impossible.
     onChange({
       ...filters,
       minPricePerHour: Math.min(value, filters.maxPricePerHour),
@@ -151,6 +113,7 @@ export function TutorFiltersPanel({
   }
 
   function updateMaximumPrice(value: number) {
+    // Clamp so the range never becomes impossible.
     onChange({
       ...filters,
       maxPricePerHour: Math.max(value, filters.minPricePerHour),
@@ -159,47 +122,15 @@ export function TutorFiltersPanel({
 
   return (
     <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      {/* Phase 5: global filter actions. */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-            Filters
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-            Find your match
-          </h2>
-        </div>
-
-        <Button variant="ghost" onClick={onClear} className="px-3 py-2">
-          Clear
-        </Button>
-      </div>
+      <FilterPanelHeader onClear={onClear} />
 
       {(onResetToOnboarding || onSaveToOnboarding) && (
-        <div className="mt-4 grid gap-3">
-          {onResetToOnboarding && (
-            <Button
-              variant="secondary"
-              onClick={onResetToOnboarding}
-              className="w-full px-4 py-2"
-            >
-              Reset to profile
-            </Button>
-          )}
-
-          {onSaveToOnboarding && (
-            <Button
-              variant="secondary"
-              onClick={onSaveToOnboarding}
-              className="w-full px-4 py-2"
-            >
-              Save filters to profile
-            </Button>
-          )}
-        </div>
+        <ProfileFilterActions
+          onResetToOnboarding={onResetToOnboarding}
+          onSaveToOnboarding={onSaveToOnboarding}
+        />
       )}
 
-      {/* Phase 6: searchable matching criteria. */}
       <div className="mt-6 grid gap-6">
         <SearchableMultiSelect
           label="Levels"
@@ -231,8 +162,8 @@ export function TutorFiltersPanel({
           selectedOptions={filters.learningStyles}
           getOptionKey={(style) => style}
           getOptionLabel={(style) => style}
-          onSelect={addLearningStyle}
-          onRemove={removeLearningStyle}
+          onSelect={(style) => addStringFilter('learningStyles', style)}
+          onRemove={(style) => removeStringFilter('learningStyles', style)}
           emptyMessage="No learning styles found."
         />
 
@@ -242,31 +173,15 @@ export function TutorFiltersPanel({
           selectedOptions={filters.universities}
           getOptionKey={(university) => university}
           getOptionLabel={(university) => university}
-          onSelect={addUniversity}
-          onRemove={removeUniversity}
+          onSelect={(university) => addStringFilter('universities', university)}
+          onRemove={(university) => removeStringFilter('universities', university)}
           emptyMessage="No universities found."
         />
 
-        {/* Phase 7: ordering and price constraints. */}
-        <label className="grid gap-2 text-sm font-medium text-slate-700">
-          Sort by
-          <select
-            value={filters.sortBy}
-            onChange={(event) =>
-              onChange({
-                ...filters,
-                sortBy: event.target.value as TutorFilters['sortBy'],
-              })
-            }
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-          >
-            {TUTOR_SORT_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SortControl
+          value={filters.sortBy}
+          onChange={(sortBy) => onChange({ ...filters, sortBy })}
+        />
 
         <PriceRangeControls
           minPrice={filters.minPricePerHour}
@@ -279,73 +194,78 @@ export function TutorFiltersPanel({
   );
 }
 
-function PriceRangeControls({
-  minPrice,
-  maxPrice,
-  onMinPriceChange,
-  onMaxPriceChange,
-}: {
-  minPrice: number;
-  maxPrice: number;
-  onMinPriceChange: (value: number) => void;
-  onMaxPriceChange: (value: number) => void;
-}) {
+function FilterPanelHeader({ onClear }: { onClear: () => void }) {
   return (
-    <div className="grid gap-2 text-sm font-medium text-slate-700">
-      <PriceField
-        label="Min hourly rate"
-        value={minPrice}
-        onChange={onMinPriceChange}
-      />
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+          Filters
+        </p>
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+          Find your match
+        </h2>
+      </div>
 
-      <PriceField
-        label="Max hourly rate"
-        value={maxPrice}
-        onChange={onMaxPriceChange}
-        className="mt-3"
-      />
+      <Button variant="ghost" onClick={onClear} className="px-3 py-2">
+        Clear
+      </Button>
     </div>
   );
 }
 
-function PriceField({
-  label,
-  value,
-  onChange,
-  className,
+function ProfileFilterActions({
+  onResetToOnboarding,
+  onSaveToOnboarding,
 }: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  className?: string;
+  onResetToOnboarding?: () => void;
+  onSaveToOnboarding?: () => void;
 }) {
   return (
-    <div className={className}>
-      <div className="flex items-center justify-between gap-3">
-        <span>{label}</span>
-        <span className="font-semibold text-slate-950">£{value}</span>
-      </div>
+    <div className="mt-4 grid gap-3">
+      {onResetToOnboarding && (
+        <Button
+          variant="secondary"
+          onClick={onResetToOnboarding}
+          className="w-full px-4 py-2"
+        >
+          Reset to profile
+        </Button>
+      )}
 
-      <input
-        type="range"
-        min={MIN_TUTOR_PRICE_PER_HOUR}
-        max={MAX_TUTOR_PRICE_PER_HOUR}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full accent-slate-950"
-      />
-
-      <input
-        type="number"
-        min={MIN_TUTOR_PRICE_PER_HOUR}
-        max={MAX_TUTOR_PRICE_PER_HOUR}
-        value={value}
-        onChange={(event) => {
-          const typedValue = Number(event.target.value);
-          onChange(Number.isNaN(typedValue) ? value : typedValue);
-        }}
-        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-      />
+      {onSaveToOnboarding && (
+        <Button
+          variant="secondary"
+          onClick={onSaveToOnboarding}
+          className="w-full px-4 py-2"
+        >
+          Save filters to profile
+        </Button>
+      )}
     </div>
+  );
+}
+
+function SortControl({
+  value,
+  onChange,
+}: {
+  value: TutorFilters['sortBy'];
+  onChange: (value: TutorFilters['sortBy']) => void;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-slate-700">
+      Sort by
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as TutorFilters['sortBy'])}
+        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
+      >
+        {TUTOR_SORT_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

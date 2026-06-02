@@ -9,9 +9,19 @@ import type {
 import {
   findBlockCoveringTime,
   minutesToTime,
-  snapMinutesToThirty,
   timeToMinutes,
 } from '@/domains/students/learning-profile/utils/timeBlocks';
+import {
+  normaliseGridRange,
+  SLOT_MINUTES,
+  snapMouseYToGridMinutes,
+  TIME_SLOTS,
+} from '@/domains/students/learning-profile/utils/availabilityGridMath';
+import {
+  DayColumn,
+  GridHeader,
+  TimeLabels,
+} from '@/domains/students/learning-profile/components/availability/AvailabilityGridLayout';
 
 type StudentAvailabilityGridProps = {
   blocks: TimeBlock[];
@@ -36,35 +46,6 @@ type ResizeDraft = {
   to: string;
 };
 
-const TOTAL_DAY_MINUTES = 24 * 60;
-const SLOT_MINUTES = 30;
-const SLOT_HEIGHT = 24;
-
-const TIME_SLOTS = Array.from(
-  { length: TOTAL_DAY_MINUTES / SLOT_MINUTES },
-  (_, index) => minutesToTime(index * SLOT_MINUTES)
-);
-
-function blockStyle(block: TimeBlock) {
-  const start = timeToMinutes(block.from);
-  const end = timeToMinutes(block.to);
-
-  return {
-    top: `${(start / TOTAL_DAY_MINUTES) * 100}%`,
-    height: `${((end - start) / TOTAL_DAY_MINUTES) * 100}%`,
-  };
-}
-
-function normaliseRange(start: number, end: number) {
-  const from = Math.min(start, end);
-  const to = Math.max(start, end) + SLOT_MINUTES;
-
-  return {
-    from: minutesToTime(from),
-    to: minutesToTime(Math.min(to, TOTAL_DAY_MINUTES)),
-  };
-}
-
 function eventStartedInsideFormControl(event: globalThis.KeyboardEvent) {
   const target = event.target as HTMLElement | null;
 
@@ -76,9 +57,10 @@ function eventStartedInsideFormControl(event: globalThis.KeyboardEvent) {
 /**
  * Interactive weekly availability grid.
  *
- * Preset and manual blocks are both rendered so quick presets visibly appear
- * on the timetable. Only manual blocks can be resized, but any selected block
- * can be removed with Backspace/Delete.
+ * The parent owns the real availability state. This component only handles grid
+ * interactions: drag-to-create, drag-to-resize, click-to-select, and keyboard
+ * deletion. Keeping it controlled makes the parent and grid easier to reason
+ * about separately.
  */
 export function StudentAvailabilityGrid({
   blocks,
@@ -92,10 +74,12 @@ export function StudentAvailabilityGrid({
   const [dragCreate, setDragCreate] = useState<DragCreate | null>(null);
   const [resizeDraft, setResizeDraft] = useState<ResizeDraft | null>(null);
 
+  /**
+   * While resizing, show the draft dimensions immediately so the UI feels live.
+   * The parent is only updated when the mouse is released.
+   */
   const visibleBlocks = useMemo(() => {
-    if (!resizeDraft) {
-      return blocks;
-    }
+    if (!resizeDraft) return blocks;
 
     return blocks.map((block) =>
       block.id === resizeDraft.blockId
@@ -128,7 +112,7 @@ export function StudentAvailabilityGrid({
     ? {
         id: 'draft-create',
         day: dragCreate.day,
-        ...normaliseRange(dragCreate.startMinutes, dragCreate.endMinutes),
+        ...normaliseGridRange(dragCreate.startMinutes, dragCreate.endMinutes),
         source: 'manual' as const,
       }
     : null;
@@ -138,20 +122,22 @@ export function StudentAvailabilityGrid({
     event: MouseEvent | globalThis.MouseEvent
   ) {
     const dayColumn = dayColumnRefs.current[day];
-
-    if (!dayColumn) {
-      return 0;
-    }
+    if (!dayColumn) return 0;
 
     const dayRect = dayColumn.getBoundingClientRect();
-    const relativeY = event.clientY - dayRect.top;
-    const rawMinutes = (relativeY / dayRect.height) * TOTAL_DAY_MINUTES;
-    const snappedMinutes = snapMinutesToThirty(rawMinutes);
 
-    return Math.max(0, Math.min(TOTAL_DAY_MINUTES, snappedMinutes));
+    return snapMouseYToGridMinutes({
+      clientY: event.clientY,
+      columnTop: dayRect.top,
+      columnHeight: dayRect.height,
+    });
   }
 
   function handleSlotMouseDown(day: Day, slot: string) {
+    /**
+     * If the student starts on an existing block, select it rather than adding
+     * a second hidden block underneath it.
+     */
     const coveringBlock = findBlockCoveringTime(visibleBlocks, day, slot);
 
     if (coveringBlock) {
@@ -161,34 +147,26 @@ export function StudentAvailabilityGrid({
 
     const startMinutes = timeToMinutes(slot);
 
-    setDragCreate({
-      day,
-      startMinutes,
-      endMinutes: startMinutes,
-    });
+    setDragCreate({ day, startMinutes, endMinutes: startMinutes });
   }
 
   function handleSlotMouseEnter(day: Day, slot: string) {
-    if (!dragCreate || dragCreate.day !== day) {
-      return;
-    }
+    if (!dragCreate || dragCreate.day !== day) return;
 
     setDragCreate((currentDraft) =>
       currentDraft
-        ? {
-            ...currentDraft,
-            endMinutes: timeToMinutes(slot),
-          }
+        ? { ...currentDraft, endMinutes: timeToMinutes(slot) }
         : currentDraft
     );
   }
 
   function handleMouseUp() {
     if (dragCreate) {
-      const range = normaliseRange(
+      const range = normaliseGridRange(
         dragCreate.startMinutes,
         dragCreate.endMinutes
       );
+
       onAddTimeRange(dragCreate.day, range.from, range.to);
       setDragCreate(null);
     }
@@ -208,7 +186,6 @@ export function StudentAvailabilityGrid({
     event.stopPropagation();
 
     onSelectBlock(block.id);
-
     setResizeDraft({
       blockId: block.id,
       day: block.day,
@@ -219,34 +196,26 @@ export function StudentAvailabilityGrid({
   }
 
   function handleColumnMouseMove(day: Day, event: MouseEvent) {
-    if (!resizeDraft || resizeDraft.day !== day) {
-      return;
-    }
+    if (!resizeDraft || resizeDraft.day !== day) return;
 
     const mouseMinutes = getMinutesFromMouse(day, event);
 
     setResizeDraft((currentDraft) => {
-      if (!currentDraft) {
-        return currentDraft;
-      }
+      if (!currentDraft) return currentDraft;
 
       const currentFrom = timeToMinutes(currentDraft.from);
       const currentTo = timeToMinutes(currentDraft.to);
 
       if (currentDraft.edge === 'top') {
-        const nextFrom = Math.min(mouseMinutes, currentTo - SLOT_MINUTES);
-
         return {
           ...currentDraft,
-          from: minutesToTime(nextFrom),
+          from: minutesToTime(Math.min(mouseMinutes, currentTo - SLOT_MINUTES)),
         };
       }
 
-      const nextTo = Math.max(mouseMinutes, currentFrom + SLOT_MINUTES);
-
       return {
         ...currentDraft,
-        to: minutesToTime(nextTo),
+        to: minutesToTime(Math.max(mouseMinutes, currentFrom + SLOT_MINUTES)),
       };
     });
   }
@@ -258,123 +227,36 @@ export function StudentAvailabilityGrid({
       className="rounded-2xl border border-slate-200 bg-white p-4"
     >
       <div className="max-h-[560px] overflow-auto rounded-xl border border-slate-200 bg-slate-50">
-        <div className="sticky top-0 z-20 grid grid-cols-[64px_repeat(7,minmax(72px,1fr))] border-b border-slate-200 bg-white">
-          <div className="border-r border-slate-200 p-2 text-xs font-medium text-slate-500">
-            Time
-          </div>
-
-          {DAYS.map((day) => (
-            <div
-              key={day}
-              className="border-r border-slate-200 p-2 text-center text-xs font-semibold text-slate-700 last:border-r-0"
-            >
-              {day}
-            </div>
-          ))}
-        </div>
+        <GridHeader />
 
         <div className="grid grid-cols-[64px_repeat(7,minmax(72px,1fr))]">
-          <div>
-            {TIME_SLOTS.map((slot) => (
-              <div
-                key={slot}
-                style={{ height: SLOT_HEIGHT }}
-                className="border-b border-slate-200 pr-1 text-right text-[10px] font-medium text-slate-500"
-              >
-                {slot.endsWith(':00') ? slot : ''}
-              </div>
-            ))}
-          </div>
+          <TimeLabels />
 
           {DAYS.map((day) => (
-            <div
+            <DayColumn
               key={day}
-              ref={(element) => {
-                if (element) {
-                  dayColumnRefs.current[day] = element;
-                }
+              day={day}
+              refCallback={(element) => {
+                if (element) dayColumnRefs.current[day] = element;
               }}
-              onMouseMove={(event) => handleColumnMouseMove(day, event)}
-              className="relative border-l border-slate-200"
-              style={{ height: TIME_SLOTS.length * SLOT_HEIGHT }}
-            >
-              {TIME_SLOTS.map((slot) => (
-                <button
-                  key={`${day}-${slot}`}
-                  type="button"
-                  onMouseDown={() => handleSlotMouseDown(day, slot)}
-                  onMouseEnter={() => handleSlotMouseEnter(day, slot)}
-                  className="absolute left-0 w-full border-b border-slate-200 hover:bg-slate-100"
-                  style={{
-                    top: timeToMinutes(slot) * (SLOT_HEIGHT / SLOT_MINUTES),
-                    height: SLOT_HEIGHT,
-                  }}
-                  aria-label={`${day} ${slot}`}
-                />
-              ))}
-
-              {[
-                ...visibleBlocks,
-                ...(createDraftBlock?.day === day ? [createDraftBlock] : []),
-              ]
-                .filter((block) => block.day === day)
-                .map((block) => {
-                  const isDraft = block.id === 'draft-create';
-                  const selected = block.id === selectedBlockId || isDraft;
-                  const canResize = !isDraft;
-
-                  return (
-                    <button
-                      key={block.id}
-                      type="button"
-                      onClick={() => !isDraft && onSelectBlock(block.id)}
-                      onKeyDown={(event) => {
-                        if (isDraft) return;
-
-                        if (event.key === 'Backspace' || event.key === 'Delete') {
-                          event.preventDefault();
-                          onDeleteBlock(block);
-                        }
-                      }}
-                      style={blockStyle(block)}
-                      className={`absolute left-1 right-1 z-10 overflow-hidden rounded-lg border border-slate-300 px-2 py-1 text-left text-[11px] font-medium leading-tight transition ${
-                        selected
-                          ? 'bg-slate-300 text-slate-900 shadow-sm'
-                          : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
-                      }`}
-                    >
-                      {canResize && (
-                        <span
-                          onMouseDown={(event) =>
-                            startResize(block, 'top', event)
-                          }
-                          className="absolute left-1 right-1 top-0 h-1.5 cursor-ns-resize rounded-full bg-slate-900/20"
-                        />
-                      )}
-
-                      <span className="pointer-events-none block pt-1">
-                        {block.from}–{block.to}
-                      </span>
-
-                      {canResize && (
-                        <span
-                          onMouseDown={(event) =>
-                            startResize(block, 'bottom', event)
-                          }
-                          className="absolute bottom-0 left-1 right-1 h-1.5 cursor-ns-resize rounded-full bg-slate-900/20"
-                        />
-                      )}
-                    </button>
-                  );
-                })}
-            </div>
+              blocks={visibleBlocks}
+              createDraftBlock={createDraftBlock}
+              selectedBlockId={selectedBlockId}
+              onSlotMouseDown={handleSlotMouseDown}
+              onSlotMouseEnter={handleSlotMouseEnter}
+              onColumnMouseMove={handleColumnMouseMove}
+              onSelectBlock={onSelectBlock}
+              onDeleteBlock={onDeleteBlock}
+              onStartResize={startResize}
+            />
           ))}
         </div>
       </div>
 
       <p className="mt-3 text-xs text-slate-500">
-        Drag across 30-minute slots to add a block. Drag the top or bottom edge of
-        any block to resize it. Click a block, then press Backspace/Delete to remove it.
+        Drag across 30-minute slots to add a block. Drag the top or bottom edge
+        of any block to resize it. Click a block, then press Backspace/Delete to
+        remove it.
       </p>
     </div>
   );

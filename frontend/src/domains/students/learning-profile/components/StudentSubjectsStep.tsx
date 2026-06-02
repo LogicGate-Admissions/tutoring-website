@@ -2,18 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
-import { Badge } from '@/shared/components/Badge';
-import { Button } from '@/shared/components/Button';
-import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
-import { SearchableMultiSelect } from '@/shared/components/SearchableMultiSelect';
-import { cn } from '@/shared/utils/cn';
-import {
-  QUALIFICATION_CATEGORIES,
-  SUBJECT_OPTIONS_BY_CATEGORY,
-} from '@/domains/students/learning-profile/constants/learningProfileOptions';
+import { SUBJECT_OPTIONS_BY_CATEGORY } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
+import { QualificationSelector } from '@/domains/students/learning-profile/components/subjects/QualificationSelector';
+import { SubjectPicker } from '@/domains/students/learning-profile/components/subjects/SubjectPicker';
+import { SubjectSummaryPanel } from '@/domains/students/learning-profile/components/subjects/SubjectSummaryPanel';
+import {
+  getSelectedCategories,
+  getSubjectsForCategory,
+} from '@/domains/students/learning-profile/components/subjects/SubjectSelectionHelpers';
 import {
   getStoredLearningProfile,
   updateStoredLearningProfile,
@@ -23,31 +22,12 @@ import type {
   QualificationSubjectSelection,
 } from '@/domains/students/learning-profile/types/learningProfile';
 
-function getSelectedCategories(
-  selections: QualificationSubjectSelection[]
-): QualificationCategory[] {
-  return selections.map((selection) => selection.category);
-}
-
-function getSubjectsForCategory(
-  selections: QualificationSubjectSelection[],
-  category: QualificationCategory | ''
-) {
-  if (!category) return [];
-
-  return (
-    selections.find((selection) => selection.category === category)?.subjects ??
-    []
-  );
-}
-
 /**
  * First student onboarding step.
  *
- * This step lets students choose multiple qualifications, but keeps subjects
- * grouped under each qualification.
- *
- * That means GCSE Maths and A-level Maths are different selections.
+ * Subjects are grouped by qualification so GCSE Maths and A-level Maths remain
+ * different choices. The component owns the selection state, while smaller
+ * child components render the summary, qualification cards, and subject picker.
  */
 export function StudentSubjectsStep() {
   const initialProfile = getStoredLearningProfile();
@@ -67,6 +47,10 @@ export function StudentSubjectsStep() {
     activeCategory
   );
 
+  /**
+   * Do not show subjects already selected for the active qualification in the
+   * combobox options, because selected items are already shown as pills.
+   */
   const subjectOptions = useMemo(() => {
     if (!activeCategory) return [];
 
@@ -75,25 +59,16 @@ export function StudentSubjectsStep() {
     );
   }, [activeCategory, activeSubjects]);
 
-  const hasSelectedAnything = subjectSelections.length > 0;
-
   function chooseCategory(category: QualificationCategory) {
     const alreadySelected = subjectSelections.some(
       (selection) => selection.category === category
     );
 
-    /**
-     * If it is already selected, clicking it just changes the active tab.
-     * It does not remove it.
-     */
     if (alreadySelected) {
       setActiveCategory(category);
       return;
     }
 
-    /**
-     * If it is not selected yet, add it and make it the active tab.
-     */
     setSubjectSelections((currentSelections) => [
       ...currentSelections,
       { category, subjects: [] },
@@ -121,9 +96,7 @@ export function StudentSubjectsStep() {
 
     setSubjectSelections((currentSelections) =>
       currentSelections.map((selection) => {
-        if (selection.category !== activeCategory) {
-          return selection;
-        }
+        if (selection.category !== activeCategory) return selection;
 
         const alreadySelected = selection.subjects.includes(subject);
 
@@ -143,9 +116,7 @@ export function StudentSubjectsStep() {
   }
 
   function saveDraftProfile() {
-    updateStoredLearningProfile({
-      subjectSelections,
-    });
+    updateStoredLearningProfile({ subjectSelections });
   }
 
   return (
@@ -163,172 +134,27 @@ export function StudentSubjectsStep() {
       <Container className="py-10 pb-28">
         <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <aside className="grid gap-6 lg:sticky lg:top-8">
-            <Card>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold">
-                    Currently selected
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Your choices are grouped by qualification.
-                  </p>
-                </div>
+            <SubjectSummaryPanel
+              subjectSelections={subjectSelections}
+              activeCategory={activeCategory}
+              onClearSelection={clearSelection}
+              onSelectCategory={setActiveCategory}
+              onRemoveCategory={removeCategory}
+            />
 
-                <Button
-                  variant="ghost"
-                  disabled={!hasSelectedAnything}
-                  onClick={clearSelection}
-                  className="shrink-0 px-4 py-2"
-                >
-                  Clear
-                </Button>
-              </div>
-
-              <div className="mt-5 grid gap-4">
-                {subjectSelections.length === 0 && (
-                  <p className="text-sm text-slate-500">
-                    No qualifications or subjects selected yet.
-                  </p>
-                )}
-
-                {subjectSelections.map((selection) => (
-                  <div
-                    key={selection.category}
-                    className={cn(
-                      'rounded-2xl border p-4',
-                      activeCategory === selection.category
-                        ? 'border-slate-950 bg-white'
-                        : 'border-slate-200 bg-slate-50'
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setActiveCategory(selection.category)}
-                        className="text-left text-sm font-semibold text-slate-950 hover:underline"
-                      >
-                        {selection.category}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => removeCategory(selection.category)}
-                        className="text-xs font-medium text-slate-500 hover:text-rose-600"
-                      >
-                        Remove
-                      </button>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {selection.subjects.length > 0 ? (
-                        selection.subjects.map((subject) => (
-                          <Badge
-                            key={`${selection.category}-${subject}`}
-                            className="border-slate-300 bg-white text-slate-800"
-                          >
-                            {subject}
-                          </Badge>
-                        ))
-                      ) : (
-                        <p className="text-sm text-slate-500">
-                          No subjects chosen for this qualification yet.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card>
-              <h2 className="text-xl font-semibold">Qualifications</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Select all qualifications that apply. Black means you are
-                currently editing it.
-              </p>
-
-              <div className="mt-5 grid gap-3">
-                {QUALIFICATION_CATEGORIES.map((category) => {
-                  const isSelected = selectedCategories.includes(category);
-                  const isActive = activeCategory === category;
-
-                  return (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => chooseCategory(category)}
-                      className={cn(
-                        'rounded-2xl border p-5 text-left transition',
-                        isActive &&
-                          'border-slate-950 bg-slate-950 text-white shadow-sm',
-                        !isActive &&
-                          isSelected &&
-                          'border-slate-400 bg-slate-100 text-slate-950',
-                        !isActive &&
-                          !isSelected &&
-                          'border-slate-200 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50'
-                      )}
-                    >
-                      <span className="block text-sm font-semibold">
-                        {category}
-                      </span>
-
-                      {isActive && (
-                        <span className="mt-2 block text-xs font-medium text-slate-300">
-                          Currently editing
-                        </span>
-                      )}
-
-                      {!isActive && isSelected && (
-                        <span className="mt-2 block text-xs font-medium text-slate-500">
-                          Selected
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </Card>
+            <QualificationSelector
+              selectedCategories={selectedCategories}
+              activeCategory={activeCategory}
+              onChooseCategory={chooseCategory}
+            />
           </aside>
 
-          <Card>
-            <div>
-              <h2 className="text-xl font-semibold">Subjects</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                {activeCategory
-                  ? `Choose subjects for ${activeCategory}.`
-                  : 'Choose a qualification first.'}
-              </p>
-            </div>
-
-            {!activeCategory && (
-              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
-                Choose a qualification on the left to start selecting subjects.
-              </div>
-            )}
-
-            {activeCategory && (
-              <div className="mt-5">
-                <SearchableMultiSelect
-                  label="Search subjects"
-                  options={subjectOptions}
-                  selectedOptions={activeSubjects}
-                  getOptionKey={(subject) => subject}
-                  getOptionLabel={(subject) => subject}
-                  onSelect={toggleSubject}
-                  onRemove={toggleSubject}
-                  emptyMessage="No subjects found."
-                />
-
-                {activeSubjects.length > 0 && (
-                  <p className="mt-4 text-sm text-slate-600">
-                    Selected subjects are shown here and in the summary on the
-                    left.
-                  </p>
-                )}
-              </div>
-            )}
-          </Card>
+          <SubjectPicker
+            activeCategory={activeCategory}
+            subjectOptions={subjectOptions}
+            activeSubjects={activeSubjects}
+            onToggleSubject={toggleSubject}
+          />
         </div>
       </Container>
 
