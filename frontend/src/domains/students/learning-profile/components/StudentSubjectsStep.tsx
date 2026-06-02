@@ -16,7 +16,10 @@ import {
   getSubjectsForQualification,
 } from '@/domains/academic-options/services/academicOptionsService';
 import type { SubjectOptionsByCategory } from '@/domains/academic-options/types/academicOptions';
-import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
+import {
+  StudentOnboardingFlowControls,
+  StudentOnboardingSectionBar,
+} from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import { QualificationSelector } from '@/domains/students/learning-profile/components/subjects/QualificationSelector';
 import { SubjectPicker } from '@/domains/students/learning-profile/components/subjects/SubjectPicker';
 import { SubjectSummaryPanel } from '@/domains/students/learning-profile/components/subjects/SubjectSummaryPanel';
@@ -194,8 +197,12 @@ export function StudentSubjectsStep() {
         description="Choose your qualifications, then pick the subjects under each one."
       />
 
+      <StudentOnboardingSectionBar
+        currentStep="subjects"
+        onBeforeNavigate={saveDraftProfile}
+      />
 
-      <Container className="py-10 pb-28">
+      <Container className="py-8">
         {subjectLoadError && (
           <p className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {subjectLoadError}
@@ -229,7 +236,7 @@ export function StudentSubjectsStep() {
         </div>
       </Container>
 
-      <StudentOnboardingSectionBar
+      <StudentOnboardingFlowControls
         currentStep="subjects"
         onBeforeNavigate={saveDraftProfile}
       />

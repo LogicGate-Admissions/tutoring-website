@@ -1,13 +1,14 @@
 'use client';
 
 /**
- * File purpose: Bottom navigation for the student onboarding flow.
+ * File purpose: Top tab navigation and guided controls for student onboarding.
  *
- * The tab style now matches the cleaner tutor onboarding tabs, while the Back /
- * Next controls give students a guided route through the same pages.
+ * The visual style mirrors tutor onboarding: tabs sit at the top of the page,
+ * while Back / Next / Finish controls sit below the active step content.
  */
 
 import { useRouter } from 'next/navigation';
+import { Button } from '@/shared/components/Button';
 import { Container } from '@/shared/components/Container';
 import { ROUTES } from '@/shared/constants/routes';
 import {
@@ -18,7 +19,7 @@ import { cn } from '@/shared/utils/cn';
 
 type OnboardingStep = 'subjects' | 'preferences' | 'availability';
 
-type StudentOnboardingSectionBarProps = {
+type StudentOnboardingNavigationProps = {
   /** Current onboarding section used to highlight the active tab. */
   currentStep: OnboardingStep;
 
@@ -27,12 +28,13 @@ type StudentOnboardingSectionBarProps = {
 };
 
 type OnboardingTab = {
-  id: OnboardingStep | 'tutors';
+  id: OnboardingStep;
   label: string;
   description: string;
   href: string;
 };
 
+/** Student onboarding tabs. Keep this list aligned with the three route pages. */
 const ONBOARDING_TABS: OnboardingTab[] = [
   {
     id: 'subjects',
@@ -52,12 +54,6 @@ const ONBOARDING_TABS: OnboardingTab[] = [
     description: 'When you are free',
     href: ROUTES.studentOnboardingAvailability,
   },
-  {
-    id: 'tutors',
-    label: 'Tutors',
-    description: 'Find matches',
-    href: ROUTES.studentTutors,
-  },
 ];
 
 const STEP_ORDER: OnboardingStep[] = ['subjects', 'preferences', 'availability'];
@@ -67,13 +63,11 @@ function getStepIndex(step: OnboardingStep) {
 }
 
 function getPreviousStep(step: OnboardingStep) {
-  const previousStep = STEP_ORDER[getStepIndex(step) - 1];
-  return previousStep ?? null;
+  return STEP_ORDER[getStepIndex(step) - 1] ?? null;
 }
 
 function getNextStep(step: OnboardingStep) {
-  const nextStep = STEP_ORDER[getStepIndex(step) + 1];
-  return nextStep ?? null;
+  return STEP_ORDER[getStepIndex(step) + 1] ?? null;
 }
 
 function hrefForStep(step: OnboardingStep) {
@@ -82,102 +76,110 @@ function hrefForStep(step: OnboardingStep) {
   return ROUTES.studentOnboardingAvailability;
 }
 
+/** Save the current step, mark onboarding complete, then send the student home. */
+async function finishStudentOnboarding(onBeforeNavigate?: () => void) {
+  onBeforeNavigate?.();
+
+  const user = getCurrentFirebaseUser();
+
+  if (user) {
+    await markOnboardingComplete(user.uid);
+  }
+}
+
+/** Top tab bar for direct student onboarding navigation. */
 export function StudentOnboardingSectionBar({
   currentStep,
   onBeforeNavigate,
-}: StudentOnboardingSectionBarProps) {
+}: StudentOnboardingNavigationProps) {
+  const router = useRouter();
+
+  function navigateTo(href: string) {
+    /** Save the current page before moving to another onboarding tab. */
+    onBeforeNavigate?.();
+    router.push(href);
+  }
+
+  return (
+    <Container className="pt-10">
+      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
+        <div className="grid gap-2 md:grid-cols-3">
+          {ONBOARDING_TABS.map((tab) => {
+            const isActive = tab.id === currentStep;
+
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => navigateTo(tab.href)}
+                className={cn(
+                  'rounded-2xl px-4 py-3 text-left transition',
+                  isActive
+                    ? 'bg-slate-950 text-white'
+                    : 'text-slate-700 hover:bg-white'
+                )}
+              >
+                <span className="block text-sm font-semibold">{tab.label}</span>
+                <span
+                  className={cn(
+                    'mt-1 block text-xs leading-5',
+                    isActive ? 'text-slate-300' : 'text-slate-500'
+                  )}
+                >
+                  {tab.description}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </Container>
+  );
+}
+
+/** Bottom controls for the guided Back / Next / Finish onboarding flow. */
+export function StudentOnboardingFlowControls({
+  currentStep,
+  onBeforeNavigate,
+}: StudentOnboardingNavigationProps) {
   const router = useRouter();
   const previousStep = getPreviousStep(currentStep);
   const nextStep = getNextStep(currentStep);
   const isFinalStep = !nextStep;
 
-  async function navigateTo(href: string) {
-    /** Save the current page before leaving it. */
-    onBeforeNavigate?.();
-
-    /** Finishing onboarding lets later logins land on the student dashboard. */
-    if (href === ROUTES.studentTutors) {
-      const user = getCurrentFirebaseUser();
-
-      if (user) {
-        await markOnboardingComplete(user.uid);
-      }
-    }
-
-    router.push(href);
-  }
-
   function goBack() {
     if (!previousStep) return;
-    void navigateTo(hrefForStep(previousStep));
+
+    onBeforeNavigate?.();
+    router.push(hrefForStep(previousStep));
   }
 
-  function goForward() {
+  async function goForward() {
     if (nextStep) {
-      void navigateTo(hrefForStep(nextStep));
+      onBeforeNavigate?.();
+      router.push(hrefForStep(nextStep));
       return;
     }
 
-    void navigateTo(ROUTES.studentTutors);
+    await finishStudentOnboarding(onBeforeNavigate);
+    router.push(ROUTES.studentDashboard);
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 py-3 backdrop-blur">
-      <Container>
-        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
-          <div className="grid gap-2 sm:grid-cols-4">
-            {ONBOARDING_TABS.map((tab) => {
-              const isActive = tab.id === currentStep;
+    <Container className="pb-10">
+      <div className="flex items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        {previousStep ? (
+          <Button type="button" variant="secondary" onClick={goBack}>
+            Back
+          </Button>
+        ) : (
+          <span aria-hidden="true" />
+        )}
 
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => void navigateTo(tab.href)}
-                  className={cn(
-                    'rounded-2xl px-4 py-3 text-left transition',
-                    isActive
-                      ? 'bg-slate-950 text-white'
-                      : 'text-slate-700 hover:bg-white'
-                  )}
-                >
-                  <span className="block text-sm font-semibold">{tab.label}</span>
-                  <span
-                    className={cn(
-                      'mt-1 block text-xs leading-5',
-                      isActive ? 'text-slate-300' : 'text-slate-500'
-                    )}
-                  >
-                    {tab.description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
-            {previousStep ? (
-              <button
-                type="button"
-                onClick={goBack}
-                className="rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-800 transition hover:border-slate-950 hover:bg-slate-50"
-              >
-                Back
-              </button>
-            ) : (
-              <span aria-hidden="true" />
-            )}
-
-            <button
-              type="button"
-              onClick={goForward}
-              className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
-            >
-              {isFinalStep ? 'Finish' : 'Next'}
-            </button>
-          </div>
-        </div>
-      </Container>
-    </div>
+        <Button type="button" onClick={() => void goForward()}>
+          {isFinalStep ? 'Finish' : 'Next'}
+        </Button>
+      </div>
+    </Container>
   );
 }

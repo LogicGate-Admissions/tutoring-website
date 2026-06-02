@@ -12,7 +12,10 @@ import { AvailabilityPresetList } from '@/domains/students/learning-profile/comp
 import { ManualAvailabilityForm } from '@/domains/students/learning-profile/components/availability/ManualAvailabilityForm';
 import { SelectedAvailabilityList } from '@/domains/students/learning-profile/components/availability/SelectedAvailabilityList';
 import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
-import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
+import {
+  StudentOnboardingFlowControls,
+  StudentOnboardingSectionBar,
+} from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import {
   createManualTimeBlock,
   mergeTimeBlocks,
@@ -201,8 +204,12 @@ export function StudentAvailabilityStep() {
         description="Choose common times or add your own."
       />
 
+      <StudentOnboardingSectionBar
+        currentStep="availability"
+        onBeforeNavigate={saveDraftProfile}
+      />
 
-      <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[1.1fr_0.9fr]">
+      <Container className="grid gap-6 py-8 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <h2 className="text-xl font-semibold">Quick presets</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -261,7 +268,7 @@ export function StudentAvailabilityStep() {
         </Card>
       </Container>
 
-      <StudentOnboardingSectionBar
+      <StudentOnboardingFlowControls
         currentStep="availability"
         onBeforeNavigate={saveDraftProfile}
       />

@@ -15,7 +15,10 @@
 import { useEffect, useState } from 'react';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
-import { StudentOnboardingSectionBar } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
+import {
+  StudentOnboardingFlowControls,
+  StudentOnboardingSectionBar,
+} from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import { LearningStyleSection } from '@/domains/students/learning-profile/components/preferences/LearningStyleSection';
 import { PreferredUniversitiesSection } from '@/domains/students/learning-profile/components/preferences/PreferredUniversitiesSection';
 import {
@@ -95,8 +98,12 @@ export function StudentPreferencesStep() {
         description="Choose how you prefer to learn and whether you have a tutor university preference."
       />
 
+      <StudentOnboardingSectionBar
+        currentStep="preferences"
+        onBeforeNavigate={saveDraftProfile}
+      />
 
-      <Container className="grid gap-6 py-10 pb-28 lg:grid-cols-[1.1fr_0.9fr]">
+      <Container className="grid gap-6 py-8 lg:grid-cols-[1.1fr_0.9fr]">
         <LearningStyleSection
           selectedStyles={selectedStyles}
           onToggleStyle={toggleStyle}
@@ -109,7 +116,7 @@ export function StudentPreferencesStep() {
         />
       </Container>
 
-      <StudentOnboardingSectionBar
+      <StudentOnboardingFlowControls
         currentStep="preferences"
         onBeforeNavigate={saveDraftProfile}
       />
