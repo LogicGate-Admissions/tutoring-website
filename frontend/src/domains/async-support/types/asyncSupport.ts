@@ -119,6 +119,11 @@ export type SupportMessage = {
   /** Student-only flag for messages that need quick tutor attention. */
   urgency: MessageUrgency;
 
+  /** Soft-delete metadata keeps the message anchor available for replies/jump links. */
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedById?: string;
+
   createdAt: string;
   updatedAt: string;
 };
