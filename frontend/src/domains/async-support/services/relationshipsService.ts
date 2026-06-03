@@ -136,9 +136,8 @@ export async function getStudentTutorRelationshipById(
 /**
  * Gets active relationships for a tutor.
  *
- * This is what the tutor dashboard variants will use later:
- * - Version A shows these as "My students".
- * - Version B shows these under Messages/Resources/Flagged questions.
+ * This is what the tutor dashboard uses:
+ * The tutor dashboard shows these as connected students.
  */
 export async function getTutorRelationships(
   tutorId: string
@@ -163,9 +162,8 @@ export async function getTutorRelationships(
 /**
  * Gets active relationships for a student.
  *
- * This is what the student dashboard variants will use later:
- * - Version A shows these as "My tutors".
- * - Version B shows these under Messages/Resources/Flagged questions.
+ * This is what the student dashboard uses:
+ * The student dashboard shows these as connected tutors.
  */
 export async function getStudentRelationships(
   studentId: string

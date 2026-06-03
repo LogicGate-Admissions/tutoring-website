@@ -4,8 +4,7 @@
  * File purpose:
  * Shared relationship card used by both student and tutor dashboards.
  *
- * The same card supports both dashboard A/B variants. The dashboard variants
- * decide which actions to show and where those actions should link.
+ * The same card is used by student and tutor dashboards to show an active support relationship.
  */
 
 import { Button } from '@/shared/components/Button';

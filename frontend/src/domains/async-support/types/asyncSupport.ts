@@ -21,7 +21,7 @@ export type AsyncSupportRole = 'student' | 'tutor';
  * A relationship connects one student with one tutor.
  *
  * Messages, flagged questions, and shared resources will all belong to one
- * relationship. This prevents duplication because both dashboard variants can
+ * relationship. This prevents duplication because both dashboards can
  * point to the same relationship routes later.
  */
 export type StudentTutorRelationship = {
@@ -143,9 +143,8 @@ export type SharedResource = {
 /**
  * A compact summary used by dashboard cards/lists.
  *
- * Both Version A and Version B can use this same shape:
- * - Version A shows one card per relationship.
- * - Version B shows the same relationships under Messages/Resources/Questions.
+ * The dashboard uses this shape to show each support relationship with
+ * message, question, and resource activity.
  */
 export type RelationshipSupportSummary = StudentTutorRelationship & {
   lastMessagePreview?: string;

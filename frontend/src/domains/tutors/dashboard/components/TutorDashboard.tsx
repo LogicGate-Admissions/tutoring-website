@@ -1,11 +1,7 @@
 'use client';
 
 /**
- * Version A: relationship-first tutor dashboard.
- *
- * This component is intentionally self-contained. If this variant wins, move
- * this file up one folder, rename it to TutorDashboard.tsx, rename the export
- * to TutorDashboard, and point /tutor/dashboard at it.
+ * File purpose: Main tutor dashboard for ongoing student support.
  */
 
 import { useState } from 'react';
@@ -25,7 +21,7 @@ const tabs: Array<{ id: Section; label: string; description: string }> = [
   {
     id: 'my-students',
     label: 'My students',
-    description: 'Student-first support',
+    description: 'Student support',
   },
   {
     id: 'tutor-profile',
@@ -47,7 +43,7 @@ export function TutorDashboard() {
     <Container className="grid gap-6 py-8">
       <Card>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Relationship-first prototype
+          Support dashboard
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
           Manage support through each student

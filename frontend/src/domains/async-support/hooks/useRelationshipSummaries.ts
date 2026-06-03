@@ -4,8 +4,7 @@
  * File purpose:
  * Shared hook for loading the current user's async-support relationships.
  *
- * Both student and tutor dashboard variants use this hook so the A/B test only
- * changes navigation, not the underlying data source.
+ * Both student and tutor dashboards use this hook so they share the same relationship data source.
  */
 
 import { useEffect, useState } from 'react';

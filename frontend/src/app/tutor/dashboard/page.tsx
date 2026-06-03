@@ -1,9 +1,7 @@
 /**
  * File purpose: Tutor dashboard route.
  *
- * The tutor dashboard currently hosts a temporary A/B navigation prototype for
- * Week 3 user testing. The actual async-support features are not implemented
- * here yet; the dashboard only tests how tutors expect to reach them.
+ * The tutor dashboard helps tutors manage connected students and ongoing support.
  */
 
 import { RequireAuth } from '@/domains/auth/components/RequireAuth';
@@ -20,7 +18,7 @@ export default function TutorDashboardPage() {
         <PageHeader
           eyebrow="Tutor area"
           title="Tutor dashboard"
-          description="Testing the relationship-first navigation model for asynchronous support."
+          description="Manage connected tutoring relationships and asynchronous support."
         />
 
         <TutorDashboard />
