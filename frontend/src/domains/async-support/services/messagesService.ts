@@ -5,15 +5,18 @@
  * Messages belong to one student-tutor relationship:
  * studentTutorRelationships/{relationshipId}/messages/{messageId}
  *
- * When a message is sent, we also update latest-message metadata on the parent
- * relationship so dashboards and notification bells can show activity quickly.
+ * Message writes also refresh relationship-level activity metadata so dashboard
+ * notifications stay fast and do not need to query every messages subcollection.
  */
 
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -43,6 +46,18 @@ type CreateSupportMessageInput = {
   urgency?: MessageUrgency;
 };
 
+type UpdateSupportMessageInput = {
+  relationshipId: string;
+  messageId: string;
+  body?: string;
+  urgency?: MessageUrgency;
+};
+
+type DeleteSupportMessageInput = {
+  relationshipId: string;
+  messageId: string;
+};
+
 /** Returns the Firestore collection reference for relationship messages. */
 function getMessagesCollection(relationshipId: string) {
   return collection(
@@ -50,6 +65,17 @@ function getMessagesCollection(relationshipId: string) {
     RELATIONSHIPS_COLLECTION,
     relationshipId,
     MESSAGES_SUBCOLLECTION
+  );
+}
+
+/** Returns one message document reference. */
+function getMessageDocument(relationshipId: string, messageId: string) {
+  return doc(
+    db,
+    RELATIONSHIPS_COLLECTION,
+    relationshipId,
+    MESSAGES_SUBCOLLECTION,
+    messageId
   );
 }
 
@@ -126,15 +152,10 @@ export async function createSupportMessage(
     messageData
   );
 
-  await updateDoc(getRelationshipDocument(input.relationshipId), {
-    latestMessagePreview: buildMessagePreview(trimmedBody, attachments.length),
-    latestMessageAt: now,
-    latestMessageSenderId: input.senderId,
-    latestMessageSenderName: input.senderName,
-    latestMessageSenderRole: input.senderRole,
-    latestMessageUrgency: urgency,
-    updatedAt: now,
-  });
+  await updateRelationshipLatestMessage(
+    input.relationshipId,
+    mapSupportMessageSnapshot(messageRef.id, messageData)
+  );
 
   return {
     id: messageRef.id,
@@ -142,8 +163,119 @@ export async function createSupportMessage(
   };
 }
 
+/** Edits a message body and/or urgency, then refreshes relationship metadata. */
+export async function updateSupportMessage(input: UpdateSupportMessageInput) {
+  const now = new Date().toISOString();
+  const updateData: Record<string, unknown> = {
+    updatedAt: now,
+  };
+
+  if (typeof input.body === 'string') {
+    updateData.body = input.body.trim();
+  }
+
+  if (input.urgency) {
+    updateData.urgency = normaliseMessageUrgency(input.urgency);
+  }
+
+  await updateDoc(
+    getMessageDocument(input.relationshipId, input.messageId),
+    updateData
+  );
+
+  if (input.urgency === 'urgent') {
+    await promoteMessageAsUrgentActivity(input.relationshipId, input.messageId);
+    return;
+  }
+
+  await refreshRelationshipLatestMessage(input.relationshipId);
+}
+
+/** Deletes a message and refreshes relationship-level latest-message metadata. */
+export async function deleteSupportMessage(input: DeleteSupportMessageInput) {
+  await deleteDoc(getMessageDocument(input.relationshipId, input.messageId));
+  await refreshRelationshipLatestMessage(input.relationshipId);
+}
+
 function buildMessagesQuery(relationshipId: string) {
   return query(getMessagesCollection(relationshipId), orderBy('createdAt', 'asc'));
+}
+
+function buildLatestMessageQuery(relationshipId: string) {
+  return query(
+    getMessagesCollection(relationshipId),
+    orderBy('createdAt', 'desc'),
+    limit(1)
+  );
+}
+
+/** Refreshes the relationship summary after edits/deletes. */
+async function refreshRelationshipLatestMessage(relationshipId: string) {
+  const snapshot = await getDocs(buildLatestMessageQuery(relationshipId));
+  const latestDoc = snapshot.docs[0];
+
+  if (!latestDoc) {
+    await clearRelationshipLatestMessage(relationshipId);
+    return;
+  }
+
+  await updateRelationshipLatestMessage(
+    relationshipId,
+    mapSupportMessageSnapshot(latestDoc.id, latestDoc.data())
+  );
+}
+
+
+/** Promotes an older message into the notification stream when it is marked urgent. */
+async function promoteMessageAsUrgentActivity(
+  relationshipId: string,
+  messageId: string
+) {
+  const snapshot = await getDoc(getMessageDocument(relationshipId, messageId));
+
+  if (!snapshot.exists()) {
+    await refreshRelationshipLatestMessage(relationshipId);
+    return;
+  }
+
+  await updateRelationshipLatestMessage(
+    relationshipId,
+    mapSupportMessageSnapshot(snapshot.id, snapshot.data()),
+    new Date().toISOString()
+  );
+}
+
+/** Copies latest-message metadata onto the parent relationship document. */
+async function updateRelationshipLatestMessage(
+  relationshipId: string,
+  latestMessage: SupportMessage,
+  activityAt = latestMessage.createdAt
+) {
+  await updateDoc(getRelationshipDocument(relationshipId), {
+    latestMessagePreview: buildMessagePreview(
+      latestMessage.body,
+      latestMessage.attachments.length
+    ),
+    latestMessageAt: activityAt,
+    latestMessageSenderId: latestMessage.senderId,
+    latestMessageSenderName: latestMessage.senderName,
+    latestMessageSenderRole: latestMessage.senderRole,
+    latestMessageUrgency: latestMessage.urgency,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/** Clears message activity metadata when the final message is deleted. */
+async function clearRelationshipLatestMessage(relationshipId: string) {
+  await updateDoc(getRelationshipDocument(relationshipId), {
+    latestMessagePreview: '',
+    latestMessageAt: '',
+    latestMessageSenderId: '',
+    latestMessageSenderName: '',
+    latestMessageSenderRole: '',
+    latestMessageUrgency: 'normal',
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 /** Converts Firestore message data into the app message type. */
@@ -216,7 +348,6 @@ function normaliseAttachments(value: unknown): SupportAttachment[] {
     };
   });
 }
-
 
 function normaliseReplyToMessage(value: unknown): ReplyToMessageSummary | undefined {
   if (!value || typeof value !== 'object') {
