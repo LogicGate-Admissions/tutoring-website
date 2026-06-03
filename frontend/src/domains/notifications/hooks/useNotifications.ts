@@ -82,6 +82,7 @@ export function useNotifications(
                   subject: relationship.subject,
                   level: relationship.level,
                   createdAt: relationship.latestMessageAt || relationship.updatedAt,
+                  isUrgent: relationship.latestMessageUrgency === 'urgent',
                 })
               )
           );
@@ -132,6 +133,7 @@ function buildMessageNotification({
   subject,
   level,
   createdAt,
+  isUrgent,
 }: {
   relationshipId: string;
   viewerRole: AsyncSupportRole;
@@ -140,17 +142,23 @@ function buildMessageNotification({
   subject: string;
   level: string;
   createdAt: string;
+  isUrgent: boolean;
 }): AppNotification {
   const dashboardRoot = viewerRole === 'student' ? 'student' : 'tutor';
 
   return {
     id: `message-${relationshipId}`,
     type: 'message',
-    title: `New message from ${senderName || 'Unknown user'}`,
-    description: messagePreview || 'Open the thread to view this message.',
+    title: isUrgent
+      ? `Urgent message from ${senderName || 'Unknown user'}`
+      : `New message from ${senderName || 'Unknown user'}`,
+    description: isUrgent
+      ? messagePreview || 'This student marked a message as urgent.'
+      : messagePreview || 'Open the thread to view this message.',
     meta: `${level} ${subject}`.trim(),
     href: `/${dashboardRoot}/dashboard/support/${relationshipId}/messages`,
     createdAt,
+    tone: isUrgent ? 'urgent' : 'default',
   };
 }
 

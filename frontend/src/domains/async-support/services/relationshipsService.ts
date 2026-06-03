@@ -38,6 +38,8 @@ export type CreateStudentTutorRelationshipInput = {
 
   studentName: string;
   tutorName: string;
+  studentEmail?: string;
+  tutorEmail?: string;
 
   subject: string;
   level: string;
@@ -90,6 +92,8 @@ export async function createStudentTutorRelationship(
     tutorId: input.tutorId,
     studentName: input.studentName,
     tutorName: input.tutorName,
+    studentEmail: input.studentEmail,
+    tutorEmail: input.tutorEmail,
     subject: input.subject,
     level: input.level,
     status: 'active',
@@ -106,6 +110,8 @@ export async function createStudentTutorRelationship(
     tutorId: relationship.tutorId,
     studentName: relationship.studentName,
     tutorName: relationship.tutorName,
+    ...(relationship.studentEmail ? { studentEmail: relationship.studentEmail } : {}),
+    ...(relationship.tutorEmail ? { tutorEmail: relationship.tutorEmail } : {}),
     subject: relationship.subject,
     level: relationship.level,
     status: relationship.status,
@@ -257,6 +263,8 @@ function mapRelationshipSnapshot(
     tutorId: String(data.tutorId ?? ''),
     studentName: String(data.studentName ?? ''),
     tutorName: String(data.tutorName ?? ''),
+    studentEmail: optionalString(data.studentEmail),
+    tutorEmail: optionalString(data.tutorEmail),
     subject: String(data.subject ?? ''),
     level: String(data.level ?? ''),
     status: normaliseRelationshipStatus(data.status),
@@ -267,6 +275,7 @@ function mapRelationshipSnapshot(
     latestMessageSenderId: optionalString(data.latestMessageSenderId),
     latestMessageSenderName: optionalString(data.latestMessageSenderName),
     latestMessageSenderRole: normaliseOptionalRole(data.latestMessageSenderRole),
+    latestMessageUrgency: normaliseMessageUrgency(data.latestMessageUrgency),
     studentLastSeenMessagesAt: optionalString(data.studentLastSeenMessagesAt),
     tutorLastSeenMessagesAt: optionalString(data.tutorLastSeenMessagesAt),
   };
@@ -344,6 +353,10 @@ function normaliseOptionalRole(role: unknown): AsyncSupportRole | undefined {
   }
 
   return undefined;
+}
+
+function normaliseMessageUrgency(value: unknown) {
+  return value === 'urgent' ? 'urgent' : undefined;
 }
 
 function optionalString(value: unknown) {

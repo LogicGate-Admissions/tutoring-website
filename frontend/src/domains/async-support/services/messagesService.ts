@@ -22,6 +22,7 @@ import {
 import { db } from '@/shared/lib/firebase';
 import type {
   AsyncSupportRole,
+  MessageUrgency,
   ReplyToMessageSummary,
   SupportAttachment,
   SupportMessage,
@@ -39,6 +40,7 @@ type CreateSupportMessageInput = {
   body: string;
   attachments?: SupportAttachment[];
   replyTo?: ReplyToMessageSummary;
+  urgency?: MessageUrgency;
 };
 
 /** Returns the Firestore collection reference for relationship messages. */
@@ -104,6 +106,7 @@ export async function createSupportMessage(
   const now = new Date().toISOString();
   const trimmedBody = input.body.trim();
   const attachments = input.attachments ?? [];
+  const urgency = normaliseMessageUrgency(input.urgency);
 
   const messageData = {
     relationshipId: input.relationshipId,
@@ -112,6 +115,7 @@ export async function createSupportMessage(
     senderName: input.senderName,
     body: trimmedBody,
     attachments,
+    urgency,
     ...(input.replyTo ? { replyTo: input.replyTo } : {}),
     createdAt: now,
     updatedAt: now,
@@ -128,6 +132,7 @@ export async function createSupportMessage(
     latestMessageSenderId: input.senderId,
     latestMessageSenderName: input.senderName,
     latestMessageSenderRole: input.senderRole,
+    latestMessageUrgency: urgency,
     updatedAt: now,
   });
 
@@ -155,6 +160,7 @@ function mapSupportMessageSnapshot(
     body: String(data.body ?? ''),
     attachments: normaliseAttachments(data.attachments),
     replyTo: normaliseReplyToMessage(data.replyTo),
+    urgency: normaliseMessageUrgency(data.urgency),
     createdAt: String(data.createdAt ?? ''),
     updatedAt: String(data.updatedAt ?? ''),
   };
@@ -167,6 +173,10 @@ function normaliseSenderRole(role: unknown): AsyncSupportRole {
   }
 
   return 'student';
+}
+
+function normaliseMessageUrgency(value: unknown): MessageUrgency {
+  return value === 'urgent' ? 'urgent' : 'normal';
 }
 
 function normaliseAttachments(value: unknown): SupportAttachment[] {

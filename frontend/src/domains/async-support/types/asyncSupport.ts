@@ -38,6 +38,9 @@ export type SupportAttachment = {
 /** Status for a student-tutor relationship. */
 export type StudentTutorRelationshipStatus = 'active' | 'ended';
 
+/** Urgency level for messages that need extra tutor attention. */
+export type MessageUrgency = 'normal' | 'urgent';
+
 /** Metadata for the latest message stored on a relationship document. */
 export type LatestMessageSummary = {
   latestMessagePreview?: string;
@@ -45,6 +48,8 @@ export type LatestMessageSummary = {
   latestMessageSenderId?: string;
   latestMessageSenderName?: string;
   latestMessageSenderRole?: AsyncSupportRole;
+  /** True when the latest message was marked by a student as urgent. */
+  latestMessageUrgency?: MessageUrgency;
 };
 
 /** Per-role read timestamps for relationship messages. */
@@ -68,6 +73,12 @@ export type StudentTutorRelationship = {
 
   studentName: string;
   tutorName: string;
+
+  /** Stored for future student-side email/notification flows. */
+  studentEmail?: string;
+
+  /** Used by the urgent message flow to open an email draft for tutors. */
+  tutorEmail?: string;
 
   subject: string;
   level: string;
@@ -104,6 +115,9 @@ export type SupportMessage = {
 
   /** Optional quoted message summary used for WhatsApp-style replies. */
   replyTo?: ReplyToMessageSummary;
+
+  /** Student-only flag for messages that need quick tutor attention. */
+  urgency: MessageUrgency;
 
   createdAt: string;
   updatedAt: string;

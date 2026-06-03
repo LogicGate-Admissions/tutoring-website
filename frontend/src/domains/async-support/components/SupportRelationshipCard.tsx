@@ -58,7 +58,12 @@ export function SupportRelationshipCard({
 
         <div className="flex flex-wrap gap-2 sm:justify-end">
           {relationship.hasUnreadMessageActivity ? (
-            <MetricBadge label="New message" value={relationship.unreadMessageCount} active />
+            <MetricBadge
+              label={relationship.latestMessageUrgency === 'urgent' ? 'Urgent' : 'New message'}
+              value={relationship.unreadMessageCount}
+              active
+              urgent={relationship.latestMessageUrgency === 'urgent'}
+            />
           ) : (
             <MetricBadge label="Unread" value={relationship.unreadMessageCount} />
           )}
@@ -93,9 +98,16 @@ function LatestMessageSummary({
 
   return (
     <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-        Latest message
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Latest message
+        </p>
+        {relationship.latestMessageUrgency === 'urgent' ? (
+          <span className="rounded-full bg-red-100 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-red-700">
+            Urgent
+          </span>
+        ) : null}
+      </div>
       <p className="mt-1 line-clamp-2 text-sm text-slate-700">
         <span className="font-semibold text-slate-900">
           {relationship.latestMessageSenderName || 'Unknown user'}:
@@ -113,16 +125,20 @@ function MetricBadge({
   label,
   value,
   active = false,
+  urgent = false,
 }: {
   label: string;
   value: number;
   active?: boolean;
+  urgent?: boolean;
 }) {
   return (
     <span
       className={
         active
-          ? 'rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white'
+          ? urgent
+            ? 'rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white'
+            : 'rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white'
           : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700'
       }
     >

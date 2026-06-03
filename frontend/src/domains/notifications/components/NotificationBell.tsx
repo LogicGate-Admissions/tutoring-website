@@ -114,10 +114,20 @@ function NotificationBellContent({
             void notification.onOpen?.();
             onNotificationClick();
           }}
-          className="block rounded-2xl px-3 py-3 transition hover:bg-slate-50"
+          className={cn(
+            'block rounded-2xl px-3 py-3 transition',
+            notification.tone === 'urgent'
+              ? 'bg-red-50 hover:bg-red-100'
+              : 'hover:bg-slate-50'
+          )}
         >
           <div className="flex items-start gap-3">
-            <span className="mt-1 flex h-2.5 w-2.5 shrink-0 rounded-full bg-red-600" />
+            <span
+              className={cn(
+                'mt-1 flex h-2.5 w-2.5 shrink-0 rounded-full',
+                notification.tone === 'urgent' ? 'bg-red-600' : 'bg-slate-950'
+              )}
+            />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-950">
                 {notification.title}

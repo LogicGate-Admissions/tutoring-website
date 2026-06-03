@@ -13,6 +13,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { createStudentTutorRelationship } from '@/domains/async-support/services/relationshipsService';
+import { getCurrentFirebaseUser } from '@/domains/auth/services/authService';
 import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import type {
@@ -73,6 +74,8 @@ export async function acceptTrialSessionRequest(request: TrialSessionRequest) {
     tutorId: request.tutorId,
     studentName: request.studentName,
     tutorName: request.tutorName,
+    studentEmail: request.studentEmail,
+    tutorEmail: getCurrentFirebaseUser()?.email ?? '',
     subject: request.subject,
     level: request.level,
   });

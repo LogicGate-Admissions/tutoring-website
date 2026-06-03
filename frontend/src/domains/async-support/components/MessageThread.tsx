@@ -11,6 +11,10 @@
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import { uploadAttachments } from '@/domains/attachments/services/attachmentUploadService';
+import {
+  canEmailTutorForUrgentMessage,
+  openUrgentMessageEmailDraft,
+} from '@/domains/async-support/services/urgentMessageEmailService';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import {
   createSupportMessage,
@@ -57,6 +61,7 @@ export function MessageThread({
   const [draftMessage, setDraftMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<ReplyToMessageSummary | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isUrgent, setIsUrgent] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,11 +189,22 @@ export function MessageThread({
         body: trimmedMessage,
         attachments,
         replyTo: replyingTo ?? undefined,
+        urgency: isUrgent ? 'urgent' : 'normal',
       });
+
+      if (isUrgent && currentUser.role === 'student') {
+        openUrgentEmailDraftOrShowFallback({
+          relationship,
+          studentName: currentUser.name,
+          messageBody: trimmedMessage,
+          attachmentCount: attachments.length,
+        });
+      }
 
       setDraftMessage('');
       setReplyingTo(null);
       setSelectedFiles([]);
+      setIsUrgent(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -228,6 +244,7 @@ export function MessageThread({
   const canSendMessage = Boolean(
     currentUser && (draftMessage.trim() || selectedFiles.length > 0) && !isSending
   );
+  const canMarkUrgent = currentUser?.role === 'student';
 
   return (
     <div className="grid gap-4">
@@ -349,6 +366,14 @@ export function MessageThread({
             ) : null}
           </div>
 
+          {canMarkUrgent ? (
+            <UrgentToggle
+              isChecked={isUrgent}
+              canEmailTutor={canEmailTutorForUrgentMessage(relationship)}
+              onChange={setIsUrgent}
+            />
+          ) : null}
+
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-slate-500">
               {draftMessage.trim().length}/2000 characters
@@ -362,6 +387,69 @@ export function MessageThread({
       </Card>
     </div>
   );
+}
+
+
+function UrgentToggle({
+  isChecked,
+  canEmailTutor,
+  onChange,
+}: {
+  isChecked: boolean;
+  canEmailTutor: boolean;
+  onChange: (isChecked: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
+      <input
+        type="checkbox"
+        checked={isChecked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-1 h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-600"
+      />
+      <span>
+        <span className="block font-semibold">Mark as urgent</span>
+        <span className="mt-1 block leading-5 text-red-800">
+          This flags the message for your tutor and opens a pre-filled email draft
+          addressed to them after sending.
+        </span>
+        {!canEmailTutor ? (
+          <span className="mt-1 block text-xs font-medium text-red-700">
+            Tutor email is missing for this relationship, so the in-app urgent
+            flag will still save but the email draft may not open.
+          </span>
+        ) : null}
+      </span>
+    </label>
+  );
+}
+
+function openUrgentEmailDraftOrShowFallback({
+  relationship,
+  studentName,
+  messageBody,
+  attachmentCount,
+}: {
+  relationship: StudentTutorRelationship | null;
+  studentName: string;
+  messageBody: string;
+  attachmentCount: number;
+}) {
+  if (!relationship) {
+    window.alert('Urgent flag saved, but relationship details could not be loaded for the email draft.');
+    return;
+  }
+
+  try {
+    openUrgentMessageEmailDraft({
+      relationship,
+      studentName,
+      messageBody,
+      attachmentCount,
+    });
+  } catch {
+    window.alert('Urgent flag saved, but the tutor email is missing for this relationship.');
+  }
 }
 
 function MessageBubble({
@@ -392,6 +480,17 @@ function MessageBubble({
           >
             {isMine ? 'You' : message.senderName || 'Unknown user'}
           </span>
+
+          {message.urgency === 'urgent' ? (
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide',
+                isMine ? 'bg-red-500 text-white' : 'bg-red-100 text-red-700'
+              )}
+            >
+              Urgent
+            </span>
+          ) : null}
 
           <span
             className={cn(

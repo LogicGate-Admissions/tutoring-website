@@ -16,6 +16,7 @@ export type TrialSessionRequest = {
   tutorName: string;
   studentId: string;
   studentName: string;
+  studentEmail?: string;
   subject: string;
   level: string;
   learningStyle: string;

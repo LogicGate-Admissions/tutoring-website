@@ -8,6 +8,8 @@
 
 export type AppNotificationType = 'message' | 'trial-request' | 'trial-update';
 
+export type AppNotificationTone = 'default' | 'urgent';
+
 export type AppNotification = {
   id: string;
   type: AppNotificationType;
@@ -16,5 +18,6 @@ export type AppNotification = {
   meta: string;
   href: string;
   createdAt: string;
+  tone?: AppNotificationTone;
   onOpen?: () => void | Promise<void>;
 };
