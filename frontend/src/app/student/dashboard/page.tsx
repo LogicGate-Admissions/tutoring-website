@@ -1,9 +1,7 @@
 /**
  * File purpose: Student dashboard route.
  *
- * The student dashboard currently mirrors the tutor A/B navigation prototype.
- * It tests whether students expect async support to live under each tutor or
- * under action-first tabs such as messages, resources, and flagged questions.
+ * The student dashboard helps students manage connected tutors and ongoing support.
  */
 
 import { RequireAuth } from '@/domains/auth/components/RequireAuth';
@@ -20,7 +18,7 @@ export default function StudentDashboardPage() {
         <PageHeader
           eyebrow="Student area"
           title="Student dashboard"
-          description="Testing the relationship-first navigation model for asynchronous support."
+          description="Manage connected tutoring relationships and asynchronous support."
         />
 
         <StudentDashboard />

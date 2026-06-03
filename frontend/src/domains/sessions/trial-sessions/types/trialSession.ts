@@ -16,12 +16,16 @@ export type TrialSessionRequest = {
   tutorName: string;
   studentId: string;
   studentName: string;
+  studentEmail?: string;
   subject: string;
   level: string;
   learningStyle: string;
   preferredTime: string;
   message: string;
   status: TrialSessionStatus;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+  studentStatusSeenAt?: unknown;
 };
 
 /**
@@ -29,5 +33,5 @@ export type TrialSessionRequest = {
  */
 export type CreateTrialSessionRequestInput = Omit<
   TrialSessionRequest,
-  'id' | 'status'
+  'id' | 'status' | 'createdAt' | 'updatedAt' | 'studentStatusSeenAt'
 >;

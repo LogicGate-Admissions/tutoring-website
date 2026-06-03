@@ -11,6 +11,7 @@
 
 import Link from 'next/link';
 import { SignOutButton } from '@/domains/auth/components/SignOutButton';
+import { NotificationBell } from '@/domains/notifications/components/NotificationBell';
 import { Container } from '@/shared/components/Container';
 import { ROUTES } from '@/shared/constants/routes';
 
@@ -41,6 +42,8 @@ export function AppTopNav({ userType }: AppTopNavProps) {
         </Link>
 
         <div className="flex items-center gap-3">
+          <NotificationBell userType={userType} />
+
           <SignOutButton />
 
           <Link

@@ -2,14 +2,15 @@
 
 /**
  * File purpose:
- * Shared placeholder page for planned async-support features.
+ * Shared page for async-support features.
  *
- * In this baseline, the dashboard routes exist so students/tutors can react to
- * the labels and journey, but the message, flagged-question, and resource
- * features are not implemented yet.
+ * In this messaging stage, the message thread is implemented. Flagged
+ * questions and shared resources stay as placeholders for later feedback-led
+ * iterations.
  */
 
 import { useEffect, useState } from 'react';
+import { MessageThread } from '@/domains/async-support/components/MessageThread';
 import { getStudentTutorRelationshipById } from '@/domains/async-support/services/relationshipsService';
 import type {
   AsyncSupportRole,
@@ -41,10 +42,9 @@ const featureCopy: Record<
   messages: {
     title: 'Messages',
     description:
-      'A planned async message space for this student-tutor relationship.',
-    emptyTitle: 'Message thread not implemented yet',
-    emptyDescription:
-      'This placeholder is used during dashboard navigation testing. Feedback here will decide whether messaging becomes the next thin slice.',
+      'This is the shared async message thread for this tutoring relationship.',
+    emptyTitle: 'Message thread',
+    emptyDescription: 'Use the message composer below to start the conversation.',
   },
   questions: {
     title: 'Flagged questions',
@@ -52,7 +52,7 @@ const featureCopy: Record<
       'A planned space for students to flag academic questions between sessions.',
     emptyTitle: 'Flagged questions not implemented yet',
     emptyDescription:
-      'This placeholder lets testers react to the idea before we build the feature.',
+      'This stays as a placeholder until the flagged-question feature issue is implemented.',
   },
   resources: {
     title: 'Shared resources',
@@ -60,7 +60,7 @@ const featureCopy: Record<
       'A planned space for links, notes, worksheets, and lesson materials.',
     emptyTitle: 'Shared resources not implemented yet',
     emptyDescription:
-      'This placeholder lets testers tell us whether resource sharing belongs in the support journey.',
+      'This stays as a placeholder until the shared-resource feature issue is implemented.',
   },
 };
 
@@ -135,7 +135,7 @@ export function SupportFeaturePage({
 
         <Card>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Planned async support
+            Async support
           </p>
 
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
@@ -171,6 +171,8 @@ export function SupportFeaturePage({
             </h2>
             <p className="mt-2 text-sm text-slate-600">{error}</p>
           </Card>
+        ) : feature === 'messages' ? (
+          <MessageThread relationshipId={relationshipId} viewerRole={viewerRole} />
         ) : (
           <Card>
             <h2 className="text-xl font-semibold tracking-tight text-slate-950">

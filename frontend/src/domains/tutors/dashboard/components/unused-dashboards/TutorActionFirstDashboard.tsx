@@ -1,11 +1,9 @@
 'use client';
 
 /**
- * Version B: action-first student dashboard.
+ * File purpose: Alternative action-based tutor dashboard kept for reference.
  *
- * This component is intentionally self-contained. If this variant wins, move
- * this file up one folder, rename it to StudentDashboard.tsx, rename the export
- * to StudentDashboard, and point /student/dashboard at it.
+ * This file is not imported by the live app.
  */
 
 import { useState } from 'react';
@@ -23,53 +21,53 @@ type Section =
   | 'messages'
   | 'resources'
   | 'flagged-questions'
-  | 'learning-profile'
-  | 'find-tutors';
+  | 'tutor-profile'
+  | 'trial-requests';
 
 const tabs: Array<{ id: Section; label: string; description: string }> = [
   {
     id: 'messages',
     label: 'Messages',
-    description: 'Choose tutor',
+    description: 'Choose student',
   },
   {
     id: 'resources',
     label: 'Resources',
-    description: 'Choose tutor',
+    description: 'Choose student',
   },
   {
     id: 'flagged-questions',
     label: 'Flagged questions',
-    description: 'Choose tutor',
+    description: 'Choose student',
   },
   {
-    id: 'learning-profile',
-    label: 'Learning profile',
-    description: 'Edit preferences',
+    id: 'tutor-profile',
+    label: 'Tutor profile',
+    description: 'Edit your profile',
   },
   {
-    id: 'find-tutors',
-    label: 'Find tutors',
-    description: 'Browse matches',
+    id: 'trial-requests',
+    label: 'Trial requests',
+    description: 'Review requests',
   },
 ];
 
-export function StudentActionFirstDashboard() {
+export function TutorActionFirstDashboard() {
   const [activeSection, setActiveSection] = useState<Section>('messages');
-  const { relationships, isLoading, error } = useRelationshipSummaries('student');
+  const { relationships, isLoading, error } = useRelationshipSummaries('tutor');
 
   return (
     <Container className="grid gap-6 py-8">
       <Card>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Action-first prototype
+          Alternative dashboard
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
           Manage support through actions
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Students start from the type of async support they want, then choose
-          which tutor the action relates to.
+          Tutors start from the type of async support they want to handle, then
+          choose which student the action relates to.
         </p>
       </Card>
 
@@ -104,24 +102,24 @@ function InboxContent({
   isLoading: boolean;
   error: string | null;
 }) {
-  if (activeSection === 'learning-profile') {
+  if (activeSection === 'tutor-profile') {
     return (
       <ActionCard
-        title="Learning profile"
-        description="Edit the subjects, learning styles, universities, and availability used to match you with tutors."
-        href={ROUTES.studentOnboardingSubjects}
-        buttonLabel="Edit learning profile"
+        title="Tutor profile"
+        description="Edit the subjects, degree, university, pricing, learning styles and availability shown to students."
+        href={ROUTES.tutorOnboarding}
+        buttonLabel="Edit tutor profile"
       />
     );
   }
 
-  if (activeSection === 'find-tutors') {
+  if (activeSection === 'trial-requests') {
     return (
       <ActionCard
-        title="Find tutors"
-        description="Browse tutors that match your learning profile and request a trial session."
-        href={ROUTES.studentTutors}
-        buttonLabel="Find tutors"
+        title="Trial requests"
+        description="Review students who have requested a trial session with you."
+        href={ROUTES.tutorTrialSessions}
+        buttonLabel="View trial requests"
       />
     );
   }
@@ -129,17 +127,17 @@ function InboxContent({
   const copy = {
     messages: {
       title: 'Messages',
-      description: 'Choose a tutor to open the message thread.',
+      description: 'Choose a student to open the message thread.',
       buttonLabel: 'Open messages',
     },
     resources: {
       title: 'Resources',
-      description: 'Choose a tutor to open shared resources.',
+      description: 'Choose a student to open shared resources.',
       buttonLabel: 'Open resources',
     },
     'flagged-questions': {
       title: 'Flagged questions',
-      description: 'Choose a tutor to review your flagged questions.',
+      description: 'Choose a student to review their flagged questions.',
       buttonLabel: 'Open flagged questions',
     },
   }[activeSection];
@@ -150,8 +148,8 @@ function InboxContent({
         isLoading={isLoading}
         error={error}
         isEmpty={relationships.length === 0}
-        emptyTitle="No tutors yet"
-        emptyDescription="When you become connected with a tutor, they will appear in this action-first view."
+        emptyTitle="No students yet"
+        emptyDescription="When a student becomes connected with you, they will appear in this action-first view."
       />
     );
   }
@@ -171,11 +169,11 @@ function InboxContent({
         <SupportRelationshipCard
           key={`${activeSection}-${relationship.id}`}
           relationship={relationship}
-          viewerRole="student"
+          viewerRole="tutor"
           actions={[
             {
               label: copy.buttonLabel,
-              href: getStudentActionHref(relationship.id, activeSection),
+              href: getTutorActionHref(relationship.id, activeSection),
             },
           ]}
         />
@@ -251,11 +249,8 @@ function ActionCard({
   );
 }
 
-function getStudentActionHref(
-  relationshipId: string,
-  activeSection: Section
-) {
-  const baseHref = `/student/dashboard/support/${relationshipId}`;
+function getTutorActionHref(relationshipId: string, activeSection: Section) {
+  const baseHref = `/tutor/dashboard/support/${relationshipId}`;
 
   if (activeSection === 'resources') {
     return `${baseHref}/resources`;

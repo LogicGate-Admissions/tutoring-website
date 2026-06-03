@@ -19,6 +19,7 @@ import type { AuthUser } from '@/domains/auth/types/auth';
 import { SignOutButton } from '@/domains/auth/components/SignOutButton';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import {
+  acceptTrialSessionRequest,
   subscribeToTutorTrialSessions,
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
@@ -120,7 +121,7 @@ export function TutorTrialSessionsPage() {
 
                 {request.status === 'pending' && (
                   <div className="flex shrink-0 gap-3">
-                    <Button onClick={() => updateTrialSessionStatus(request.id, 'accepted')}>
+                    <Button onClick={() => acceptTrialSessionRequest(request)}>
                       Accept
                     </Button>
                     <Button

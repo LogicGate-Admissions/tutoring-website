@@ -4,16 +4,14 @@
  * File purpose:
  * Shared hook for loading the current user's async-support relationships.
  *
- * Both student and tutor dashboard variants use this hook so the A/B test only
- * changes navigation, not the underlying data source.
+ * The hook subscribes to relationship updates in real time. This keeps message
+ * activity indicators fresh on the dashboard and in the notification bell when
+ * latest-message metadata changes.
  */
 
 import { useEffect, useState } from 'react';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
-import {
-  getStudentRelationships,
-  getTutorRelationships,
-} from '@/domains/async-support/services/relationshipsService';
+import { subscribeToRelationshipSummaries } from '@/domains/async-support/services/relationshipsService';
 import type {
   AsyncSupportRole,
   RelationshipSupportSummary,
@@ -33,12 +31,11 @@ export function useRelationshipSummaries(
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let isActive = true;
+    let unsubscribeRelationships: (() => void) | undefined;
 
-    const unsubscribe = subscribeToCurrentUser(async (user) => {
-      if (!isActive) {
-        return;
-      }
+    const unsubscribeAuth = subscribeToCurrentUser((user) => {
+      unsubscribeRelationships?.();
+      unsubscribeRelationships = undefined;
 
       if (!user || user.role !== viewerRole) {
         setRelationships([]);
@@ -47,38 +44,28 @@ export function useRelationshipSummaries(
         return;
       }
 
-      try {
-        setIsLoading(true);
-        setError(null);
+      setIsLoading(true);
+      setError(null);
 
-        const loadedRelationships =
-          viewerRole === 'tutor'
-            ? await getTutorRelationships(user.id)
-            : await getStudentRelationships(user.id);
-
-        if (!isActive) {
-          return;
-        }
-
-        setRelationships(loadedRelationships);
-      } catch (caughtError) {
-        if (!isActive) {
-          return;
-        }
-
-        console.error(caughtError);
-        setRelationships([]);
-        setError('Could not load your support relationships.');
-      } finally {
-        if (isActive) {
+      unsubscribeRelationships = subscribeToRelationshipSummaries({
+        viewerId: user.id,
+        viewerRole,
+        onChange: (loadedRelationships) => {
+          setRelationships(loadedRelationships);
           setIsLoading(false);
-        }
-      }
+          setError(null);
+        },
+        onError: () => {
+          setRelationships([]);
+          setIsLoading(false);
+          setError('Could not load your support relationships.');
+        },
+      });
     });
 
     return () => {
-      isActive = false;
-      unsubscribe();
+      unsubscribeAuth();
+      unsubscribeRelationships?.();
     };
   }, [viewerRole]);
 

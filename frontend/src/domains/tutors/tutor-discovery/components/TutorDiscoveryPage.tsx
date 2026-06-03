@@ -206,6 +206,7 @@ export function TutorDiscoveryPage() {
       tutorName: tutor.name,
       studentId: currentStudent.id,
       studentName: currentStudent.name,
+      studentEmail: currentStudent.email,
       subject:
         filters.subjects[0]?.subject ||
         profile.subjectSelections[0]?.subjects[0] ||
