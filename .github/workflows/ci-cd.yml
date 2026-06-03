@@ -61,12 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: frontend-checks
 
-    # Deploy preview for every non-main push or pull request
+    # Deploy preview for every non-main branch
     if: github.ref != 'refs/heads/main'
-
-    defaults:
-      run:
-        working-directory: frontend
 
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -103,10 +99,6 @@ jobs:
 
     # Only deploy production when pushing to main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    defaults:
-      run:
-        working-directory: frontend
 
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
