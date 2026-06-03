@@ -635,7 +635,7 @@ function MessageBubble({
     <div className={cn("flex min-w-0", isMine ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "relative min-w-0 max-w-[min(42rem,85%)] overflow-hidden rounded-3xl px-4 py-3 pr-11",
+          "group relative min-w-0 max-w-[min(42rem,85%)] overflow-visible rounded-3xl px-4 py-3 pr-11",
           isMine ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-900",
         )}
       >
@@ -850,7 +850,8 @@ function MessageActionsDropdown({
         aria-expanded={isOpen}
         onClick={() => setIsOpen((currentValue) => !currentValue)}
         className={cn(
-          "grid h-7 w-7 place-items-center rounded-full text-base leading-none transition",
+          "grid h-7 w-7 place-items-center rounded-full text-base leading-none opacity-0 transition group-hover:opacity-100 focus:opacity-100",
+          isOpen ? "opacity-100" : "",
           isMine
             ? "text-slate-300 hover:bg-white/10 hover:text-white"
             : "text-slate-500 hover:bg-white hover:text-slate-950",
@@ -862,7 +863,7 @@ function MessageActionsDropdown({
       {isOpen ? (
         <div
           className={cn(
-            "absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 text-sm text-slate-800 shadow-xl",
+            "absolute right-0 top-8 z-50 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 text-sm text-slate-800 shadow-xl",
           )}
         >
           <DropdownAction onClick={() => runAction(onReply)}>
