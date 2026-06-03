@@ -22,6 +22,7 @@ import {
 import { db } from '@/shared/lib/firebase';
 import type {
   AsyncSupportRole,
+  ReplyToMessageSummary,
   SupportAttachment,
   SupportMessage,
 } from '@/domains/async-support/types/asyncSupport';
@@ -37,6 +38,7 @@ type CreateSupportMessageInput = {
   senderName: string;
   body: string;
   attachments?: SupportAttachment[];
+  replyTo?: ReplyToMessageSummary;
 };
 
 /** Returns the Firestore collection reference for relationship messages. */
@@ -110,6 +112,7 @@ export async function createSupportMessage(
     senderName: input.senderName,
     body: trimmedBody,
     attachments,
+    ...(input.replyTo ? { replyTo: input.replyTo } : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -151,6 +154,7 @@ function mapSupportMessageSnapshot(
     senderName: String(data.senderName ?? ''),
     body: String(data.body ?? ''),
     attachments: normaliseAttachments(data.attachments),
+    replyTo: normaliseReplyToMessage(data.replyTo),
     createdAt: String(data.createdAt ?? ''),
     updatedAt: String(data.updatedAt ?? ''),
   };
@@ -201,6 +205,29 @@ function normaliseAttachments(value: unknown): SupportAttachment[] {
         typeof data.uploadedById === 'string' ? data.uploadedById : undefined,
     };
   });
+}
+
+
+function normaliseReplyToMessage(value: unknown): ReplyToMessageSummary | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const data = value as Record<string, unknown>;
+  const messageId = String(data.messageId ?? '');
+
+  if (!messageId) {
+    return undefined;
+  }
+
+  return {
+    messageId,
+    senderId: String(data.senderId ?? ''),
+    senderName: String(data.senderName ?? 'Unknown user'),
+    bodyPreview: String(data.bodyPreview ?? ''),
+    attachmentCount: Number(data.attachmentCount ?? 0),
+    createdAt: String(data.createdAt ?? ''),
+  };
 }
 
 /** Keeps dashboard/notification previews readable and compact. */

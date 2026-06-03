@@ -23,6 +23,7 @@ import {
 import type {
   AsyncSupportRole,
   StudentTutorRelationship,
+  ReplyToMessageSummary,
   SupportAttachment,
   SupportMessage,
 } from '@/domains/async-support/types/asyncSupport';
@@ -46,6 +47,7 @@ export function MessageThread({
   viewerRole,
 }: MessageThreadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentThreadUser | null>(null);
   const [relationship, setRelationship] =
     useState<StudentTutorRelationship | null>(null);
@@ -53,6 +55,7 @@ export function MessageThread({
     useState<string | undefined>();
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [draftMessage, setDraftMessage] = useState('');
+  const [replyingTo, setReplyingTo] = useState<ReplyToMessageSummary | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -180,9 +183,11 @@ export function MessageThread({
         senderName: currentUser.name,
         body: trimmedMessage,
         attachments,
+        replyTo: replyingTo ?? undefined,
       });
 
       setDraftMessage('');
+      setReplyingTo(null);
       setSelectedFiles([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -196,6 +201,11 @@ export function MessageThread({
     } finally {
       setIsSending(false);
     }
+  }
+
+  function startReplyTo(message: SupportMessage) {
+    setReplyingTo(buildReplySummary(message));
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
   function handleFilesSelected(event: ChangeEvent<HTMLInputElement>) {
@@ -266,6 +276,7 @@ export function MessageThread({
                 <MessageBubble
                   message={message}
                   isMine={message.senderId === currentUser?.id}
+                  onReply={() => startReplyTo(message)}
                 />
               </div>
             ))}
@@ -289,7 +300,12 @@ export function MessageThread({
             New message
           </label>
 
+          {replyingTo ? (
+            <ReplyingToPreview replyTo={replyingTo} onCancel={() => setReplyingTo(null)} />
+          ) : null}
+
           <textarea
+            ref={textareaRef}
             id="support-message"
             value={draftMessage}
             onChange={(event) => setDraftMessage(event.target.value)}
@@ -351,9 +367,11 @@ export function MessageThread({
 function MessageBubble({
   message,
   isMine,
+  onReply,
 }: {
   message: SupportMessage;
   isMine: boolean;
+  onReply: () => void;
 }) {
   return (
     <div className={cn('flex', isMine ? 'justify-end' : 'justify-start')}>
@@ -385,6 +403,10 @@ function MessageBubble({
           </span>
         </div>
 
+        {message.replyTo ? (
+          <QuotedReplyCard replyTo={message.replyTo} isMine={isMine} />
+        ) : null}
+
         {message.body ? (
           <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
             {message.body}
@@ -394,7 +416,73 @@ function MessageBubble({
         {message.attachments.length > 0 ? (
           <AttachmentList attachments={message.attachments} isMine={isMine} />
         ) : null}
+
+        <button
+          type="button"
+          onClick={onReply}
+          className={cn(
+            'mt-3 text-xs font-semibold transition',
+            isMine ? 'text-slate-300 hover:text-white' : 'text-slate-500 hover:text-slate-950'
+          )}
+        >
+          Reply
+        </button>
       </div>
+    </div>
+  );
+}
+
+
+function ReplyingToPreview({
+  replyTo,
+  onCancel,
+}: {
+  replyTo: ReplyToMessageSummary;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <div className="min-w-0 border-l-4 border-slate-400 pl-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Replying to {replyTo.senderName || 'message'}
+        </p>
+        <p className="mt-1 truncate text-sm text-slate-700">
+          {formatReplyPreview(replyTo)}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-white hover:text-slate-950"
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+function QuotedReplyCard({
+  replyTo,
+  isMine,
+}: {
+  replyTo: ReplyToMessageSummary;
+  isMine: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        'mt-3 rounded-2xl border-l-4 px-3 py-2 text-sm',
+        isMine
+          ? 'border-white/40 bg-white/10 text-slate-100'
+          : 'border-slate-400 bg-white text-slate-700'
+      )}
+    >
+      <p className={cn('text-xs font-semibold', isMine ? 'text-slate-200' : 'text-slate-600')}>
+        {replyTo.senderName || 'Message'}
+      </p>
+      <p className={cn('mt-1 line-clamp-2', isMine ? 'text-slate-300' : 'text-slate-600')}>
+        {formatReplyPreview(replyTo)}
+      </p>
     </div>
   );
 }
@@ -556,6 +644,52 @@ function getFirstUnreadMessageId({
   });
 
   return firstUnreadMessage?.id;
+}
+
+
+function buildReplySummary(message: SupportMessage): ReplyToMessageSummary {
+  return {
+    messageId: message.id,
+    senderId: message.senderId,
+    senderName: message.senderName || 'Unknown user',
+    bodyPreview: buildReplyBodyPreview(message),
+    attachmentCount: message.attachments.length,
+    createdAt: message.createdAt,
+  };
+}
+
+function buildReplyBodyPreview(message: SupportMessage) {
+  const bodyPreview = message.body.replace(/\s+/g, ' ').trim();
+
+  if (bodyPreview) {
+    return bodyPreview.length > 140 ? `${bodyPreview.slice(0, 139)}…` : bodyPreview;
+  }
+
+  if (message.attachments.length === 1) {
+    return `Attachment: ${message.attachments[0]?.name ?? 'file'}`;
+  }
+
+  if (message.attachments.length > 1) {
+    return `${message.attachments.length} attachments`;
+  }
+
+  return 'Message';
+}
+
+function formatReplyPreview(replyTo: ReplyToMessageSummary) {
+  const preview = replyTo.bodyPreview || 'Message';
+
+  if (replyTo.attachmentCount <= 0) {
+    return preview;
+  }
+
+  const suffix = `${replyTo.attachmentCount} attachment${replyTo.attachmentCount === 1 ? '' : 's'}`;
+
+  if (preview.toLowerCase().includes('attachment')) {
+    return preview;
+  }
+
+  return `${preview} · ${suffix}`;
 }
 
 function attachmentLabel(kind: SupportAttachment['kind']) {

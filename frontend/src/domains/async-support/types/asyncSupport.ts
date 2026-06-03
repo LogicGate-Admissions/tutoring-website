@@ -79,6 +79,16 @@ export type StudentTutorRelationship = {
 } & LatestMessageSummary &
   MessageSeenSummary;
 
+/** Lightweight message data copied onto replies for stable quoted previews. */
+export type ReplyToMessageSummary = {
+  messageId: string;
+  senderId: string;
+  senderName: string;
+  bodyPreview: string;
+  attachmentCount: number;
+  createdAt: string;
+};
+
 /** A message inside a student/tutor support relationship. */
 export type SupportMessage = {
   id: string;
@@ -91,6 +101,9 @@ export type SupportMessage = {
 
   body: string;
   attachments: SupportAttachment[];
+
+  /** Optional quoted message summary used for WhatsApp-style replies. */
+  replyTo?: ReplyToMessageSummary;
 
   createdAt: string;
   updatedAt: string;
