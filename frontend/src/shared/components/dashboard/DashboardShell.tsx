@@ -32,7 +32,7 @@ export function DashboardShell({ navItems, children, action }: DashboardShellPro
         <div className="grid gap-2">
           {navItems.map((item) => (
             <Link
-              key={item.href}
+              key={`${item.label}-${item.href}`}
               href={item.href}
               className={cn(
                 'rounded-2xl px-4 py-3 transition',

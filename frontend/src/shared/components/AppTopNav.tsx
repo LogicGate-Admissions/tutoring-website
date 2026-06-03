@@ -3,12 +3,14 @@
 /**
  * File purpose: Shared top navigation for authenticated student/tutor areas.
  *
- * The app pages need two always-available shortcuts:
+ * The app pages need three always-available shortcuts:
  * - the logo returns to the public landing page
+ * - Sign out clears the Firebase session
  * - the Dashboard button returns to the correct role dashboard
  */
 
 import Link from 'next/link';
+import { SignOutButton } from '@/domains/auth/components/SignOutButton';
 import { Container } from '@/shared/components/Container';
 import { ROUTES } from '@/shared/constants/routes';
 
@@ -38,12 +40,16 @@ export function AppTopNav({ userType }: AppTopNavProps) {
           </span>
         </Link>
 
-        <Link
-          href={dashboardHref}
-          className="rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-800 transition hover:border-slate-950 hover:bg-slate-50"
-        >
-          Dashboard
-        </Link>
+        <div className="flex items-center gap-3">
+          <SignOutButton />
+
+          <Link
+            href={dashboardHref}
+            className="rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-800 transition hover:border-slate-950 hover:bg-slate-50"
+          >
+            Dashboard
+          </Link>
+        </div>
       </Container>
     </header>
   );
