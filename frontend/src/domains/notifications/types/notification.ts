@@ -1,12 +1,12 @@
 /**
  * File purpose: app-level notification types.
  *
- * The first notification type is message activity, but this shape is designed
- * to support later activity such as flagged questions, resources, trial
- * requests, and homework without changing the notification bell UI.
+ * The bell uses one generic notification shape. This iteration shows message
+ * and trial-request notifications, but the same type can later support flagged
+ * questions, resources, homework, or payment events.
  */
 
-export type AppNotificationType = 'message';
+export type AppNotificationType = 'message' | 'trial-request' | 'trial-update';
 
 export type AppNotification = {
   id: string;
@@ -16,4 +16,5 @@ export type AppNotification = {
   meta: string;
   href: string;
   createdAt: string;
+  onOpen?: () => void | Promise<void>;
 };

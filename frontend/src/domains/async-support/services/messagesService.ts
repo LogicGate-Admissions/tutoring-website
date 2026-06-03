@@ -22,6 +22,7 @@ import {
 import { db } from '@/shared/lib/firebase';
 import type {
   AsyncSupportRole,
+  SupportAttachment,
   SupportMessage,
 } from '@/domains/async-support/types/asyncSupport';
 
@@ -35,6 +36,7 @@ type CreateSupportMessageInput = {
   senderRole: AsyncSupportRole;
   senderName: string;
   body: string;
+  attachments?: SupportAttachment[];
 };
 
 /** Returns the Firestore collection reference for relationship messages. */
@@ -99,6 +101,7 @@ export async function createSupportMessage(
 ): Promise<SupportMessage> {
   const now = new Date().toISOString();
   const trimmedBody = input.body.trim();
+  const attachments = input.attachments ?? [];
 
   const messageData = {
     relationshipId: input.relationshipId,
@@ -106,6 +109,7 @@ export async function createSupportMessage(
     senderRole: input.senderRole,
     senderName: input.senderName,
     body: trimmedBody,
+    attachments,
     createdAt: now,
     updatedAt: now,
   };
@@ -116,7 +120,7 @@ export async function createSupportMessage(
   );
 
   await updateDoc(getRelationshipDocument(input.relationshipId), {
-    latestMessagePreview: buildMessagePreview(trimmedBody),
+    latestMessagePreview: buildMessagePreview(trimmedBody, attachments.length),
     latestMessageAt: now,
     latestMessageSenderId: input.senderId,
     latestMessageSenderName: input.senderName,
@@ -146,6 +150,7 @@ function mapSupportMessageSnapshot(
     senderRole: normaliseSenderRole(data.senderRole),
     senderName: String(data.senderName ?? ''),
     body: String(data.body ?? ''),
+    attachments: normaliseAttachments(data.attachments),
     createdAt: String(data.createdAt ?? ''),
     updatedAt: String(data.updatedAt ?? ''),
   };
@@ -160,13 +165,58 @@ function normaliseSenderRole(role: unknown): AsyncSupportRole {
   return 'student';
 }
 
-/** Keeps dashboard/notification previews readable and compact. */
-function buildMessagePreview(body: string) {
-  const singleLineBody = body.replace(/\s+/g, ' ').trim();
-
-  if (singleLineBody.length <= MESSAGE_PREVIEW_LENGTH) {
-    return singleLineBody;
+function normaliseAttachments(value: unknown): SupportAttachment[] {
+  if (!Array.isArray(value)) {
+    return [];
   }
 
-  return `${singleLineBody.slice(0, MESSAGE_PREVIEW_LENGTH - 1)}…`;
+  return value.map((attachment, index) => {
+    const data = attachment as Record<string, unknown>;
+
+    return {
+      id: String(data.id ?? `attachment-${index}`),
+      name: String(data.name ?? 'Attachment'),
+      url: String(data.url ?? ''),
+      storagePath: String(data.storagePath ?? ''),
+      contentType: String(data.contentType ?? 'application/octet-stream'),
+      sizeBytes: Number(data.sizeBytes ?? 0),
+      kind:
+        data.kind === 'image' || data.kind === 'pdf' || data.kind === 'file'
+          ? data.kind
+          : 'file',
+      createdAt: String(data.createdAt ?? ''),
+      provider:
+        data.provider === 'demo-metadata' ||
+        data.provider === 'firebase-storage' ||
+        data.provider === 'external-url'
+          ? data.provider
+          : undefined,
+      isPreviewAvailable:
+        typeof data.isPreviewAvailable === 'boolean'
+          ? data.isPreviewAvailable
+          : Boolean(data.url),
+      ownerArea: typeof data.ownerArea === 'string' ? data.ownerArea : undefined,
+      ownerId: typeof data.ownerId === 'string' ? data.ownerId : undefined,
+      uploadedById:
+        typeof data.uploadedById === 'string' ? data.uploadedById : undefined,
+    };
+  });
+}
+
+/** Keeps dashboard/notification previews readable and compact. */
+function buildMessagePreview(body: string, attachmentCount: number) {
+  const singleLineBody = body.replace(/\s+/g, ' ').trim();
+
+  if (!singleLineBody && attachmentCount > 0) {
+    return attachmentCount === 1 ? 'Sent an attachment' : `Sent ${attachmentCount} attachments`;
+  }
+
+  const attachmentSuffix = attachmentCount > 0 ? ` (${attachmentCount} attachment${attachmentCount === 1 ? '' : 's'})` : '';
+  const previewLimit = Math.max(MESSAGE_PREVIEW_LENGTH - attachmentSuffix.length, 20);
+
+  if (singleLineBody.length <= previewLimit) {
+    return `${singleLineBody}${attachmentSuffix}`;
+  }
+
+  return `${singleLineBody.slice(0, previewLimit - 1)}…${attachmentSuffix}`;
 }

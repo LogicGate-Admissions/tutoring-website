@@ -12,6 +12,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
+import { createStudentTutorRelationship } from '@/domains/async-support/services/relationshipsService';
 import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import type {
@@ -56,6 +57,40 @@ export async function updateTrialSessionStatus(
   await updateDoc(requestRef, {
     status,
     updatedAt: serverTimestamp(),
+  });
+}
+
+
+/**
+ * Accepts a trial request and creates the relationship that powers async support.
+ *
+ * This keeps the dashboard flow automatic: once a tutor accepts, both the
+ * student and tutor get the shared message/resource/question space.
+ */
+export async function acceptTrialSessionRequest(request: TrialSessionRequest) {
+  await createStudentTutorRelationship({
+    studentId: request.studentId,
+    tutorId: request.tutorId,
+    studentName: request.studentName,
+    tutorName: request.tutorName,
+    subject: request.subject,
+    level: request.level,
+  });
+
+  await updateTrialSessionStatus(request.id, 'accepted');
+}
+
+
+/** Marks a student-facing trial status notification as seen. */
+export async function markTrialSessionStatusSeen(requestId: string) {
+  const requestRef = doc(
+    db,
+    FIRESTORE_COLLECTIONS.trialSessionRequests,
+    requestId
+  );
+
+  await updateDoc(requestRef, {
+    studentStatusSeenAt: serverTimestamp(),
   });
 }
 

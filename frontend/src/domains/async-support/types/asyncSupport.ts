@@ -10,6 +10,31 @@
 /** The two user roles that can access an async support relationship. */
 export type AsyncSupportRole = 'student' | 'tutor';
 
+/** Generic attachment category stored with messages/resources. */
+export type SupportAttachmentKind = 'image' | 'pdf' | 'file';
+
+/** Generic attachment metadata for support content. */
+export type SupportAttachment = {
+  id: string;
+  name: string;
+  /** Empty in the free-plan demo; populated by a real storage provider later. */
+  url: string;
+  /** Empty in the free-plan demo; populated by a real storage provider later. */
+  storagePath: string;
+  contentType: string;
+  sizeBytes: number;
+  kind: SupportAttachmentKind;
+  createdAt: string;
+  /** Identifies the provider used to create this attachment metadata. */
+  provider?: 'demo-metadata' | 'firebase-storage' | 'external-url';
+  /** False for demo metadata, true when a real URL can be opened. */
+  isPreviewAvailable?: boolean;
+  /** Generic ownership fields so the same attachment type can support resources/homework later. */
+  ownerArea?: string;
+  ownerId?: string;
+  uploadedById?: string;
+};
+
 /** Status for a student-tutor relationship. */
 export type StudentTutorRelationshipStatus = 'active' | 'ended';
 
@@ -65,6 +90,7 @@ export type SupportMessage = {
   senderName: string;
 
   body: string;
+  attachments: SupportAttachment[];
 
   createdAt: string;
   updatedAt: string;

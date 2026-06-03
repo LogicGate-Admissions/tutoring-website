@@ -4,12 +4,13 @@
  * File purpose:
  * Shared message thread for student and tutor support routes.
  *
- * The thread now supports live updates and an unread divider. Opening the
- * thread marks messages as seen for the current viewer, which clears the top
- * navigation notification bell.
+ * The thread supports live updates, unread dividers, and generic attachments.
+ * Attachment upload is kept separate from message persistence so the same
+ * upload abstraction can later be reused for resources, homework, or questions.
  */
 
-import { FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
+import { uploadAttachments } from '@/domains/attachments/services/attachmentUploadService';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import {
   createSupportMessage,
@@ -22,6 +23,7 @@ import {
 import type {
   AsyncSupportRole,
   StudentTutorRelationship,
+  SupportAttachment,
   SupportMessage,
 } from '@/domains/async-support/types/asyncSupport';
 import { Button } from '@/shared/components/Button';
@@ -43,6 +45,7 @@ export function MessageThread({
   relationshipId,
   viewerRole,
 }: MessageThreadProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentThreadUser | null>(null);
   const [relationship, setRelationship] =
     useState<StudentTutorRelationship | null>(null);
@@ -50,6 +53,7 @@ export function MessageThread({
     useState<string | undefined>();
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [draftMessage, setDraftMessage] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +153,7 @@ export function MessageThread({
 
     const trimmedMessage = draftMessage.trim();
 
-    if (!currentUser || !trimmedMessage) {
+    if (!currentUser || (!trimmedMessage && selectedFiles.length === 0)) {
       return;
     }
 
@@ -157,20 +161,52 @@ export function MessageThread({
       setIsSending(true);
       setError(null);
 
+      const attachments =
+        selectedFiles.length > 0
+          ? await uploadAttachments({
+              files: selectedFiles,
+              context: {
+                area: 'messages',
+                ownerId: relationshipId,
+                uploadedById: currentUser.id,
+              },
+            })
+          : [];
+
       await createSupportMessage({
         relationshipId,
         senderId: currentUser.id,
         senderRole: currentUser.role,
         senderName: currentUser.name,
         body: trimmedMessage,
+        attachments,
       });
 
       setDraftMessage('');
-    } catch {
-      setError('Could not send message.');
+      setSelectedFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Could not send message.'
+      );
     } finally {
       setIsSending(false);
     }
+  }
+
+  function handleFilesSelected(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    setSelectedFiles((currentFiles) => [...currentFiles, ...files]);
+  }
+
+  function removeSelectedFile(fileIndex: number) {
+    setSelectedFiles((currentFiles) =>
+      currentFiles.filter((_, index) => index !== fileIndex)
+    );
   }
 
   const firstUnreadMessageId = getFirstUnreadMessageId({
@@ -178,6 +214,10 @@ export function MessageThread({
     currentUserId: currentUser?.id,
     previousLastSeenMessagesAt,
   });
+
+  const canSendMessage = Boolean(
+    currentUser && (draftMessage.trim() || selectedFiles.length > 0) && !isSending
+  );
 
   return (
     <div className="grid gap-4">
@@ -215,7 +255,7 @@ export function MessageThread({
               No messages yet
             </h3>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Send the first message to start this async support thread.
+              Send a message or attach a file to start this async support thread.
             </p>
           </div>
         ) : (
@@ -259,15 +299,46 @@ export function MessageThread({
             className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
           />
 
+          <div className="grid gap-2">
+            <input
+              ref={fileInputRef}
+              id="message-attachments"
+              type="file"
+              multiple
+              accept="image/*,application/pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
+              onChange={handleFilesSelected}
+              className="hidden"
+            />
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSending}
+              >
+                Attach files
+              </Button>
+
+              <p className="text-xs text-slate-500">
+                Images, PDFs, documents or screenshots up to 10MB each. Demo stores file details only.
+              </p>
+            </div>
+
+            {selectedFiles.length > 0 ? (
+              <SelectedAttachmentList
+                files={selectedFiles}
+                onRemove={removeSelectedFile}
+              />
+            ) : null}
+          </div>
+
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-slate-500">
               {draftMessage.trim().length}/2000 characters
             </p>
 
-            <Button
-              type="submit"
-              disabled={!currentUser || !draftMessage.trim() || isSending}
-            >
+            <Button type="submit" disabled={!canSendMessage}>
               {isSending ? 'Sending...' : 'Send message'}
             </Button>
           </div>
@@ -314,10 +385,122 @@ function MessageBubble({
           </span>
         </div>
 
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
-          {message.body}
-        </p>
+        {message.body ? (
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+            {message.body}
+          </p>
+        ) : null}
+
+        {message.attachments.length > 0 ? (
+          <AttachmentList attachments={message.attachments} isMine={isMine} />
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function AttachmentList({
+  attachments,
+  isMine,
+}: {
+  attachments: SupportAttachment[];
+  isMine: boolean;
+}) {
+  return (
+    <div className="mt-3 grid gap-2">
+      {attachments.map((attachment) => (
+        <AttachmentItem
+          key={attachment.id}
+          attachment={attachment}
+          isMine={isMine}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AttachmentItem({
+  attachment,
+  isMine,
+}: {
+  attachment: SupportAttachment;
+  isMine: boolean;
+}) {
+  const baseClassName = cn(
+    'rounded-2xl border px-3 py-2 text-left text-sm transition',
+    isMine
+      ? 'border-white/20 bg-white/10 text-white hover:bg-white/15'
+      : 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
+  );
+
+  const content = (
+    <>
+      <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{' '}
+      {attachment.name}
+      <span className={cn('ml-2 text-xs', isMine ? 'text-slate-300' : 'text-slate-500')}>
+        {formatFileSize(attachment.sizeBytes)}
+      </span>
+      {!attachment.isPreviewAvailable ? (
+        <span className={cn('mt-1 block text-xs', isMine ? 'text-slate-300' : 'text-slate-500')}>
+          Demo attachment: too poor to pay for Firebase Storage.
+        </span>
+      ) : null}
+    </>
+  );
+
+  if (attachment.url && attachment.isPreviewAvailable !== false) {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        className={baseClassName}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={baseClassName}
+      onClick={() => {
+        window.alert('Too poor to pay for Firebase Storage :(');
+      }}
+    >
+      {content}
+    </button>
+  );
+}
+
+function SelectedAttachmentList({
+  files,
+  onRemove,
+}: {
+  files: File[];
+  onRemove: (fileIndex: number) => void;
+}) {
+  return (
+    <div className="grid gap-2 rounded-2xl bg-slate-50 p-3">
+      {files.map((file, index) => (
+        <div
+          key={`${file.name}-${file.size}-${index}`}
+          className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm text-slate-700"
+        >
+          <span className="min-w-0 truncate">
+            {file.name}{' '}
+            <span className="text-xs text-slate-500">{formatFileSize(file.size)}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => onRemove(index)}
+            className="shrink-0 text-xs font-semibold text-slate-500 hover:text-slate-950"
+          >
+            Remove
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -373,6 +556,30 @@ function getFirstUnreadMessageId({
   });
 
   return firstUnreadMessage?.id;
+}
+
+function attachmentLabel(kind: SupportAttachment['kind']) {
+  if (kind === 'image') {
+    return 'Image';
+  }
+
+  if (kind === 'pdf') {
+    return 'PDF';
+  }
+
+  return 'File';
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+    return '';
+  }
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.ceil(sizeBytes / 1024)}KB`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 function formatMessageTime(value: string) {

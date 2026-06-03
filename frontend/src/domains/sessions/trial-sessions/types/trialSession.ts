@@ -22,6 +22,9 @@ export type TrialSessionRequest = {
   preferredTime: string;
   message: string;
   status: TrialSessionStatus;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+  studentStatusSeenAt?: unknown;
 };
 
 /**
@@ -29,5 +32,5 @@ export type TrialSessionRequest = {
  */
 export type CreateTrialSessionRequestInput = Omit<
   TrialSessionRequest,
-  'id' | 'status'
+  'id' | 'status' | 'createdAt' | 'updatedAt' | 'studentStatusSeenAt'
 >;

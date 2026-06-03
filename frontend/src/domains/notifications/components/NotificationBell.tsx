@@ -4,14 +4,14 @@
  * File purpose:
  * Notification bell for authenticated dashboards and support pages.
  *
- * This iteration only shows unread message notifications. The component uses a
- * generic notification shape so later we can add flagged-question, resource,
- * homework, or trial notifications without replacing the bell UI.
+ * This iteration shows message and trial-request notifications. The component
+ * uses a generic notification shape so later we can add flagged-question,
+ * resource, homework, or calendar notifications without replacing the bell UI.
  */
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { useMessageNotifications } from '@/domains/notifications/hooks/useMessageNotifications';
+import { useNotifications } from '@/domains/notifications/hooks/useNotifications';
 import type { AsyncSupportRole } from '@/domains/async-support/types/asyncSupport';
 import type { AppNotification } from '@/domains/notifications/types/notification';
 import { cn } from '@/shared/utils/cn';
@@ -21,7 +21,7 @@ type NotificationBellProps = {
 };
 
 export function NotificationBell({ userType }: NotificationBellProps) {
-  const { notifications, isLoading, error } = useMessageNotifications(userType);
+  const { notifications, isLoading, error } = useNotifications(userType);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -54,7 +54,7 @@ export function NotificationBell({ userType }: NotificationBellProps) {
         <BellIcon />
 
         {notifications.length > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-950 px-1.5 text-[0.68rem] font-bold leading-none text-white">
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[0.68rem] font-bold leading-none text-white">
             {notifications.length > 9 ? '9+' : notifications.length}
           </span>
         ) : null}
@@ -65,7 +65,7 @@ export function NotificationBell({ userType }: NotificationBellProps) {
           <div className="border-b border-slate-200 px-4 py-3">
             <p className="text-sm font-semibold text-slate-950">Notifications</p>
             <p className="mt-0.5 text-xs text-slate-500">
-              Message activity for your tutoring relationships.
+              Messages, trial requests, and support activity.
             </p>
           </div>
 
@@ -110,11 +110,14 @@ function NotificationBellContent({
         <Link
           key={notification.id}
           href={notification.href}
-          onClick={onNotificationClick}
+          onClick={() => {
+            void notification.onOpen?.();
+            onNotificationClick();
+          }}
           className="block rounded-2xl px-3 py-3 transition hover:bg-slate-50"
         >
           <div className="flex items-start gap-3">
-            <span className="mt-1 flex h-2.5 w-2.5 shrink-0 rounded-full bg-slate-950" />
+            <span className="mt-1 flex h-2.5 w-2.5 shrink-0 rounded-full bg-red-600" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-950">
                 {notification.title}

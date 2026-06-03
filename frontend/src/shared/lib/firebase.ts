@@ -61,5 +61,6 @@ export const auth = getAuth(firebaseApp);
 /** Firestore database instance used by all persistence services. */
 export const db = getFirestore(firebaseApp);
 
+
 /** Google sign-in provider used by the auth service. */
 export const googleProvider = new GoogleAuthProvider();
