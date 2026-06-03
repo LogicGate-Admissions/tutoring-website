@@ -1,28 +1,39 @@
 /**
  * File purpose:
- * Shared TypeScript types for the asynchronous support feature.
+ * Shared TypeScript types for asynchronous support.
  *
- * This feature covers:
- * - student/tutor support relationships
- * - messages
- * - flagged academic questions
- * - shared learning resources
- *
- * These are only types for now. Firestore services and UI components will be
- * added in later steps.
+ * A support relationship is the shared space between one student and one tutor.
+ * Messages, flagged questions, resources, and future notification indicators all
+ * attach to this relationship so context stays in one place.
  */
 
-/**
- * The two user roles that can access an async support relationship.
- */
+/** The two user roles that can access an async support relationship. */
 export type AsyncSupportRole = 'student' | 'tutor';
+
+/** Status for a student-tutor relationship. */
+export type StudentTutorRelationshipStatus = 'active' | 'ended';
+
+/** Metadata for the latest message stored on a relationship document. */
+export type LatestMessageSummary = {
+  latestMessagePreview?: string;
+  latestMessageAt?: string;
+  latestMessageSenderId?: string;
+  latestMessageSenderName?: string;
+  latestMessageSenderRole?: AsyncSupportRole;
+};
+
+/** Per-role read timestamps for relationship messages. */
+export type MessageSeenSummary = {
+  studentLastSeenMessagesAt?: string;
+  tutorLastSeenMessagesAt?: string;
+};
 
 /**
  * A relationship connects one student with one tutor.
  *
- * Messages, flagged questions, and shared resources will all belong to one
- * relationship. This prevents duplication because both dashboards can
- * point to the same relationship routes later.
+ * The latest-message fields are duplicated onto the relationship document so
+ * dashboards and notification menus can show activity without querying every
+ * messages subcollection.
  */
 export type StudentTutorRelationship = {
   id: string;
@@ -40,19 +51,10 @@ export type StudentTutorRelationship = {
 
   createdAt: string;
   updatedAt: string;
-};
+} & LatestMessageSummary &
+  MessageSeenSummary;
 
-/**
- * Relationship status.
- *
- * For now we mainly need "active", but keeping "ended" makes the type ready
- * for future cases where a student/tutor relationship is no longer ongoing.
- */
-export type StudentTutorRelationshipStatus = 'active' | 'ended';
-
-/**
- * A message inside a student/tutor support relationship.
- */
+/** A message inside a student/tutor support relationship. */
 export type SupportMessage = {
   id: string;
 
@@ -68,24 +70,14 @@ export type SupportMessage = {
   updatedAt: string;
 };
 
-/**
- * Status for a flagged academic question.
- *
- * This allows the question to move through a small support workflow:
- * new question -> tutor has replied / saved for lesson -> resolved.
- */
+/** Status for a flagged academic question. */
 export type FlaggedQuestionStatus =
   | 'new'
   | 'tutor-replied'
   | 'saved-for-lesson'
   | 'resolved';
 
-/**
- * A question that a student flags for async support.
- *
- * The screenshotUrl is optional because we can first build the question flow
- * without file upload, then add upload support later.
- */
+/** A question that a student flags for async support. */
 export type FlaggedQuestion = {
   id: string;
 
@@ -107,19 +99,10 @@ export type FlaggedQuestion = {
   updatedAt: string;
 };
 
-/**
- * Type/category for a shared resource.
- */
+/** Type/category for a shared resource. */
 export type SharedResourceType = 'link' | 'file' | 'note';
 
-/**
- * A resource shared between a student and tutor.
- *
- * This can later represent:
- * - a URL link
- * - an uploaded file
- * - a short note/resource written directly in the app
- */
+/** A resource shared between a student and tutor. */
 export type SharedResource = {
   id: string;
 
@@ -143,12 +126,13 @@ export type SharedResource = {
 /**
  * A compact summary used by dashboard cards/lists.
  *
- * The dashboard uses this shape to show each support relationship with
- * message, question, and resource activity.
+ * unreadMessageCount is intentionally 0 or 1 for now: it means this
+ * relationship has message activity from the other person that has not been
+ * opened yet. The shape can later grow into full unread counts.
  */
 export type RelationshipSupportSummary = StudentTutorRelationship & {
-  lastMessagePreview?: string;
   unreadMessageCount: number;
+  hasUnreadMessageActivity: boolean;
   openQuestionCount: number;
   resourceCount: number;
 };

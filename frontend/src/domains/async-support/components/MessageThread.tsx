@@ -4,18 +4,24 @@
  * File purpose:
  * Shared message thread for student and tutor support routes.
  *
- * Both student and tutor message pages use this component. The dashboard
- * Dashboard pages navigate here rather than duplicating message UI.
+ * The thread now supports live updates and an unread divider. Opening the
+ * thread marks messages as seen for the current viewer, which clears the top
+ * navigation notification bell.
  */
 
 import { FormEvent, useEffect, useState } from 'react';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import {
   createSupportMessage,
-  getSupportMessages,
+  subscribeToSupportMessages,
 } from '@/domains/async-support/services/messagesService';
+import {
+  getStudentTutorRelationshipById,
+  markRelationshipMessagesSeen,
+} from '@/domains/async-support/services/relationshipsService';
 import type {
   AsyncSupportRole,
+  StudentTutorRelationship,
   SupportMessage,
 } from '@/domains/async-support/types/asyncSupport';
 import { Button } from '@/shared/components/Button';
@@ -27,16 +33,21 @@ type MessageThreadProps = {
   viewerRole: AsyncSupportRole;
 };
 
+type CurrentThreadUser = {
+  id: string;
+  name: string;
+  role: AsyncSupportRole;
+};
+
 export function MessageThread({
   relationshipId,
   viewerRole,
 }: MessageThreadProps) {
-  const [currentUser, setCurrentUser] = useState<{
-    id: string;
-    name: string;
-    role: AsyncSupportRole;
-  } | null>(null);
-
+  const [currentUser, setCurrentUser] = useState<CurrentThreadUser | null>(null);
+  const [relationship, setRelationship] =
+    useState<StudentTutorRelationship | null>(null);
+  const [previousLastSeenMessagesAt, setPreviousLastSeenMessagesAt] =
+    useState<string | undefined>();
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [draftMessage, setDraftMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -61,40 +72,77 @@ export function MessageThread({
   }, [viewerRole]);
 
   useEffect(() => {
-    let isActive = true;
+    if (!currentUser) {
+      return undefined;
+    }
 
-    async function loadRelationshipMessages() {
+    let isActive = true;
+    let unsubscribeMessages: (() => void) | undefined;
+
+    async function initialiseThread() {
       try {
         setIsLoading(true);
         setError(null);
 
-        const loadedMessages = await getSupportMessages(relationshipId);
+        const loadedRelationship =
+          await getStudentTutorRelationshipById(relationshipId);
 
         if (!isActive) {
           return;
         }
 
-        setMessages(loadedMessages);
+        setRelationship(loadedRelationship);
+        setPreviousLastSeenMessagesAt(
+          getViewerLastSeenMessagesAt(loadedRelationship, viewerRole)
+        );
+
+        unsubscribeMessages = subscribeToSupportMessages({
+          relationshipId,
+          onChange: (loadedMessages) => {
+            if (!isActive) {
+              return;
+            }
+
+            setMessages(loadedMessages);
+            setIsLoading(false);
+            setError(null);
+
+            markRelationshipMessagesSeen({
+              relationshipId,
+              viewerRole,
+            }).catch(() => {
+              // The thread can still be read if this metadata update fails.
+              // A later refresh/open will attempt to mark messages as seen again.
+            });
+          },
+          onError: () => {
+            if (!isActive) {
+              return;
+            }
+
+            setMessages([]);
+            setIsLoading(false);
+            setError('Could not load messages.');
+          },
+        });
       } catch {
         if (!isActive) {
           return;
         }
 
-        setError('Could not load messages.');
         setMessages([]);
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
+        setError('Could not load messages.');
       }
     }
 
-    loadRelationshipMessages();
+    initialiseThread();
 
     return () => {
       isActive = false;
+      unsubscribeMessages?.();
     };
-  }, [relationshipId]);
+  }, [currentUser, relationshipId, viewerRole]);
 
   async function handleSendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -109,7 +157,7 @@ export function MessageThread({
       setIsSending(true);
       setError(null);
 
-      const createdMessage = await createSupportMessage({
+      await createSupportMessage({
         relationshipId,
         senderId: currentUser.id,
         senderRole: currentUser.role,
@@ -117,7 +165,6 @@ export function MessageThread({
         body: trimmedMessage,
       });
 
-      setMessages((currentMessages) => [...currentMessages, createdMessage]);
       setDraftMessage('');
     } catch {
       setError('Could not send message.');
@@ -126,6 +173,12 @@ export function MessageThread({
     }
   }
 
+  const firstUnreadMessageId = getFirstUnreadMessageId({
+    messages,
+    currentUserId: currentUser?.id,
+    previousLastSeenMessagesAt,
+  });
+
   return (
     <div className="grid gap-4">
       <Card>
@@ -133,9 +186,24 @@ export function MessageThread({
           Message thread
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Use this space for async support between sessions. Later, flagged
-          questions and resources will connect into this relationship too.
+          Use this space for async support between sessions. New messages appear
+          automatically, and unread messages are marked when you open the thread.
         </p>
+
+        {relationship ? (
+          <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
+            <p>
+              <span className="font-semibold">Conversation with:</span>{' '}
+              {viewerRole === 'student'
+                ? relationship.tutorName
+                : relationship.studentName}
+            </p>
+            <p className="mt-1">
+              <span className="font-semibold">Subject:</span>{' '}
+              {relationship.level} {relationship.subject}
+            </p>
+          </div>
+        ) : null}
       </Card>
 
       <Card className="grid gap-4">
@@ -153,11 +221,13 @@ export function MessageThread({
         ) : (
           <div className="grid gap-3">
             {messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                isMine={message.senderId === currentUser?.id}
-              />
+              <div key={message.id} className="grid gap-3">
+                {message.id === firstUnreadMessageId ? <UnreadDivider /> : null}
+                <MessageBubble
+                  message={message}
+                  isMine={message.senderId === currentUser?.id}
+                />
+              </div>
             ))}
           </div>
         )}
@@ -168,7 +238,10 @@ export function MessageThread({
           </p>
         ) : null}
 
-        <form onSubmit={handleSendMessage} className="grid gap-3 border-t border-slate-200 pt-4">
+        <form
+          onSubmit={handleSendMessage}
+          className="grid gap-3 border-t border-slate-200 pt-4"
+        >
           <label
             htmlFor="support-message"
             className="text-sm font-semibold text-slate-800"
@@ -212,12 +285,7 @@ function MessageBubble({
   isMine: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        'flex',
-        isMine ? 'justify-end' : 'justify-start'
-      )}
-    >
+    <div className={cn('flex', isMine ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
           'max-w-[min(42rem,85%)] rounded-3xl px-4 py-3',
@@ -233,7 +301,7 @@ function MessageBubble({
               isMine ? 'text-slate-200' : 'text-slate-600'
             )}
           >
-            {message.senderName || 'Unknown user'}
+            {isMine ? 'You' : message.senderName || 'Unknown user'}
           </span>
 
           <span
@@ -252,6 +320,59 @@ function MessageBubble({
       </div>
     </div>
   );
+}
+
+function UnreadDivider() {
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <span className="h-px flex-1 bg-slate-200" />
+      <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white">
+        Unread messages
+      </span>
+      <span className="h-px flex-1 bg-slate-200" />
+    </div>
+  );
+}
+
+function getViewerLastSeenMessagesAt(
+  relationship: StudentTutorRelationship | null,
+  viewerRole: AsyncSupportRole
+) {
+  if (!relationship) {
+    return undefined;
+  }
+
+  return viewerRole === 'student'
+    ? relationship.studentLastSeenMessagesAt
+    : relationship.tutorLastSeenMessagesAt;
+}
+
+function getFirstUnreadMessageId({
+  messages,
+  currentUserId,
+  previousLastSeenMessagesAt,
+}: {
+  messages: SupportMessage[];
+  currentUserId?: string;
+  previousLastSeenMessagesAt?: string;
+}) {
+  if (!currentUserId) {
+    return undefined;
+  }
+
+  const firstUnreadMessage = messages.find((message) => {
+    if (message.senderId === currentUserId) {
+      return false;
+    }
+
+    if (!previousLastSeenMessagesAt) {
+      return true;
+    }
+
+    return message.createdAt > previousLastSeenMessagesAt;
+  });
+
+  return firstUnreadMessage?.id;
 }
 
 function formatMessageTime(value: string) {

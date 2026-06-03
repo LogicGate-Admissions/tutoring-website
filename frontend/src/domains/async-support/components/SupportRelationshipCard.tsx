@@ -2,9 +2,11 @@
 
 /**
  * File purpose:
- * Shared relationship card used by both student and tutor dashboards.
+ * Shared relationship card used by student and tutor dashboards.
  *
- * The same card is used by student and tutor dashboards to show an active support relationship.
+ * The card gives a compact overview of the relationship and surfaces message
+ * activity. The global notification bell handles app-wide unread awareness,
+ * while this card gives context once the user is on the dashboard.
  */
 
 import { Button } from '@/shared/components/Button';
@@ -51,13 +53,15 @@ export function SupportRelationshipCard({
             {relationship.level} {relationship.subject}
           </p>
 
-          <p className="mt-2 text-sm text-slate-500">
-            {relationship.lastMessagePreview || 'No messages yet.'}
-          </p>
+          <LatestMessageSummary relationship={relationship} />
         </div>
 
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          <MetricBadge label="Unread" value={relationship.unreadMessageCount} />
+          {relationship.hasUnreadMessageActivity ? (
+            <MetricBadge label="New message" value={relationship.unreadMessageCount} active />
+          ) : (
+            <MetricBadge label="Unread" value={relationship.unreadMessageCount} />
+          )}
           <MetricBadge label="Questions" value={relationship.openQuestionCount} />
           <MetricBadge label="Resources" value={relationship.resourceCount} />
         </div>
@@ -74,10 +78,74 @@ export function SupportRelationshipCard({
   );
 }
 
-function MetricBadge({ label, value }: { label: string; value: number }) {
+function LatestMessageSummary({
+  relationship,
+}: {
+  relationship: RelationshipSupportSummary;
+}) {
+  if (!relationship.latestMessagePreview) {
+    return (
+      <p className="mt-2 text-sm text-slate-500">
+        No messages yet. Start the conversation from Message.
+      </p>
+    );
+  }
+
   return (
-    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+    <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+        Latest message
+      </p>
+      <p className="mt-1 line-clamp-2 text-sm text-slate-700">
+        <span className="font-semibold text-slate-900">
+          {relationship.latestMessageSenderName || 'Unknown user'}:
+        </span>{' '}
+        {relationship.latestMessagePreview}
+      </p>
+      <p className="mt-1 text-xs text-slate-500">
+        {formatCardTime(relationship.latestMessageAt)}
+      </p>
+    </div>
+  );
+}
+
+function MetricBadge({
+  label,
+  value,
+  active = false,
+}: {
+  label: string;
+  value: number;
+  active?: boolean;
+}) {
+  return (
+    <span
+      className={
+        active
+          ? 'rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white'
+          : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700'
+      }
+    >
       {value} {label}
     </span>
   );
+}
+
+function formatCardTime(value?: string) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
