@@ -49,6 +49,12 @@ function buildUrgentMessageMailtoUrl({
   messageBody,
   attachmentCount,
 }: UrgentMessageEmailInput) {
+  const tutorEmail = relationship.tutorEmail;
+
+  if (!tutorEmail) {
+    throw new Error('Tutor email is not available for this relationship.');
+  }
+
   const subject = `Urgent message from ${studentName}`;
   const bodyLines = [
     `Hi ${relationship.tutorName || 'Tutor'},`,
@@ -72,5 +78,5 @@ function buildUrgentMessageMailtoUrl({
     body: bodyLines.join('\n'),
   });
 
-  return `mailto:${encodeURIComponent(relationship.tutorEmail)}?${params.toString()}`;
+  return `mailto:${encodeURIComponent(tutorEmail)}?${params.toString()}`;
 }

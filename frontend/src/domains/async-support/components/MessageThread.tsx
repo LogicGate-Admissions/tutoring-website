@@ -1,31 +1,33 @@
-'use client';
+"use client";
 
 /**
  * File purpose:
  * Shared message thread for student and tutor support routes.
  *
- * The thread supports live updates, unread dividers, and generic attachments.
- * Attachment upload is kept separate from message persistence so the same
- * upload abstraction can later be reused for resources, homework, or questions.
+ * The thread supports live updates, unread dividers, generic demo attachments,
+ * WhatsApp-style replies, and owner-controlled message edits/deletes.
  */
 
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
-import { uploadAttachments } from '@/domains/attachments/services/attachmentUploadService';
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { uploadAttachments } from "@/domains/attachments/services/attachmentUploadService";
 import {
   canEmailTutorForUrgentMessage,
   openUrgentMessageEmailDraft,
-} from '@/domains/async-support/services/urgentMessageEmailService';
-import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
+} from "@/domains/async-support/services/urgentMessageEmailService";
+import { subscribeToCurrentUser } from "@/domains/auth/services/authService";
 import {
   createSupportMessage,
+  deleteSupportMessage,
   subscribeToSupportMessages,
-} from '@/domains/async-support/services/messagesService';
+  updateSupportMessage,
+} from "@/domains/async-support/services/messagesService";
 import {
   getStudentTutorRelationshipById,
   markRelationshipMessagesSeen,
-} from '@/domains/async-support/services/relationshipsService';
+} from "@/domains/async-support/services/relationshipsService";
 import type {
   AsyncSupportRole,
+  MessageUrgency,
   StudentTutorRelationship,
   ReplyToMessageSummary,
   SupportAttachment,
@@ -53,18 +55,26 @@ export function MessageThread({
 }: MessageThreadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [currentUser, setCurrentUser] = useState<CurrentThreadUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentThreadUser | null>(
+    null,
+  );
   const [relationship, setRelationship] =
     useState<StudentTutorRelationship | null>(null);
-  const [previousLastSeenMessagesAt, setPreviousLastSeenMessagesAt] =
-    useState<string | undefined>();
+  const [previousLastSeenMessagesAt, setPreviousLastSeenMessagesAt] = useState<
+    string | undefined
+  >();
   const [messages, setMessages] = useState<SupportMessage[]>([]);
-  const [draftMessage, setDraftMessage] = useState('');
-  const [replyingTo, setReplyingTo] = useState<ReplyToMessageSummary | null>(null);
+  const [draftMessage, setDraftMessage] = useState("");
+  const [replyingTo, setReplyingTo] = useState<ReplyToMessageSummary | null>(
+    null,
+  );
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUrgent, setIsUrgent] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isMutatingMessage, setIsMutatingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
   const [availabilityBlocks, setAvailabilityBlocks] = useState<any[]>([]);
@@ -78,11 +88,7 @@ export function MessageThread({
         return;
       }
 
-      setCurrentUser({
-        id: user.id,
-        name: user.name,
-        role: user.role,
-      });
+      setCurrentUser(user);
     });
 
     return unsubscribe;
@@ -95,6 +101,7 @@ export function MessageThread({
 
     async function loadInitialAvailability() {
       try {
+        if (!currentUser) return;
         if (currentUser.role === 'student') {
           const profile = await getStoredLearningProfile();
           if (!isActive) return;
@@ -139,7 +146,7 @@ export function MessageThread({
 
         setRelationship(loadedRelationship);
         setPreviousLastSeenMessagesAt(
-          getViewerLastSeenMessagesAt(loadedRelationship, viewerRole)
+          getViewerLastSeenMessagesAt(loadedRelationship, viewerRole),
         );
 
         unsubscribeMessages = subscribeToSupportMessages({
@@ -168,7 +175,7 @@ export function MessageThread({
 
             setMessages([]);
             setIsLoading(false);
-            setError('Could not load messages.');
+            setError("Could not load messages.");
           },
         });
       } catch {
@@ -178,7 +185,7 @@ export function MessageThread({
 
         setMessages([]);
         setIsLoading(false);
-        setError('Could not load messages.');
+        setError("Could not load messages.");
       }
     }
 
@@ -208,7 +215,7 @@ export function MessageThread({
           ? await uploadAttachments({
               files: selectedFiles,
               context: {
-                area: 'messages',
+                area: "messages",
                 ownerId: relationshipId,
                 uploadedById: currentUser.id,
               },
@@ -223,10 +230,10 @@ export function MessageThread({
         body: trimmedMessage,
         attachments,
         replyTo: replyingTo ?? undefined,
-        urgency: isUrgent ? 'urgent' : 'normal',
+        urgency: isUrgent ? "urgent" : "normal",
       });
 
-      if (isUrgent && currentUser.role === 'student') {
+      if (isUrgent && currentUser.role === "student") {
         openUrgentEmailDraftOrShowFallback({
           relationship,
           studentName: currentUser.name,
@@ -235,18 +242,18 @@ export function MessageThread({
         });
       }
 
-      setDraftMessage('');
+      setDraftMessage("");
       setReplyingTo(null);
       setSelectedFiles([]);
       setIsUrgent(false);
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : 'Could not send message.'
+          : "Could not send message.",
       );
     } finally {
       setIsSending(false);
@@ -258,6 +265,109 @@ export function MessageThread({
     window.requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
+  function startEditingMessage(message: SupportMessage) {
+    setReplyingTo(null);
+    setEditingMessageId(message.id);
+    setEditDraft(message.body);
+  }
+
+  function cancelEditingMessage() {
+    setEditingMessageId(null);
+    setEditDraft("");
+  }
+
+  async function saveEditedMessage(message: SupportMessage) {
+    const trimmedEdit = editDraft.trim();
+
+    if (!trimmedEdit && message.attachments.length === 0) {
+      setError("A message must include text or an attachment.");
+      return;
+    }
+
+    try {
+      setIsMutatingMessage(true);
+      setError(null);
+
+      await updateSupportMessage({
+        relationshipId,
+        messageId: message.id,
+        body: trimmedEdit,
+        urgency: message.urgency,
+      });
+
+      cancelEditingMessage();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not edit message.",
+      );
+    } finally {
+      setIsMutatingMessage(false);
+    }
+  }
+
+  async function handleDeleteMessage(message: SupportMessage) {
+    const confirmed = window.confirm(
+      "Delete this message? This cannot be undone.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsMutatingMessage(true);
+      setError(null);
+      await deleteSupportMessage({ relationshipId, messageId: message.id });
+
+      if (editingMessageId === message.id) {
+        cancelEditingMessage();
+      }
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not delete message.",
+      );
+    } finally {
+      setIsMutatingMessage(false);
+    }
+  }
+
+  async function handleSetMessageUrgency(
+    message: SupportMessage,
+    urgency: MessageUrgency,
+  ) {
+    try {
+      setIsMutatingMessage(true);
+      setError(null);
+
+      await updateSupportMessage({
+        relationshipId,
+        messageId: message.id,
+        urgency,
+      });
+
+      if (urgency === "urgent" && currentUser?.role === "student") {
+        openUrgentEmailDraftOrShowFallback({
+          relationship,
+          studentName: currentUser.name,
+          messageBody: message.body,
+          attachmentCount: message.attachments.length,
+        });
+      }
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not update message urgency.",
+      );
+    } finally {
+      setIsMutatingMessage(false);
+    }
+  }
+
   function handleFilesSelected(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     setSelectedFiles((currentFiles) => [...currentFiles, ...files]);
@@ -265,7 +375,7 @@ export function MessageThread({
 
   function removeSelectedFile(fileIndex: number) {
     setSelectedFiles((currentFiles) =>
-      currentFiles.filter((_, index) => index !== fileIndex)
+      currentFiles.filter((_, index) => index !== fileIndex),
     );
   }
 
@@ -322,9 +432,11 @@ export function MessageThread({
   });
 
   const canSendMessage = Boolean(
-    currentUser && (draftMessage.trim() || selectedFiles.length > 0) && !isSending
+    currentUser &&
+    (draftMessage.trim() || selectedFiles.length > 0) &&
+    !isSending,
   );
-  const canMarkUrgent = currentUser?.role === 'student';
+  const canMarkNewMessageUrgent = currentUser?.role === "student";
 
   return (
     <div className="grid gap-4">
@@ -334,19 +446,20 @@ export function MessageThread({
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           Use this space for async support between sessions. New messages appear
-          automatically, and unread messages are marked when you open the thread.
+          automatically, and unread messages are marked when you open the
+          thread.
         </p>
 
         {relationship ? (
           <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
             <p>
-              <span className="font-semibold">Conversation with:</span>{' '}
-              {viewerRole === 'student'
+              <span className="font-semibold">Conversation with:</span>{" "}
+              {viewerRole === "student"
                 ? relationship.tutorName
                 : relationship.studentName}
             </p>
             <p className="mt-1">
-              <span className="font-semibold">Subject:</span>{' '}
+              <span className="font-semibold">Subject:</span>{" "}
               {relationship.level} {relationship.subject}
             </p>
           </div>
@@ -362,21 +475,46 @@ export function MessageThread({
               No messages yet
             </h3>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Send a message or attach a file to start this async support thread.
+              Send a message or attach a file to start this async support
+              thread.
             </p>
           </div>
         ) : (
           <div className="grid gap-3">
-            {messages.map((message) => (
-              <div key={message.id} className="grid gap-3">
-                {message.id === firstUnreadMessageId ? <UnreadDivider /> : null}
-                <MessageBubble
-                  message={message}
-                  isMine={message.senderId === currentUser?.id}
-                  onReply={() => startReplyTo(message)}
-                />
-              </div>
-            ))}
+            {messages.map((message) => {
+              const isMine = message.senderId === currentUser?.id;
+              const canEditOrDelete = isMine;
+              const canChangeUrgency =
+                currentUser?.role === "student" &&
+                isMine &&
+                message.senderRole === "student";
+
+              return (
+                <div key={message.id} className="grid gap-3">
+                  {message.id === firstUnreadMessageId ? (
+                    <UnreadDivider />
+                  ) : null}
+                  <MessageBubble
+                    message={message}
+                    isMine={isMine}
+                    isEditing={editingMessageId === message.id}
+                    editDraft={editDraft}
+                    isBusy={isMutatingMessage}
+                    canEditOrDelete={canEditOrDelete}
+                    canChangeUrgency={canChangeUrgency}
+                    onReply={() => startReplyTo(message)}
+                    onStartEdit={() => startEditingMessage(message)}
+                    onEditDraftChange={setEditDraft}
+                    onCancelEdit={cancelEditingMessage}
+                    onSaveEdit={() => saveEditedMessage(message)}
+                    onDelete={() => handleDeleteMessage(message)}
+                    onSetUrgency={(urgency) =>
+                      handleSetMessageUrgency(message, urgency)
+                    }
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -398,7 +536,10 @@ export function MessageThread({
           </label>
 
           {replyingTo ? (
-            <ReplyingToPreview replyTo={replyingTo} onCancel={() => setReplyingTo(null)} />
+            <ReplyingToPreview
+              replyTo={replyingTo}
+              onCancel={() => setReplyingTo(null)}
+            />
           ) : null}
 
           <textarea
@@ -459,7 +600,7 @@ export function MessageThread({
             ) : null}
           </div>
 
-          {canMarkUrgent ? (
+          {canMarkNewMessageUrgent ? (
             <UrgentToggle
               isChecked={isUrgent}
               canEmailTutor={canEmailTutorForUrgentMessage(relationship)}
@@ -473,7 +614,7 @@ export function MessageThread({
             </p>
 
             <Button type="submit" disabled={!canSendMessage}>
-              {isSending ? 'Sending...' : 'Send message'}
+              {isSending ? "Sending..." : "Send message"}
             </Button>
           </div>
         </form>
@@ -523,7 +664,6 @@ export function MessageThread({
   );
 }
 
-
 function UrgentToggle({
   isChecked,
   canEmailTutor,
@@ -544,8 +684,8 @@ function UrgentToggle({
       <span>
         <span className="block font-semibold">Mark as urgent</span>
         <span className="mt-1 block leading-5 text-red-800">
-          This flags the message for your tutor and opens a pre-filled email draft
-          addressed to them after sending.
+          This flags the message for your tutor and opens a pre-filled email
+          draft addressed to them after sending.
         </span>
         {!canEmailTutor ? (
           <span className="mt-1 block text-xs font-medium text-red-700">
@@ -570,7 +710,9 @@ function openUrgentEmailDraftOrShowFallback({
   attachmentCount: number;
 }) {
   if (!relationship) {
-    window.alert('Urgent flag saved, but relationship details could not be loaded for the email draft.');
+    window.alert(
+      "Urgent flag saved, but relationship details could not be loaded for the email draft.",
+    );
     return;
   }
 
@@ -582,89 +724,342 @@ function openUrgentEmailDraftOrShowFallback({
       attachmentCount,
     });
   } catch {
-    window.alert('Urgent flag saved, but the tutor email is missing for this relationship.');
+    window.alert(
+      "Urgent flag saved, but the tutor email is missing for this relationship.",
+    );
   }
 }
 
 function MessageBubble({
   message,
   isMine,
+  isEditing,
+  editDraft,
+  isBusy,
+  canEditOrDelete,
+  canChangeUrgency,
   onReply,
+  onStartEdit,
+  onEditDraftChange,
+  onCancelEdit,
+  onSaveEdit,
+  onDelete,
+  onSetUrgency,
 }: {
   message: SupportMessage;
   isMine: boolean;
+  isEditing: boolean;
+  editDraft: string;
+  isBusy: boolean;
+  canEditOrDelete: boolean;
+  canChangeUrgency: boolean;
   onReply: () => void;
+  onStartEdit: () => void;
+  onEditDraftChange: (body: string) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  onDelete: () => void;
+  onSetUrgency: (urgency: MessageUrgency) => void;
 }) {
   return (
-    <div className={cn('flex', isMine ? 'justify-end' : 'justify-start')}>
+    <div className={cn("flex min-w-0", isMine ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          'max-w-[min(42rem,85%)] rounded-3xl px-4 py-3',
-          isMine
-            ? 'bg-slate-950 text-white'
-            : 'bg-slate-100 text-slate-900'
+          "relative min-w-0 max-w-[min(42rem,85%)] overflow-hidden rounded-3xl px-4 py-3 pr-11",
+          isMine ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-900",
         )}
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              'text-xs font-semibold',
-              isMine ? 'text-slate-200' : 'text-slate-600'
-            )}
-          >
-            {isMine ? 'You' : message.senderName || 'Unknown user'}
-          </span>
-
-          {message.urgency === 'urgent' ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span
               className={cn(
-                'rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide',
-                isMine ? 'bg-red-500 text-white' : 'bg-red-100 text-red-700'
+                "text-xs font-semibold",
+                isMine ? "text-slate-200" : "text-slate-600",
               )}
             >
-              Urgent
+              {isMine ? "You" : message.senderName || "Unknown user"}
             </span>
-          ) : null}
 
-          <span
-            className={cn(
-              'text-xs',
-              isMine ? 'text-slate-400' : 'text-slate-500'
-            )}
-          >
-            {formatMessageTime(message.createdAt)}
-          </span>
+            {message.urgency === "urgent" ? (
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide",
+                  isMine ? "bg-red-500 text-white" : "bg-red-100 text-red-700",
+                )}
+              >
+                Urgent
+              </span>
+            ) : null}
+
+            <span
+              className={cn(
+                "text-xs",
+                isMine ? "text-slate-400" : "text-slate-500",
+              )}
+            >
+              {formatMessageTime(message.createdAt)}
+              {isEdited(message) ? " · edited" : ""}
+            </span>
         </div>
+
+        {!isEditing ? (
+          <div className="absolute right-2 top-2">
+            <MessageActionsDropdown
+              isMine={isMine}
+              isUrgent={message.urgency === "urgent"}
+              isBusy={isBusy}
+              canEditOrDelete={canEditOrDelete}
+              canChangeUrgency={canChangeUrgency}
+              onReply={onReply}
+              onStartEdit={onStartEdit}
+              onDelete={onDelete}
+              onSetUrgency={onSetUrgency}
+            />
+          </div>
+        ) : null}
 
         {message.replyTo ? (
           <QuotedReplyCard replyTo={message.replyTo} isMine={isMine} />
         ) : null}
 
-        {message.body ? (
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
-            {message.body}
-          </p>
-        ) : null}
+        {isEditing ? (
+          <EditMessageForm
+            value={editDraft}
+            isMine={isMine}
+            isBusy={isBusy}
+            hasAttachments={message.attachments.length > 0}
+            onChange={onEditDraftChange}
+            onSave={onSaveEdit}
+            onCancel={onCancelEdit}
+          />
+        ) : (
+          <>
+            {message.body ? (
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">
+                {message.body}
+              </p>
+            ) : null}
 
-        {message.attachments.length > 0 ? (
-          <AttachmentList attachments={message.attachments} isMine={isMine} />
-        ) : null}
+            {message.attachments.length > 0 ? (
+              <AttachmentList
+                attachments={message.attachments}
+                isMine={isMine}
+              />
+            ) : null}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
+function EditMessageForm({
+  value,
+  isMine,
+  isBusy,
+  hasAttachments,
+  onChange,
+  onSave,
+  onCancel,
+}: {
+  value: string;
+  isMine: boolean;
+  isBusy: boolean;
+  hasAttachments: boolean;
+  onChange: (value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const canSave = Boolean(value.trim() || hasAttachments) && !isBusy;
+
+  return (
+    <div className="mt-3 grid gap-2">
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={3}
+        maxLength={2000}
+        className={cn(
+          "w-full resize-none rounded-2xl border px-3 py-2 text-sm outline-none transition",
+          isMine
+            ? "border-white/20 bg-white/10 text-white placeholder:text-slate-400 focus:border-white"
+            : "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-950",
+        )}
+      />
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={onReply}
+          onClick={onSave}
+          disabled={!canSave}
           className={cn(
-            'mt-3 text-xs font-semibold transition',
-            isMine ? 'text-slate-300 hover:text-white' : 'text-slate-500 hover:text-slate-950'
+            "rounded-full px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
+            isMine
+              ? "bg-white text-slate-950 hover:bg-slate-100"
+              : "bg-slate-950 text-white hover:bg-slate-800",
           )}
         >
-          Reply
+          {isBusy ? "Saving..." : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isBusy}
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
+            isMine
+              ? "text-slate-300 hover:text-white"
+              : "text-slate-500 hover:text-slate-950",
+          )}
+        >
+          Cancel
         </button>
       </div>
     </div>
   );
 }
 
+function MessageActionsDropdown({
+  isMine,
+  isUrgent,
+  isBusy,
+  canEditOrDelete,
+  canChangeUrgency,
+  onReply,
+  onStartEdit,
+  onDelete,
+  onSetUrgency,
+}: {
+  isMine: boolean;
+  isUrgent: boolean;
+  isBusy: boolean;
+  canEditOrDelete: boolean;
+  canChangeUrgency: boolean;
+  onReply: () => void;
+  onStartEdit: () => void;
+  onDelete: () => void;
+  onSetUrgency: (urgency: MessageUrgency) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  function runAction(action: () => void) {
+    setIsOpen(false);
+    action();
+  }
+
+  return (
+    <div ref={menuRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-label="Message options"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((currentValue) => !currentValue)}
+        className={cn(
+          "grid h-7 w-7 place-items-center rounded-full text-base leading-none transition",
+          isMine
+            ? "text-slate-300 hover:bg-white/10 hover:text-white"
+            : "text-slate-500 hover:bg-white hover:text-slate-950",
+        )}
+      >
+        ⌄
+      </button>
+
+      {isOpen ? (
+        <div
+          className={cn(
+            "absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 text-sm text-slate-800 shadow-xl",
+          )}
+        >
+          <DropdownAction onClick={() => runAction(onReply)}>
+            Reply
+          </DropdownAction>
+
+          {canChangeUrgency ? (
+            <DropdownAction
+              disabled={isBusy}
+              onClick={() =>
+                runAction(() => onSetUrgency(isUrgent ? "normal" : "urgent"))
+              }
+            >
+              {isUrgent ? "Remove urgent" : "Mark urgent"}
+            </DropdownAction>
+          ) : null}
+
+          {canEditOrDelete ? (
+            <>
+              <DropdownAction
+                disabled={isBusy}
+                onClick={() => runAction(onStartEdit)}
+              >
+                Edit
+              </DropdownAction>
+              <DropdownAction
+                variant="danger"
+                disabled={isBusy}
+                onClick={() => runAction(onDelete)}
+              >
+                Delete
+              </DropdownAction>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DropdownAction({
+  children,
+  disabled = false,
+  variant = "default",
+  onClick,
+}: {
+  children: string;
+  disabled?: boolean;
+  variant?: "default" | "danger";
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "block w-full px-4 py-2.5 text-left font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
+        variant === "danger"
+          ? "text-red-600 hover:bg-red-50"
+          : "text-slate-700 hover:bg-slate-50 hover:text-slate-950",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 function ReplyingToPreview({
   replyTo,
@@ -677,9 +1072,9 @@ function ReplyingToPreview({
     <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
       <div className="min-w-0 border-l-4 border-slate-400 pl-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Replying to {replyTo.senderName || 'message'}
+          Replying to {replyTo.senderName || "message"}
         </p>
-        <p className="mt-1 truncate text-sm text-slate-700">
+        <p className="mt-1 line-clamp-2 break-words text-sm text-slate-700 [overflow-wrap:anywhere]">
           {formatReplyPreview(replyTo)}
         </p>
       </div>
@@ -704,16 +1099,26 @@ function QuotedReplyCard({
   return (
     <div
       className={cn(
-        'mt-3 rounded-2xl border-l-4 px-3 py-2 text-sm',
+        "mt-3 rounded-2xl border-l-4 px-3 py-2 text-sm",
         isMine
-          ? 'border-white/40 bg-white/10 text-slate-100'
-          : 'border-slate-400 bg-white text-slate-700'
+          ? "border-white/40 bg-white/10 text-slate-100"
+          : "border-slate-400 bg-white text-slate-700",
       )}
     >
-      <p className={cn('text-xs font-semibold', isMine ? 'text-slate-200' : 'text-slate-600')}>
-        {replyTo.senderName || 'Message'}
+      <p
+        className={cn(
+          "text-xs font-semibold",
+          isMine ? "text-slate-200" : "text-slate-600",
+        )}
+      >
+        {replyTo.senderName || "Message"}
       </p>
-      <p className={cn('mt-1 line-clamp-2', isMine ? 'text-slate-300' : 'text-slate-600')}>
+      <p
+        className={cn(
+          "mt-1 line-clamp-2 break-words [overflow-wrap:anywhere]",
+          isMine ? "text-slate-300" : "text-slate-600",
+        )}
+      >
         {formatReplyPreview(replyTo)}
       </p>
     </div>
@@ -748,21 +1153,31 @@ function AttachmentItem({
   isMine: boolean;
 }) {
   const baseClassName = cn(
-    'rounded-2xl border px-3 py-2 text-left text-sm transition',
+    "block min-w-0 max-w-full rounded-2xl border px-3 py-2 text-left text-sm break-words transition [overflow-wrap:anywhere]",
     isMine
-      ? 'border-white/20 bg-white/10 text-white hover:bg-white/15'
-      : 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
+      ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+      : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
   );
 
   const content = (
     <>
-      <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{' '}
-      {attachment.name}
-      <span className={cn('ml-2 text-xs', isMine ? 'text-slate-300' : 'text-slate-500')}>
+      <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
+      <span className="break-words [overflow-wrap:anywhere]">{attachment.name}</span>
+      <span
+        className={cn(
+          "ml-2 text-xs",
+          isMine ? "text-slate-300" : "text-slate-500",
+        )}
+      >
         {formatFileSize(attachment.sizeBytes)}
       </span>
       {!attachment.isPreviewAvailable ? (
-        <span className={cn('mt-1 block text-xs', isMine ? 'text-slate-300' : 'text-slate-500')}>
+        <span
+          className={cn(
+            "mt-1 block text-xs",
+            isMine ? "text-slate-300" : "text-slate-500",
+          )}
+        >
           Demo attachment: too poor to pay for Firebase Storage.
         </span>
       ) : null}
@@ -787,7 +1202,7 @@ function AttachmentItem({
       type="button"
       className={baseClassName}
       onClick={() => {
-        window.alert('Too poor to pay for Firebase Storage :(');
+        window.alert("Too poor to pay for Firebase Storage :(");
       }}
     >
       {content}
@@ -810,8 +1225,10 @@ function SelectedAttachmentList({
           className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm text-slate-700"
         >
           <span className="min-w-0 truncate">
-            {file.name}{' '}
-            <span className="text-xs text-slate-500">{formatFileSize(file.size)}</span>
+            {file.name}{" "}
+            <span className="text-xs text-slate-500">
+              {formatFileSize(file.size)}
+            </span>
           </span>
           <button
             type="button"
@@ -840,13 +1257,13 @@ function UnreadDivider() {
 
 function getViewerLastSeenMessagesAt(
   relationship: StudentTutorRelationship | null,
-  viewerRole: AsyncSupportRole
+  viewerRole: AsyncSupportRole,
 ) {
   if (!relationship) {
     return undefined;
   }
 
-  return viewerRole === 'student'
+  return viewerRole === "student"
     ? relationship.studentLastSeenMessagesAt
     : relationship.tutorLastSeenMessagesAt;
 }
@@ -879,12 +1296,11 @@ function getFirstUnreadMessageId({
   return firstUnreadMessage?.id;
 }
 
-
 function buildReplySummary(message: SupportMessage): ReplyToMessageSummary {
   return {
     messageId: message.id,
     senderId: message.senderId,
-    senderName: message.senderName || 'Unknown user',
+    senderName: message.senderName || "Unknown user",
     bodyPreview: buildReplyBodyPreview(message),
     attachmentCount: message.attachments.length,
     createdAt: message.createdAt,
@@ -892,54 +1308,56 @@ function buildReplySummary(message: SupportMessage): ReplyToMessageSummary {
 }
 
 function buildReplyBodyPreview(message: SupportMessage) {
-  const bodyPreview = message.body.replace(/\s+/g, ' ').trim();
+  const bodyPreview = message.body.replace(/\s+/g, " ").trim();
 
   if (bodyPreview) {
-    return bodyPreview.length > 140 ? `${bodyPreview.slice(0, 139)}…` : bodyPreview;
+    return bodyPreview.length > 140
+      ? `${bodyPreview.slice(0, 139)}…`
+      : bodyPreview;
   }
 
   if (message.attachments.length === 1) {
-    return `Attachment: ${message.attachments[0]?.name ?? 'file'}`;
+    return `Attachment: ${message.attachments[0]?.name ?? "file"}`;
   }
 
   if (message.attachments.length > 1) {
     return `${message.attachments.length} attachments`;
   }
 
-  return 'Message';
+  return "Message";
 }
 
 function formatReplyPreview(replyTo: ReplyToMessageSummary) {
-  const preview = replyTo.bodyPreview || 'Message';
+  const preview = replyTo.bodyPreview || "Message";
 
   if (replyTo.attachmentCount <= 0) {
     return preview;
   }
 
-  const suffix = `${replyTo.attachmentCount} attachment${replyTo.attachmentCount === 1 ? '' : 's'}`;
+  const suffix = `${replyTo.attachmentCount} attachment${replyTo.attachmentCount === 1 ? "" : "s"}`;
 
-  if (preview.toLowerCase().includes('attachment')) {
+  if (preview.toLowerCase().includes("attachment")) {
     return preview;
   }
 
   return `${preview} · ${suffix}`;
 }
 
-function attachmentLabel(kind: SupportAttachment['kind']) {
-  if (kind === 'image') {
-    return 'Image';
+function attachmentLabel(kind: SupportAttachment["kind"]) {
+  if (kind === "image") {
+    return "Image";
   }
 
-  if (kind === 'pdf') {
-    return 'PDF';
+  if (kind === "pdf") {
+    return "PDF";
   }
 
-  return 'File';
+  return "File";
 }
 
 function formatFileSize(sizeBytes: number) {
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
-    return '';
+    return "";
   }
 
   if (sizeBytes < 1024 * 1024) {
@@ -951,19 +1369,23 @@ function formatFileSize(sizeBytes: number) {
 
 function formatMessageTime(value: string) {
   if (!value) {
-    return '';
+    return "";
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return '';
+    return "";
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(date);
+}
+
+function isEdited(message: SupportMessage) {
+  return Boolean(message.updatedAt && message.updatedAt !== message.createdAt);
 }
