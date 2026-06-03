@@ -632,10 +632,10 @@ function MessageBubble({
   onSetUrgency: (urgency: MessageUrgency) => void;
 }) {
   return (
-    <div className={cn("flex", isMine ? "justify-end" : "justify-start")}>
+    <div className={cn("flex min-w-0", isMine ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "relative max-w-[min(42rem,85%)] rounded-3xl px-4 py-3 pr-11",
+          "relative min-w-0 max-w-[min(42rem,85%)] overflow-hidden rounded-3xl px-4 py-3 pr-11",
           isMine ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-900",
         )}
       >
@@ -704,7 +704,7 @@ function MessageBubble({
         ) : (
           <>
             {message.body ? (
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">
                 {message.body}
               </p>
             ) : null}
@@ -944,7 +944,7 @@ function ReplyingToPreview({
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Replying to {replyTo.senderName || "message"}
         </p>
-        <p className="mt-1 truncate text-sm text-slate-700">
+        <p className="mt-1 line-clamp-2 break-words text-sm text-slate-700 [overflow-wrap:anywhere]">
           {formatReplyPreview(replyTo)}
         </p>
       </div>
@@ -985,7 +985,7 @@ function QuotedReplyCard({
       </p>
       <p
         className={cn(
-          "mt-1 line-clamp-2",
+          "mt-1 line-clamp-2 break-words [overflow-wrap:anywhere]",
           isMine ? "text-slate-300" : "text-slate-600",
         )}
       >
@@ -1023,7 +1023,7 @@ function AttachmentItem({
   isMine: boolean;
 }) {
   const baseClassName = cn(
-    "rounded-2xl border px-3 py-2 text-left text-sm transition",
+    "block min-w-0 max-w-full rounded-2xl border px-3 py-2 text-left text-sm break-words transition [overflow-wrap:anywhere]",
     isMine
       ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
       : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
@@ -1032,7 +1032,7 @@ function AttachmentItem({
   const content = (
     <>
       <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
-      {attachment.name}
+      <span className="break-words [overflow-wrap:anywhere]">{attachment.name}</span>
       <span
         className={cn(
           "ml-2 text-xs",
