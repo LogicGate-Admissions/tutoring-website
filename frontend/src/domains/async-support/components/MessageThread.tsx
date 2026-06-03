@@ -34,17 +34,18 @@ import type {
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { cn } from '@/shared/utils/cn';
+import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
+import { createManualTimeBlock, mergeTimeBlocks } from '@/domains/students/learning-profile/utils/timeBlocks';
+import { getStoredLearningProfile, updateStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
+import { getTutorProfileDraft, saveTutorProfileFromOnboarding } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
+import type { AuthUser } from '@/domains/auth/types/auth';
 
 type MessageThreadProps = {
   relationshipId: string;
   viewerRole: AsyncSupportRole;
 };
 
-type CurrentThreadUser = {
-  id: string;
-  name: string;
-  role: AsyncSupportRole;
-};
+type CurrentThreadUser = AuthUser | null;
 
 export function MessageThread({
   relationshipId,
@@ -65,6 +66,10 @@ export function MessageThread({
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
+  const [availabilityBlocks, setAvailabilityBlocks] = useState<any[]>([]);
+  const [availSelectedBlockId, setAvailSelectedBlockId] = useState<string | null>(null);
+  const [tutorDraft, setTutorDraft] = useState<any | null>(null);
 
   useEffect(() => {
     const unsubscribe = subscribeToCurrentUser((user) => {
@@ -82,6 +87,35 @@ export function MessageThread({
 
     return unsubscribe;
   }, [viewerRole]);
+
+  useEffect(() => {
+    if (!isAvailabilityOpen || !currentUser) return;
+
+    let isActive = true;
+
+    async function loadInitialAvailability() {
+      try {
+        if (currentUser.role === 'student') {
+          const profile = await getStoredLearningProfile();
+          if (!isActive) return;
+          setAvailabilityBlocks(profile.availability ?? []);
+        } else {
+          const draft = await getTutorProfileDraft(currentUser.id);
+          if (!isActive) return;
+          setTutorDraft(draft);
+          setAvailabilityBlocks(draft.availability ?? []);
+        }
+      } catch (e) {
+        // ignore; leave availability empty
+      }
+    }
+
+    loadInitialAvailability();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isAvailabilityOpen, currentUser]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -235,6 +269,52 @@ export function MessageThread({
     );
   }
 
+  function addGridRange(day: any, from: string, to: string) {
+    const newBlock = createManualTimeBlock(day, from, to);
+    setAvailabilityBlocks((current) => mergeTimeBlocks([...current, newBlock]));
+    setAvailSelectedBlockId(newBlock.id);
+  }
+
+  function resizeAvailBlock(blockId: string, from: string, to: string) {
+    setAvailabilityBlocks((current) =>
+      mergeTimeBlocks(
+        current.map((b) => (b.id === blockId ? { ...b, from, to } : b))
+      )
+    );
+  }
+
+  function removeAvailBlock(block: any) {
+    setAvailabilityBlocks((current) => current.filter((b) => b.id !== block.id));
+    setAvailSelectedBlockId(null);
+  }
+
+  async function handleSaveAvailability() {
+    try {
+      if (!currentUser) return;
+
+      const merged = mergeTimeBlocks(availabilityBlocks);
+
+      if (currentUser.role === 'student') {
+        await updateStoredLearningProfile({ availability: merged });
+      } else {
+        // save tutor draft availability; preserve other draft fields if we loaded one
+        if (tutorDraft) {
+          await saveTutorProfileFromOnboarding(currentUser, { ...tutorDraft, availability: merged });
+        }
+      }
+
+      setIsAvailabilityOpen(false);
+    } catch (e) {
+      // best-effort: show simple alert for demo
+      // eslint-disable-next-line no-alert
+      window.alert('Could not save availability.');
+    }
+  }
+
+  function handleCloseAvailability() {
+    setIsAvailabilityOpen(false);
+  }
+
   const firstUnreadMessageId = getFirstUnreadMessageId({
     messages,
     currentUserId: currentUser?.id,
@@ -343,19 +423,32 @@ export function MessageThread({
               className="hidden"
             />
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSending}
-              >
-                Attach files
-              </Button>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSending}
+                >
+                  Attach files
+                </Button>
 
-              <p className="text-xs text-slate-500">
-                Images, PDFs, documents or screenshots up to 10MB each. Demo stores file details only.
-              </p>
+                <p className="text-xs text-slate-500">
+                  Images, PDFs, documents or screenshots up to 10MB each. Demo stores file details only.
+                </p>
+              </div>
+
+              <div className="shrink-0">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsAvailabilityOpen(true)}
+                  disabled={isSending}
+                >
+                  Change availability
+                </Button>
+              </div>
             </div>
 
             {selectedFiles.length > 0 ? (
@@ -385,6 +478,47 @@ export function MessageThread({
           </div>
         </form>
       </Card>
+
+      {isAvailabilityOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-slate-950/40"
+            onClick={handleCloseAvailability}
+          />
+
+          <div className="relative m-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between">
+              <h2 className="text-lg font-semibold text-slate-950">Edit availability</h2>
+              <button
+                type="button"
+                onClick={handleCloseAvailability}
+                className="rounded-full border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <StudentAvailabilityGrid
+                blocks={availabilityBlocks}
+                selectedBlockId={availSelectedBlockId}
+                onSelectBlock={setAvailSelectedBlockId}
+                onAddTimeRange={addGridRange}
+                onDeleteBlock={removeAvailBlock}
+                onResizeBlock={resizeAvailBlock}
+              />
+            </div>
+
+            <div className="mt-4 flex justify-end gap-3">
+              <Button variant="secondary" onClick={handleCloseAvailability}>
+                Close without saving
+              </Button>
+              <Button onClick={handleSaveAvailability}>Save availability</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
     </div>
   );
 }
