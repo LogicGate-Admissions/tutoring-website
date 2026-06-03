@@ -55,9 +55,7 @@ export function MessageThread({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messageElementRefs = useRef(new Map<string, HTMLDivElement>());
-  const highlightTimeoutRef = useRef<ReturnType<
-    typeof window.setTimeout
-  > | null>(null);
+  const highlightTimeoutRef = useRef<number | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentThreadUser | null>(
     null,
   );
