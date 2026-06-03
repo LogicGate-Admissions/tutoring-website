@@ -635,12 +635,11 @@ function MessageBubble({
     <div className={cn("flex", isMine ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[min(42rem,85%)] rounded-3xl px-4 py-3",
+          "relative max-w-[min(42rem,85%)] rounded-3xl px-4 py-3 pr-11",
           isMine ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-900",
         )}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span
               className={cn(
                 "text-xs font-semibold",
@@ -670,9 +669,10 @@ function MessageBubble({
               {formatMessageTime(message.createdAt)}
               {isEdited(message) ? " · edited" : ""}
             </span>
-          </div>
+        </div>
 
-          {!isEditing ? (
+        {!isEditing ? (
+          <div className="absolute right-2 top-2">
             <MessageActionsDropdown
               isMine={isMine}
               isUrgent={message.urgency === "urgent"}
@@ -684,8 +684,8 @@ function MessageBubble({
               onDelete={onDelete}
               onSetUrgency={onSetUrgency}
             />
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {message.replyTo ? (
           <QuotedReplyCard replyTo={message.replyTo} isMine={isMine} />
@@ -862,8 +862,7 @@ function MessageActionsDropdown({
       {isOpen ? (
         <div
           className={cn(
-            "absolute top-8 z-20 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 text-sm text-slate-800 shadow-xl",
-            isMine ? "right-0" : "left-0",
+            "absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 text-sm text-slate-800 shadow-xl",
           )}
         >
           <DropdownAction onClick={() => runAction(onReply)}>
