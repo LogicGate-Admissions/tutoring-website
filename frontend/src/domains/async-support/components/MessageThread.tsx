@@ -8,7 +8,9 @@
  * WhatsApp-style replies, and owner-controlled message edits/deletes.
  */
 
-import { ChangeEvent, ClipboardEvent as ReactClipboardEvent, FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode, forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { MathKeyboard } from "@/domains/async-support/components/MathKeyboard";
+import { MathRenderer, normalizeMathMessage, stripMathDelimiters } from "@/domains/async-support/components/MathRenderer";
 import { uploadAttachments } from "@/domains/attachments/services/attachmentUploadService";
 import {
   canEmailTutorForUrgentMessage,
@@ -57,7 +59,7 @@ export function MessageThread({
   viewerRole,
 }: MessageThreadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const messageComposerRef = useRef<MathInputHandle | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messageElementRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimeoutRef = useRef<number | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentThreadUser | null>(
@@ -85,6 +87,7 @@ export function MessageThread({
   const [isMutatingMessage, setIsMutatingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [isMathKeyboardOpen, setIsMathKeyboardOpen] = useState(false);
   const [scheduleTab, setScheduleTab] = useState<'availability' | 'booking'>('availability');
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TimeBlock[]>([]);
   const [availSelectedBlockId, setAvailSelectedBlockId] = useState<string | null>(null);
@@ -265,7 +268,7 @@ export function MessageThread({
   async function handleSendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const trimmedMessage = draftMessage.trim();
+    const trimmedMessage = normalizeMathMessage(draftMessage).trim();
 
     if (!currentUser || (!trimmedMessage && selectedFiles.length === 0)) {
       return;
@@ -327,7 +330,7 @@ export function MessageThread({
 
   function startReplyTo(message: SupportMessage) {
     setReplyingTo(buildReplySummary(message));
-    window.requestAnimationFrame(() => messageComposerRef.current?.focus());
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
   function startEditingMessage(message: SupportMessage) {
@@ -342,7 +345,7 @@ export function MessageThread({
   }
 
   async function saveEditedMessage(message: SupportMessage) {
-    const trimmedEdit = editDraft.trim();
+    const trimmedEdit = normalizeMathMessage(editDraft).trim();
 
     if (!trimmedEdit && message.attachments.length === 0) {
       setError("A message must include text or an attachment.");
@@ -629,22 +632,48 @@ export function MessageThread({
             />
           ) : null}
 
-          <MathInputEditor
-            ref={messageComposerRef}
+          <textarea
+            ref={textareaRef}
             id="support-message"
             value={draftMessage}
-            onChange={setDraftMessage}
-            placeholder="Write a message or insert maths..."
+            onChange={(event) => setDraftMessage(event.target.value)}
+            onKeyDown={(event) => {
+              // Tab jumps to the next █ placeholder (inserted by math keyboard)
+              if (event.key === "Tab") {
+                const ta = event.currentTarget;
+                const nextPlaceholder = ta.value.indexOf("█", ta.selectionEnd ?? 0);
+                if (nextPlaceholder !== -1) {
+                  event.preventDefault();
+                  ta.setSelectionRange(nextPlaceholder, nextPlaceholder + 1);
+                }
+              }
+            }}
+            placeholder="Write a message..."
+            rows={4}
             maxLength={2000}
-            tone="light"
+            className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
           />
 
-          <MathSymbolPalette
-            tone="light"
-            onInsert={(snippet) =>
-              messageComposerRef.current?.insertSnippet(snippet)
-            }
-          />
+          {/* Live rendered preview – shown whenever the draft contains $...$ math */}
+          {draftMessage.includes("$") ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Preview
+              </p>
+              <div className="text-sm leading-6 text-slate-900">
+                <MathRenderer value={normalizeMathMessage(draftMessage)} />
+              </div>
+            </div>
+          ) : null}
+
+          {isMathKeyboardOpen ? (
+            <MathKeyboard
+              textareaRef={textareaRef}
+              onValueChange={setDraftMessage}
+              isOpen={isMathKeyboardOpen}
+              onClose={() => setIsMathKeyboardOpen(false)}
+            />
+          ) : null}
 
           <div className="grid gap-2">
             <input
@@ -666,6 +695,20 @@ export function MessageThread({
                   disabled={isSending}
                 >
                   Attach files
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setIsMathKeyboardOpen((prev) => !prev);
+                    // Re-focus textarea after toggling so caret is preserved
+                    requestAnimationFrame(() => textareaRef.current?.focus());
+                  }}
+                  disabled={isSending}
+                  className={isMathKeyboardOpen ? "border-slate-950 bg-slate-50" : ""}
+                >
+                  ∑ Math
                 </Button>
 
                 <p className="text-xs text-slate-500">
@@ -800,879 +843,6 @@ export function MessageThread({
       ) : null}
 
     </div>
-  );
-}
-
-
-type MathSymbolGroup = {
-  label: string;
-  symbols: { label: string; insert: string; hint?: string }[];
-};
-
-/**
- * Maths templates used by the message composer.
- *
- * These insert lightweight LaTeX-style snippets, then the app renders the
- * supported snippets into visual maths in previews and sent messages. Keeping
- * the stored value as text means messages still work in Firestore and remain
- * editable, while fractions, roots, integrals and matrices display like maths.
- */
-const CURSOR_MARKER = "[[cursor]]";
-
-const MATH_SYMBOL_GROUPS: MathSymbolGroup[] = [
-  {
-    label: "Templates",
-    symbols: [
-      { label: "fraction", insert: `\\frac{${CURSOR_MARKER}}{}`, hint: "Custom fraction template" },
-      { label: "power", insert: `^{${CURSOR_MARKER}}`, hint: "Custom exponent" },
-      { label: "x²", insert: "^{2}", hint: "Squared" },
-      { label: "x³", insert: "^{3}", hint: "Cubed" },
-      { label: "root", insert: `\\sqrt{${CURSOR_MARKER}}`, hint: "Square root" },
-      { label: "nth root", insert: `\\sqrt[n]{${CURSOR_MARKER}}`, hint: "nth root template" },
-      { label: "subscript", insert: `_{${CURSOR_MARKER}}`, hint: "Subscript template" },
-      { label: "abs", insert: `\\left|${CURSOR_MARKER}\\right|`, hint: "Absolute value" },
-      { label: "norm", insert: `\\left\\|${CURSOR_MARKER}\\right\\|`, hint: "Vector norm" },
-      { label: "piecewise", insert: `f(x) = {\n  ${CURSOR_MARKER}, if \n  , if \n}`, hint: "Piecewise function" },
-      { label: "system", insert: `{\n  ${CURSOR_MARKER}\n  \n}`, hint: "System of equations" },
-      { label: "equation", insert: `${CURSOR_MARKER} = `, hint: "Equation starter" },
-    ],
-  },
-  {
-    label: "Calculus",
-    symbols: [
-      { label: "∫ limits", insert: `\\int_{${CURSOR_MARKER}}^{} f(x)\\,dx`, hint: "Definite integral with editable limits" },
-      { label: "∫", insert: `\\int ${CURSOR_MARKER}\\,dx`, hint: "Indefinite integral" },
-      { label: "∫∫", insert: `\\iint_{${CURSOR_MARKER}} f(x,y)\\,dA`, hint: "Double integral" },
-      { label: "∫∫∫", insert: `\\iiint_{${CURSOR_MARKER}} f(x,y,z)\\,dV`, hint: "Triple integral" },
-      { label: "d/dx", insert: `\\frac{d}{dx}(${CURSOR_MARKER})`, hint: "Derivative with respect to x" },
-      { label: "\\frac{dy}{dx}", insert: "\\frac{dy}{dx}", hint: "First derivative" },
-      { label: "\\frac{d²y}{dx²}", insert: "\\frac{d²y}{dx²}", hint: "Second derivative" },
-      { label: "∂/∂x", insert: `\\frac{∂}{∂x}(${CURSOR_MARKER})`, hint: "Partial derivative" },
-      { label: "∂²/∂x²", insert: `\\frac{∂²}{∂x²}(${CURSOR_MARKER})`, hint: "Second partial derivative" },
-      { label: "lim", insert: `\\lim_{x\\to ${CURSOR_MARKER}} f(x)`, hint: "Limit template" },
-      { label: "Σ limits", insert: `\\sum_{${CURSOR_MARKER}}^{} `, hint: "Summation with limits" },
-      { label: "Π limits", insert: `\\prod_{${CURSOR_MARKER}}^{} `, hint: "Product with limits" },
-      { label: "∇", insert: "∇", hint: "Gradient / del" },
-      { label: "∇²", insert: "∇²", hint: "Laplacian" },
-      { label: "f′(x)", insert: "f′(x)", hint: "First derivative notation" },
-      { label: "f″(x)", insert: "f″(x)", hint: "Second derivative notation" },
-    ],
-  },
-  {
-    label: "Matrices",
-    symbols: [
-      { label: "2×2", insert: `\\begin{bmatrix}${CURSOR_MARKER} &  \\\\  &  \\end{bmatrix}`, hint: "2 by 2 matrix" },
-      { label: "3×3", insert: `\\begin{bmatrix}${CURSOR_MARKER} &  &  \\\\  &  &  \\\\  &  &  \\end{bmatrix}`, hint: "3 by 3 matrix" },
-      { label: "2×1", insert: `\\begin{bmatrix}${CURSOR_MARKER} \\\\  \\end{bmatrix}`, hint: "Column vector" },
-      { label: "3×1", insert: `\\begin{bmatrix}${CURSOR_MARKER} \\\\  \\\\  \\end{bmatrix}`, hint: "3D column vector" },
-      { label: "det", insert: `\\det\\left(\\begin{bmatrix}${CURSOR_MARKER} & \\\\  & \\end{bmatrix}\\right)`, hint: "Determinant" },
-      { label: "inverse", insert: `A^(-1)`, hint: "Inverse matrix" },
-      { label: "transpose", insert: `A^T`, hint: "Transpose" },
-      { label: "identity", insert: "I", hint: "Identity matrix" },
-      { label: "rank", insert: `\\operatorname{rank}(${CURSOR_MARKER})`, hint: "Matrix rank" },
-      { label: "eigen", insert: `Av = λv`, hint: "Eigenvalue equation" },
-    ],
-  },
-  {
-    label: "Algebra",
-    symbols: [
-      { label: "±", insert: "±" },
-      { label: "∓", insert: "∓" },
-      { label: "≈", insert: "≈" },
-      { label: "≠", insert: "≠" },
-      { label: "≤", insert: "≤" },
-      { label: "≥", insert: "≥" },
-      { label: "≡", insert: "≡", hint: "Identically equal / congruent" },
-      { label: "∝", insert: "∝", hint: "Proportional to" },
-      { label: "∞", insert: "∞" },
-      { label: "⌊x⌋", insert: `\\lfloor ${CURSOR_MARKER} \\rfloor`, hint: "Floor" },
-      { label: "⌈x⌉", insert: `\\lceil ${CURSOR_MARKER} \\rceil`, hint: "Ceiling" },
-      { label: "factorial", insert: "!" },
-      { label: "mod", insert: ` mod ` },
-      { label: "|", insert: " | ", hint: "Divides" },
-    ],
-  },
-  {
-    label: "Functions",
-    symbols: [
-      { label: "sin", insert: `\\sin(${CURSOR_MARKER})` },
-      { label: "cos", insert: `\\cos(${CURSOR_MARKER})` },
-      { label: "tan", insert: `\\tan(${CURSOR_MARKER})` },
-      { label: "arcsin", insert: `\\arcsin(${CURSOR_MARKER})` },
-      { label: "arccos", insert: `\\arccos(${CURSOR_MARKER})` },
-      { label: "arctan", insert: `\\arctan(${CURSOR_MARKER})` },
-      { label: "ln", insert: `\\ln(${CURSOR_MARKER})` },
-      { label: "log base", insert: `\\log_{${CURSOR_MARKER}}()`, hint: "Logarithm with custom base" },
-      { label: "exp", insert: `\\exp(${CURSOR_MARKER})` },
-      { label: "e^x", insert: `e^{${CURSOR_MARKER}}` },
-      { label: "→", insert: "→" },
-      { label: "↦", insert: "↦" },
-      { label: "domain", insert: `domain: ${CURSOR_MARKER}` },
-      { label: "range", insert: `range: ${CURSOR_MARKER}` },
-    ],
-  },
-  {
-    label: "Vectors",
-    symbols: [
-      { label: "vector", insert: `⃗`, hint: "Vector arrow mark" },
-      { label: "dot", insert: " · ", hint: "Dot product" },
-      { label: "cross", insert: " × ", hint: "Cross product" },
-      { label: "unit", insert: "î, ĵ, k̂", hint: "Unit vectors" },
-      { label: "angle", insert: "∠" },
-      { label: "parallel", insert: "∥" },
-      { label: "perp", insert: "⊥" },
-      { label: "degrees", insert: "°" },
-      { label: "magnitude", insert: `\\left|${CURSOR_MARKER}\\right|` },
-      { label: "component", insert: `(${CURSOR_MARKER}, , )`, hint: "Vector/component tuple" },
-    ],
-  },
-  {
-    label: "Stats",
-    symbols: [
-      { label: "P(A)", insert: `P(${CURSOR_MARKER})`, hint: "Probability" },
-      { label: "P(A|B)", insert: `P(${CURSOR_MARKER} | )`, hint: "Conditional probability" },
-      { label: "E[X]", insert: `E[${CURSOR_MARKER}]`, hint: "Expectation" },
-      { label: "Var", insert: `\\operatorname{Var}(${CURSOR_MARKER})` },
-      { label: "SD", insert: `\\operatorname{SD}(${CURSOR_MARKER})` },
-      { label: "N(μ,σ²)", insert: `N(${CURSOR_MARKER}, \\sigma^{2})`, hint: "Normal distribution" },
-      { label: "μ", insert: "μ" },
-      { label: "σ²", insert: "σ²" },
-      { label: "x̄", insert: "x̄", hint: "Sample mean" },
-      { label: "nCr", insert: `\\binom{${CURSOR_MARKER}}{r}`, hint: "Combinations" },
-      { label: "nPr", insert: `P(${CURSOR_MARKER}, r)`, hint: "Permutations" },
-      { label: "∑", insert: "∑" },
-    ],
-  },
-  {
-    label: "Sets/logic",
-    symbols: [
-      { label: "∈", insert: "∈" },
-      { label: "∉", insert: "∉" },
-      { label: "⊂", insert: "⊂" },
-      { label: "⊆", insert: "⊆" },
-      { label: "∪", insert: "∪" },
-      { label: "∩", insert: "∩" },
-      { label: "∅", insert: "∅" },
-      { label: "∀", insert: "∀" },
-      { label: "∃", insert: "∃" },
-      { label: "¬", insert: "¬" },
-      { label: "∧", insert: "∧" },
-      { label: "∨", insert: "∨" },
-      { label: "⇒", insert: "⇒" },
-      { label: "⇔", insert: "⇔" },
-      { label: "ℕ", insert: "ℕ" },
-      { label: "ℤ", insert: "ℤ" },
-      { label: "ℚ", insert: "ℚ" },
-      { label: "ℝ", insert: "ℝ" },
-      { label: "ℂ", insert: "ℂ" },
-    ],
-  },
-  {
-    label: "Greek",
-    symbols: [
-      { label: "α", insert: "α" },
-      { label: "β", insert: "β" },
-      { label: "γ", insert: "γ" },
-      { label: "Γ", insert: "Γ" },
-      { label: "δ", insert: "δ" },
-      { label: "Δ", insert: "Δ" },
-      { label: "ε", insert: "ε" },
-      { label: "η", insert: "η" },
-      { label: "θ", insert: "θ" },
-      { label: "λ", insert: "λ" },
-      { label: "μ", insert: "μ" },
-      { label: "ν", insert: "ν" },
-      { label: "ξ", insert: "ξ" },
-      { label: "π", insert: "π" },
-      { label: "ρ", insert: "ρ" },
-      { label: "σ", insert: "σ" },
-      { label: "Σ", insert: "Σ" },
-      { label: "τ", insert: "τ" },
-      { label: "φ", insert: "φ" },
-      { label: "Φ", insert: "Φ" },
-      { label: "χ", insert: "χ" },
-      { label: "ψ", insert: "ψ" },
-      { label: "ω", insert: "ω" },
-      { label: "Ω", insert: "Ω" },
-    ],
-  },
-];
-
-function MathSymbolPalette({
-  tone,
-  compact = false,
-  onInsert,
-}: {
-  tone: "light" | "dark";
-  compact?: boolean;
-  onInsert: (snippet: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeGroup, setActiveGroup] = useState(MATH_SYMBOL_GROUPS[0]?.label ?? "Templates");
-  const [searchTerm, setSearchTerm] = useState("");
-  const selectedGroup =
-    MATH_SYMBOL_GROUPS.find((group) => group.label === activeGroup) ??
-    MATH_SYMBOL_GROUPS[0];
-  const trimmedSearchTerm = searchTerm.trim().toLowerCase();
-  const visibleSymbols = selectedGroup?.symbols.filter((symbol) => {
-    if (!trimmedSearchTerm) {
-      return true;
-    }
-
-    return [symbol.label, symbol.insert, symbol.hint ?? ""]
-      .join(" ")
-      .toLowerCase()
-      .includes(trimmedSearchTerm);
-  });
-
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border",
-        tone === "dark"
-          ? "border-white/15 bg-white/5"
-          : "border-slate-200 bg-slate-50",
-      )}
-    >
-      <button
-        type="button"
-        onClick={() => setIsOpen((currentValue) => !currentValue)}
-        className={cn(
-          "flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-xs font-semibold transition",
-          tone === "dark"
-            ? "text-slate-200 hover:bg-white/10"
-            : "text-slate-700 hover:bg-white",
-        )}
-        aria-expanded={isOpen}
-      >
-        <span>{compact ? "Maths tools" : "Insert maths / equation template"}</span>
-        <span aria-hidden="true">{isOpen ? "−" : "+"}</span>
-      </button>
-
-      {isOpen ? (
-        <div
-          className={cn(
-            "grid gap-3 border-t px-3 py-3",
-            tone === "dark" ? "border-white/15" : "border-slate-200",
-          )}
-        >
-          <div className="flex flex-wrap gap-2">
-            {MATH_SYMBOL_GROUPS.map((group) => {
-              const isActive = group.label === selectedGroup?.label;
-              return (
-                <button
-                  key={group.label}
-                  type="button"
-                  onClick={() => {
-                    setActiveGroup(group.label);
-                    setSearchTerm("");
-                  }}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-xs font-semibold transition",
-                    tone === "dark"
-                      ? isActive
-                        ? "bg-white text-slate-950"
-                        : "bg-white/10 text-slate-200 hover:bg-white/15"
-                      : isActive
-                        ? "bg-slate-950 text-white"
-                        : "bg-white text-slate-600 hover:text-slate-950",
-                  )}
-                >
-                  {group.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <input
-            type="search"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder={`Search ${selectedGroup?.label.toLowerCase()} tools...`}
-            className={cn(
-              "w-full rounded-xl border px-3 py-2 text-xs outline-none transition",
-              tone === "dark"
-                ? "border-white/15 bg-white/10 text-white placeholder:text-slate-400 focus:border-white"
-                : "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-400",
-            )}
-          />
-
-          <div className="flex max-h-56 flex-wrap gap-2 overflow-y-auto pr-1">
-            {visibleSymbols?.length ? (
-              visibleSymbols.map((symbol) => (
-                <button
-                  key={`${selectedGroup.label}-${symbol.label}-${symbol.insert}`}
-                  type="button"
-                  onClick={() => onInsert(symbol.insert)}
-                  title={symbol.hint ?? symbol.label}
-                  className={cn(
-                    "min-w-10 rounded-xl border px-3 py-2 text-left text-sm font-semibold transition",
-                    tone === "dark"
-                      ? "border-white/15 bg-white/10 text-white hover:bg-white/15"
-                      : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-100",
-                  )}
-                >
-                  <span className="block">{symbol.label}</span>
-                  {symbol.hint ? (
-                    <span
-                      className={cn(
-                        "mt-1 block text-[10px] font-medium leading-4",
-                        tone === "dark" ? "text-slate-300" : "text-slate-500",
-                      )}
-                    >
-                      {symbol.hint}
-                    </span>
-                  ) : null}
-                </button>
-              ))
-            ) : (
-              <p
-                className={cn(
-                  "text-xs",
-                  tone === "dark" ? "text-slate-300" : "text-slate-500",
-                )}
-              >
-                No matching maths tools in this category.
-              </p>
-            )}
-          </div>
-
-          <p
-            className={cn(
-              "text-xs leading-5",
-              tone === "dark" ? "text-slate-300" : "text-slate-500",
-            )}
-          >
-            Insert a maths structure, fill the blanks, and check the rendered preview. Fractions, roots, limits and matrices are displayed visually in sent messages.
-          </p>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-type MathInputHandle = {
-  focus: () => void;
-  insertSnippet: (snippet: string) => void;
-};
-
-type MathInputEditorProps = {
-  id?: string;
-  value: string;
-  onChange: (nextValue: string) => void;
-  placeholder: string;
-  maxLength?: number;
-  tone: "light" | "dark";
-};
-
-/**
- * A lightweight in-message maths editor.
- *
- * The underlying message is still stored as plain text, but recognised maths
- * snippets are displayed as non-editable inline maths blocks while the user is
- * composing. This gives the Wolfram-style feel of maths appearing inside the
- * input itself without needing a paid/large equation-editor dependency.
- */
-const MathInputEditor = forwardRef<MathInputHandle, MathInputEditorProps>(
-  function MathInputEditor(
-    { id, value, onChange, placeholder, maxLength = 2000, tone },
-    ref,
-  ) {
-    const editorRef = useRef<HTMLDivElement | null>(null);
-    const [isFocused, setIsFocused] = useState(false);
-
-    useEffect(() => {
-      const editor = editorRef.current;
-      if (!editor) {
-        return;
-      }
-
-      const currentSerializedValue = serializeMathInput(editor);
-      const shouldReplaceDom =
-        document.activeElement !== editor || value === "" || currentSerializedValue !== value;
-
-      if (shouldReplaceDom) {
-        renderMathInputValue(editor, value, tone);
-      }
-    }, [value, tone]);
-
-    useImperativeHandle(ref, () => ({
-      focus() {
-        editorRef.current?.focus();
-      },
-      insertSnippet(snippet: string) {
-        const editor = editorRef.current;
-        if (!editor) {
-          return;
-        }
-
-        editor.focus();
-        const visibleSnippet = snippet.replace(CURSOR_MARKER, "");
-        const fragment = document.createDocumentFragment();
-        appendMathInputNodes(fragment, visibleSnippet, tone);
-        insertFragmentAtCurrentSelection(editor, fragment);
-
-        const nextValue = serializeMathInput(editor).slice(0, maxLength);
-        onChange(nextValue);
-      },
-    }), [maxLength, onChange, tone]);
-
-    function handleInput() {
-      const editor = editorRef.current;
-      if (!editor) {
-        return;
-      }
-
-      const nextValue = serializeMathInput(editor).slice(0, maxLength);
-      onChange(nextValue);
-    }
-
-    function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-      if (event.key !== "Enter") {
-        return;
-      }
-
-      event.preventDefault();
-      document.execCommand("insertText", false, "\n");
-      handleInput();
-    }
-
-    function handlePaste(event: ReactClipboardEvent<HTMLDivElement>) {
-      event.preventDefault();
-      const pastedText = event.clipboardData.getData("text/plain");
-      document.execCommand("insertText", false, pastedText);
-      handleInput();
-    }
-
-    const isEmpty = value.trim().length === 0;
-
-    return (
-      <div className="relative">
-        {isEmpty ? (
-          <span
-            className={cn(
-              "pointer-events-none absolute left-4 top-3 text-sm",
-              tone === "dark" ? "text-slate-400" : "text-slate-400",
-              isFocused ? "opacity-60" : "opacity-100",
-            )}
-          >
-            {placeholder}
-          </span>
-        ) : null}
-        <div
-          id={id}
-          ref={editorRef}
-          role="textbox"
-          aria-multiline="true"
-          contentEditable
-          suppressContentEditableWarning
-          onInput={handleInput}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          className={cn(
-            "min-h-28 w-full rounded-2xl border px-4 py-3 text-sm leading-7 outline-none transition whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-            tone === "dark"
-              ? "border-white/20 bg-white/10 text-white focus:border-white"
-              : "border-slate-200 bg-white text-slate-900 focus:border-slate-950",
-          )}
-        />
-        <p
-          className={cn(
-            "mt-1 text-xs",
-            tone === "dark" ? "text-slate-300" : "text-slate-500",
-          )}
-        >
-          Maths appears directly in the input. Use the tools below for fractions, integrals, matrices and symbols.
-        </p>
-      </div>
-    );
-  },
-);
-
-MathInputEditor.displayName = "MathInputEditor";
-
-function renderMathInputValue(
-  editor: HTMLDivElement,
-  value: string,
-  tone: "light" | "dark",
-) {
-  editor.replaceChildren();
-  appendMathInputNodes(editor, value, tone);
-}
-
-function appendMathInputNodes(
-  parent: Node,
-  value: string,
-  tone: "light" | "dark",
-) {
-  RENDERABLE_MATH_PATTERN.lastIndex = 0;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = RENDERABLE_MATH_PATTERN.exec(value)) !== null) {
-    if (match.index > lastIndex) {
-      parent.appendChild(document.createTextNode(value.slice(lastIndex, match.index)));
-    }
-
-    parent.appendChild(createMathInputChip(match[0], tone));
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < value.length) {
-    parent.appendChild(document.createTextNode(value.slice(lastIndex)));
-  }
-}
-
-function createMathInputChip(source: string, tone: "light" | "dark") {
-  const chip = document.createElement("span");
-  chip.dataset.mathSource = source;
-  chip.contentEditable = "false";
-  chip.className = [
-    "mx-1",
-    "inline-flex",
-    "min-h-8",
-    "items-center",
-    "rounded-lg",
-    "border",
-    "px-2",
-    "py-1",
-    "align-middle",
-    "font-serif",
-    "shadow-sm",
-    tone === "dark"
-      ? "border-white/20 bg-white/15 text-white"
-      : "border-violet-200 bg-violet-50 text-slate-950",
-  ].join(" ");
-  chip.innerHTML = renderMathTokenHtml(source);
-  return chip;
-}
-
-function serializeMathInput(editor: HTMLElement) {
-  return Array.from(editor.childNodes)
-    .map((node) => serializeMathInputNode(node))
-    .join("");
-}
-
-function serializeMathInputNode(node: Node): string {
-  if (node.nodeType === Node.TEXT_NODE) {
-    return node.textContent ?? "";
-  }
-
-  if (!(node instanceof HTMLElement)) {
-    return "";
-  }
-
-  const mathSource = node.dataset.mathSource;
-  if (mathSource) {
-    return mathSource;
-  }
-
-  if (node.tagName === "BR") {
-    return "\n";
-  }
-
-  return Array.from(node.childNodes)
-    .map((childNode) => serializeMathInputNode(childNode))
-    .join("");
-}
-
-function insertFragmentAtCurrentSelection(editor: HTMLElement, fragment: DocumentFragment) {
-  const selection = window.getSelection();
-
-  if (!selection || selection.rangeCount === 0 || !selection.anchorNode || !editor.contains(selection.anchorNode)) {
-    editor.appendChild(fragment);
-    editor.appendChild(document.createTextNode(" "));
-    moveCaretToEnd(editor);
-    return;
-  }
-
-  const range = selection.getRangeAt(0);
-  range.deleteContents();
-  const spacer = document.createTextNode(" ");
-  fragment.appendChild(spacer);
-  range.insertNode(fragment);
-  range.setStartAfter(spacer);
-  range.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
-function moveCaretToEnd(element: HTMLElement) {
-  const range = document.createRange();
-  range.selectNodeContents(element);
-  range.collapse(false);
-  const selection = window.getSelection();
-  selection?.removeAllRanges();
-  selection?.addRange(range);
-}
-
-function renderMathTokenHtml(source: string) {
-  const fraction = source.match(/^\\frac\{([^{}]*)\}\{([^{}]*)\}$/);
-  if (fraction) {
-    return `<span class="inline-grid grid-rows-[auto_auto] place-items-center text-center leading-none"><span class="border-b border-current px-2 pb-0.5">${mathHtmlPart(fraction[1])}</span><span class="px-2 pt-0.5">${mathHtmlPart(fraction[2])}</span></span>`;
-  }
-
-  const binomial = source.match(/^\\binom\{([^{}]*)\}\{([^{}]*)\}$/);
-  if (binomial) {
-    return `<span class="inline-flex items-center gap-1"><span class="text-2xl leading-none">(</span><span class="grid grid-rows-2 place-items-center text-sm leading-none"><span>${mathHtmlPart(binomial[1])}</span><span>${mathHtmlPart(binomial[2])}</span></span><span class="text-2xl leading-none">)</span></span>`;
-  }
-
-  const root = source.match(/^\\sqrt\{([^{}]*)\}$/);
-  if (root) {
-    return `<span class="inline-flex items-start"><span class="text-xl leading-none">√</span><span class="border-t border-current px-2 leading-6">${mathHtmlPart(root[1])}</span></span>`;
-  }
-
-  const nthRoot = source.match(/^\\sqrt\[([^\]]*)\]\{([^{}]*)\}$/);
-  if (nthRoot) {
-    return `<span class="inline-flex items-start"><sup class="mr-0.5 text-[0.65em] leading-none">${mathHtmlPart(nthRoot[1])}</sup><span class="text-xl leading-none">√</span><span class="border-t border-current px-2 leading-6">${mathHtmlPart(nthRoot[2])}</span></span>`;
-  }
-
-  const boundedOperator = source.match(/^\\(int|sum|prod)_\{([^{}]*)\}\^\{([^{}]*)\}$/);
-  if (boundedOperator) {
-    const symbol = boundedOperator[1] === "int" ? "∫" : boundedOperator[1] === "sum" ? "Σ" : "Π";
-    return `<span class="inline-grid grid-rows-[auto_auto_auto] place-items-center leading-none"><span class="text-[0.65em]">${mathHtmlPart(boundedOperator[3])}</span><span class="text-2xl leading-none">${symbol}</span><span class="text-[0.65em]">${mathHtmlPart(boundedOperator[2])}</span></span>`;
-  }
-
-  if (source.startsWith("\\begin{bmatrix}")) {
-    const matrixBody = source
-      .replace(/^\\begin\{bmatrix\}/, "")
-      .replace(/\\end\{bmatrix\}$/, "");
-    const rows = matrixBody
-      .split(/\\\\/)
-      .map((row) => row.split("&").map((cell) => cell.trim()));
-    const rowsHtml = rows
-      .map((row) => `<span class="grid grid-flow-col gap-x-4">${row.map((cell) => `<span>${mathHtmlPart(cell)}</span>`).join("")}</span>`)
-      .join("");
-
-    return `<span class="inline-flex items-stretch"><span class="border-l-2 border-current px-1"></span><span class="grid gap-y-1 px-1 text-center text-sm leading-none">${rowsHtml}</span><span class="border-r-2 border-current px-1"></span></span>`;
-  }
-
-  return escapeHtml(source);
-}
-
-function mathHtmlPart(value: string | undefined) {
-  const cleanedValue = (value ?? "").trim();
-  return cleanedValue ? escapeHtml(cleanedValue) : "□";
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function MathText({
-  value,
-  isMine,
-  className,
-}: {
-  value: string;
-  isMine: boolean;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-        className,
-      )}
-    >
-      {renderMathText(value, isMine)}
-    </div>
-  );
-}
-
-const RENDERABLE_MATH_PATTERN =
-  /(\\begin\{bmatrix\}[\s\S]*?\\end\{bmatrix\}|\\frac\{[^{}]*\}\{[^{}]*\}|\\binom\{[^{}]*\}\{[^{}]*\}|\\sqrt\[[^\]]*\]\{[^{}]*\}|\\sqrt\{[^{}]*\}|\\int_\{[^{}]*\}\^\{[^{}]*\}|\\sum_\{[^{}]*\}\^\{[^{}]*\}|\\prod_\{[^{}]*\}\^\{[^{}]*\})/g;
-
-function renderMathText(value: string, isMine: boolean) {
-  const nodes: ReactNode[] = [];
-  RENDERABLE_MATH_PATTERN.lastIndex = 0;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = RENDERABLE_MATH_PATTERN.exec(value)) !== null) {
-    if (match.index > lastIndex) {
-      nodes.push(value.slice(lastIndex, match.index));
-    }
-
-    nodes.push(
-      <MathNode key={`${match.index}-${match[0]}`} source={match[0]} isMine={isMine} />,
-    );
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < value.length) {
-    nodes.push(value.slice(lastIndex));
-  }
-
-  return nodes;
-}
-
-function MathNode({ source, isMine }: { source: string; isMine: boolean }) {
-  const fraction = source.match(/^\\frac\{([^{}]*)\}\{([^{}]*)\}$/);
-  if (fraction) {
-    return (
-      <InlineFraction
-        numerator={fraction[1] ?? ""}
-        denominator={fraction[2] ?? ""}
-        isMine={isMine}
-      />
-    );
-  }
-
-  const binomial = source.match(/^\\binom\{([^{}]*)\}\{([^{}]*)\}$/);
-  if (binomial) {
-    return (
-      <span className={cn("mx-1 inline-flex items-center gap-0.5 align-middle", isMine ? "text-white" : "text-slate-950")}>
-        <span className="text-xl leading-none">(</span>
-        <span className="grid grid-rows-2 place-items-center text-[0.85em] leading-none">
-          <span><MathPart value={binomial[1] ?? ""} /></span>
-          <span><MathPart value={binomial[2] ?? ""} /></span>
-        </span>
-        <span className="text-xl leading-none">)</span>
-      </span>
-    );
-  }
-
-  const root = source.match(/^\\sqrt\{([^{}]*)\}$/);
-  if (root) {
-    return <RootExpression radicand={root[1] ?? ""} isMine={isMine} />;
-  }
-
-  const nthRoot = source.match(/^\\sqrt\[([^\]]*)\]\{([^{}]*)\}$/);
-  if (nthRoot) {
-    return (
-      <RootExpression
-        index={nthRoot[1] ?? ""}
-        radicand={nthRoot[2] ?? ""}
-        isMine={isMine}
-      />
-    );
-  }
-
-  const boundedOperator = source.match(/^\\(int|sum|prod)_\{([^{}]*)\}\^\{([^{}]*)\}$/);
-  if (boundedOperator) {
-    const symbol = boundedOperator[1] === "int" ? "∫" : boundedOperator[1] === "sum" ? "Σ" : "Π";
-    return (
-      <BoundedOperator
-        symbol={symbol}
-        lower={boundedOperator[2] ?? ""}
-        upper={boundedOperator[3] ?? ""}
-        isMine={isMine}
-      />
-    );
-  }
-
-  if (source.startsWith("\\begin{bmatrix}")) {
-    return <MatrixExpression source={source} isMine={isMine} />;
-  }
-
-  return source;
-}
-
-function MathPart({ value }: { value: string }) {
-  const cleanedValue = value.trim();
-  return <>{cleanedValue || "□"}</>;
-}
-
-function InlineFraction({
-  numerator,
-  denominator,
-  isMine,
-}: {
-  numerator: string;
-  denominator: string;
-  isMine: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        "mx-1 inline-grid translate-y-1 grid-rows-[auto_auto] place-items-center align-middle text-center text-[0.9em] leading-none",
-        isMine ? "text-white" : "text-slate-950",
-      )}
-    >
-      <span className="border-b border-current px-1 pb-0.5">
-        <MathPart value={numerator} />
-      </span>
-      <span className="px-1 pt-0.5">
-        <MathPart value={denominator} />
-      </span>
-    </span>
-  );
-}
-
-function RootExpression({
-  index,
-  radicand,
-  isMine,
-}: {
-  index?: string;
-  radicand: string;
-  isMine: boolean;
-}) {
-  return (
-    <span className={cn("mx-1 inline-flex items-start align-middle", isMine ? "text-white" : "text-slate-950")}>
-      {index ? <sup className="mr-0.5 text-[0.65em] leading-none"><MathPart value={index} /></sup> : null}
-      <span className="text-lg leading-none">√</span>
-      <span className="border-t border-current px-1 leading-5">
-        <MathPart value={radicand} />
-      </span>
-    </span>
-  );
-}
-
-function BoundedOperator({
-  symbol,
-  lower,
-  upper,
-  isMine,
-}: {
-  symbol: string;
-  lower: string;
-  upper: string;
-  isMine: boolean;
-}) {
-  return (
-    <span className={cn("mx-1 inline-flex items-center align-middle", isMine ? "text-white" : "text-slate-950")}>
-      <span className="grid grid-rows-[auto_auto_auto] place-items-center leading-none">
-        <span className="text-[0.62em]"><MathPart value={upper} /></span>
-        <span className="text-xl leading-none">{symbol}</span>
-        <span className="text-[0.62em]"><MathPart value={lower} /></span>
-      </span>
-    </span>
-  );
-}
-
-function MatrixExpression({ source, isMine }: { source: string; isMine: boolean }) {
-  const matrixBody = source
-    .replace(/^\\begin\{bmatrix\}/, "")
-    .replace(/\\end\{bmatrix\}$/, "");
-  const rows = matrixBody
-    .split(/\\\\/)
-    .map((row) => row.split("&").map((cell) => cell.trim()));
-
-  return (
-    <span className={cn("mx-1 inline-flex items-stretch align-middle", isMine ? "text-white" : "text-slate-950")}>
-      <span className="border-y-0 border-l-2 border-current px-1" />
-      <span className="grid gap-y-1 px-1 text-center text-[0.9em] leading-none">
-        {rows.map((row, rowIndex) => (
-          <span key={`${source}-row-${rowIndex}`} className="grid grid-flow-col gap-x-3">
-            {row.map((cell, cellIndex) => (
-              <span key={`${source}-cell-${rowIndex}-${cellIndex}`}>
-                <MathPart value={cell} />
-              </span>
-            ))}
-          </span>
-        ))}
-      </span>
-      <span className="border-y-0 border-r-2 border-current px-1" />
-    </span>
   );
 }
 
@@ -1867,11 +1037,9 @@ function MessageBubble({
         ) : (
           <>
             {message.body ? (
-              <MathText
-                value={message.body}
-                isMine={isMine}
-                className="mt-2 text-sm leading-6"
-              />
+              <p className="mt-2 text-sm leading-6">
+                <MathRenderer value={message.body} />
+              </p>
             ) : null}
 
             {message.attachments.length > 0 ? (
@@ -1917,23 +1085,21 @@ function EditMessageForm({
   onSave: () => void;
   onCancel: () => void;
 }) {
-  const editComposerRef = useRef<MathInputHandle | null>(null);
   const canSave = Boolean(value.trim() || hasAttachments) && !isBusy;
 
   return (
     <div className="mt-3 grid gap-2">
-      <MathInputEditor
-        ref={editComposerRef}
+      <textarea
         value={value}
-        onChange={onChange}
-        placeholder="Edit your message..."
+        onChange={(event) => onChange(event.target.value)}
+        rows={3}
         maxLength={2000}
-        tone={isMine ? "dark" : "light"}
-      />
-      <MathSymbolPalette
-        tone={isMine ? "dark" : "light"}
-        compact
-        onInsert={(snippet) => editComposerRef.current?.insertSnippet(snippet)}
+        className={cn(
+          "w-full resize-none rounded-2xl border px-3 py-2 text-sm outline-none transition",
+          isMine
+            ? "border-white/20 bg-white/10 text-white placeholder:text-slate-400 focus:border-white"
+            : "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-slate-950",
+        )}
       />
       <div className="flex flex-wrap gap-2">
         <button
@@ -2370,7 +1536,7 @@ function buildReplyBodyPreview(message: SupportMessage) {
     return "This message was deleted";
   }
 
-  const bodyPreview = message.body.replace(/\s+/g, " ").trim();
+  const bodyPreview = stripMathDelimiters(message.body).replace(/\s+/g, " ").trim();
 
   if (bodyPreview) {
     return bodyPreview.length > 140
