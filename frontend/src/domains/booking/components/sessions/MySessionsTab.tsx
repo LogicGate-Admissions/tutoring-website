@@ -139,7 +139,7 @@ export function MySessionsTab({
           <div className="mt-4">
             <BookingRequestForm
               tutorId={role === 'student' ? step.counterparty.id : userId}
-              tutorName={role === 'student' ? step.counterparty.name : ''}
+              tutorName={step.counterparty.name}
               studentId={role === 'tutor' ? step.counterparty.id : userId}
               initiatedBy={role}
               onSuccess={closeBooking}

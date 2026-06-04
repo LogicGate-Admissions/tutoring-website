@@ -203,8 +203,9 @@ export async function createBookingRequest(
       durationMinutes: data.durationMinutes,
       notes: data.notes ?? null,
       status: 'pending_receiver',
-      tutorAccepted: false,
-      studentAccepted: false,
+      // Requester implicitly accepts by sending; receiver must accept to confirm.
+      tutorAccepted: data.initiatedBy === 'tutor',
+      studentAccepted: data.initiatedBy === 'student',
       createdAt: now,
       updatedAt: now,
     }
