@@ -17,6 +17,8 @@ import { getStudentAvailabilityById } from '@/domains/students/learning-profile/
 import type { TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
 import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
 
+const MAX_VISIBLE = 4;
+
 const HOUR_START = 7;   // 07:00
 const HOUR_END = 22;    // 22:00
 const TOTAL_HOURS = HOUR_END - HOUR_START;
@@ -43,6 +45,8 @@ type BookingStep =
   | { type: 'picking' }
   | { type: 'form'; counterparty: Counterparty };
 
+type ModalSection = 'pending' | 'sent' | 'upcoming' | 'past' | null;
+
 export function MySessionsTab({
   userId,
   role,
@@ -53,6 +57,7 @@ export function MySessionsTab({
     useBookings(userId, role);
 
   const [step, setStep] = useState<BookingStep>({ type: 'idle' });
+  const [modalSection, setModalSection] = useState<ModalSection>(null);
   const [studentAvailForBooking, setStudentAvailForBooking] = useState<TimeBlock[]>([]);
 
   useEffect(() => {
@@ -99,8 +104,25 @@ export function MySessionsTab({
     );
   }
 
+  const MODAL_DATA: Record<NonNullable<ModalSection>, { title: string; bookings: BookingRequest[]; isPast?: boolean }> = {
+    pending:  { title: 'Pending Requests',  bookings: pendingRequests },
+    sent:     { title: 'Sent Requests',     bookings: sentRequests },
+    upcoming: { title: 'Upcoming Sessions', bookings: upcomingSessions },
+    past:     { title: 'Past Sessions',     bookings: pastSessions, isPast: true },
+  };
+
   return (
     <div className="grid gap-8">
+      {modalSection && (
+        <SessionsModal
+          {...MODAL_DATA[modalSection]}
+          viewerRole={role}
+          viewerId={userId}
+          getOtherPartyName={getOtherPartyName}
+          onClose={() => setModalSection(null)}
+        />
+      )}
+
       {/* ── Pending Requests ─────────────────────────────────────────────── */}
       <section>
         <SectionHeading>Pending Requests</SectionHeading>
@@ -108,7 +130,7 @@ export function MySessionsTab({
           <EmptyState message="No pending requests." />
         ) : (
           <div className="mt-4 grid gap-4">
-            {pendingRequests.map((b) => (
+            {pendingRequests.slice(0, MAX_VISIBLE).map((b) => (
               <BookingRequestCard
                 key={b.id}
                 booking={b}
@@ -117,6 +139,9 @@ export function MySessionsTab({
                 otherPartyName={getOtherPartyName(b)}
               />
             ))}
+            {pendingRequests.length > MAX_VISIBLE && (
+              <SeeAllLink count={pendingRequests.length} onClick={() => setModalSection('pending')} />
+            )}
           </div>
         )}
       </section>
@@ -129,7 +154,7 @@ export function MySessionsTab({
             Waiting for the other party to respond.
           </p>
           <div className="mt-4 grid gap-4">
-            {sentRequests.map((b) => (
+            {sentRequests.slice(0, MAX_VISIBLE).map((b) => (
               <BookingRequestCard
                 key={b.id}
                 booking={b}
@@ -138,6 +163,9 @@ export function MySessionsTab({
                 otherPartyName={getOtherPartyName(b)}
               />
             ))}
+            {sentRequests.length > MAX_VISIBLE && (
+              <SeeAllLink count={sentRequests.length} onClick={() => setModalSection('sent')} />
+            )}
           </div>
         </section>
       ) : null}
@@ -180,7 +208,7 @@ export function MySessionsTab({
                 <BookSessionButton onClick={openBooking} />
               ) : null}
             </div>
-            {upcomingSessions.map((b) => (
+            {upcomingSessions.slice(0, MAX_VISIBLE).map((b) => (
               <BookingRequestCard
                 key={b.id}
                 booking={b}
@@ -189,6 +217,9 @@ export function MySessionsTab({
                 otherPartyName={getOtherPartyName(b)}
               />
             ))}
+            {upcomingSessions.length > MAX_VISIBLE && (
+              <SeeAllLink count={upcomingSessions.length} onClick={() => setModalSection('upcoming')} />
+            )}
           </div>
         )}
       </section>
@@ -210,15 +241,19 @@ export function MySessionsTab({
         <section>
           <SectionHeading>Past Sessions</SectionHeading>
           <div className="mt-4 grid gap-4">
-            {pastSessions.map((b) => (
+            {pastSessions.slice(0, MAX_VISIBLE).map((b) => (
               <BookingRequestCard
                 key={b.id}
                 booking={b}
                 viewerRole={role}
                 viewerId={userId}
                 otherPartyName={getOtherPartyName(b)}
+                isPast={true}
               />
             ))}
+            {pastSessions.length > MAX_VISIBLE && (
+              <SeeAllLink count={pastSessions.length} onClick={() => setModalSection('past')} />
+            )}
           </div>
         </section>
       ) : null}
@@ -513,6 +548,92 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 function EmptyState({ message }: { message: string }) {
   return (
     <p className="mt-3 text-sm italic text-slate-400">{message}</p>
+  );
+}
+
+// ─── Sessions Modal ───────────────────────────────────────────────────────────
+
+function SessionsModal({
+  title,
+  bookings,
+  viewerRole,
+  viewerId,
+  getOtherPartyName,
+  isPast,
+  onClose,
+}: {
+  title: string;
+  bookings: BookingRequest[];
+  viewerRole: 'tutor' | 'student';
+  viewerId: string;
+  getOtherPartyName: (b: BookingRequest) => string;
+  isPast?: boolean;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative mx-4 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={onClose}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClose(); }}
+            aria-label="Close"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900"
+          >
+            <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid gap-4">
+            {bookings.map((b) => (
+              <BookingRequestCard
+                key={b.id}
+                booking={b}
+                viewerRole={viewerRole}
+                viewerId={viewerId}
+                otherPartyName={getOtherPartyName(b)}
+                isPast={isPast}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── See All Link ─────────────────────────────────────────────────────────────
+
+function SeeAllLink({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
+      className="mt-1 cursor-pointer text-sm text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline focus:outline-none"
+    >
+      See all {count} →
+    </div>
   );
 }
 
