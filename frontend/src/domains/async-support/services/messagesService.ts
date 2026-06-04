@@ -12,7 +12,6 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -56,6 +55,7 @@ type UpdateSupportMessageInput = {
 type DeleteSupportMessageInput = {
   relationshipId: string;
   messageId: string;
+  deletedById: string;
 };
 
 /** Returns the Firestore collection reference for relationship messages. */
@@ -191,9 +191,25 @@ export async function updateSupportMessage(input: UpdateSupportMessageInput) {
   await refreshRelationshipLatestMessage(input.relationshipId);
 }
 
-/** Deletes a message and refreshes relationship-level latest-message metadata. */
+/**
+ * Soft-deletes a message and refreshes relationship-level latest-message metadata.
+ *
+ * We keep the document so WhatsApp-style reply cards can still jump to the
+ * original message position and show a "message deleted" placeholder.
+ */
 export async function deleteSupportMessage(input: DeleteSupportMessageInput) {
-  await deleteDoc(getMessageDocument(input.relationshipId, input.messageId));
+  const now = new Date().toISOString();
+
+  await updateDoc(getMessageDocument(input.relationshipId, input.messageId), {
+    body: "",
+    attachments: [],
+    urgency: "normal",
+    isDeleted: true,
+    deletedAt: now,
+    deletedById: input.deletedById,
+    updatedAt: now,
+  });
+
   await refreshRelationshipLatestMessage(input.relationshipId);
 }
 
@@ -252,10 +268,12 @@ async function updateRelationshipLatestMessage(
   activityAt = latestMessage.createdAt
 ) {
   await updateDoc(getRelationshipDocument(relationshipId), {
-    latestMessagePreview: buildMessagePreview(
-      latestMessage.body,
-      latestMessage.attachments.length
-    ),
+    latestMessagePreview: latestMessage.isDeleted
+      ? 'This message was deleted'
+      : buildMessagePreview(
+          latestMessage.body,
+          latestMessage.attachments.length
+        ),
     latestMessageAt: activityAt,
     latestMessageSenderId: latestMessage.senderId,
     latestMessageSenderName: latestMessage.senderName,
@@ -293,6 +311,9 @@ function mapSupportMessageSnapshot(
     attachments: normaliseAttachments(data.attachments),
     replyTo: normaliseReplyToMessage(data.replyTo),
     urgency: normaliseMessageUrgency(data.urgency),
+    isDeleted: data.isDeleted === true,
+    deletedAt: typeof data.deletedAt === 'string' ? data.deletedAt : undefined,
+    deletedById: typeof data.deletedById === 'string' ? data.deletedById : undefined,
     createdAt: String(data.createdAt ?? ''),
     updatedAt: String(data.updatedAt ?? ''),
   };

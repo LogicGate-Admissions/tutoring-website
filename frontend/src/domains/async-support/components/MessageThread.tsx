@@ -57,6 +57,8 @@ export function MessageThread({
 }: MessageThreadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageElementRefs = useRef(new Map<string, HTMLDivElement>());
+  const highlightTimeoutRef = useRef<number | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentThreadUser | null>(
     null,
   );
@@ -73,6 +75,9 @@ export function MessageThread({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUrgent, setIsUrgent] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<
+    string | null
+  >(null);
   const [editDraft, setEditDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -125,6 +130,14 @@ export function MessageThread({
       isActive = false;
     };
   }, [isAvailabilityOpen, currentUser]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!currentUser) {
@@ -198,6 +211,44 @@ export function MessageThread({
       unsubscribeMessages?.();
     };
   }, [currentUser, relationshipId, viewerRole]);
+
+  function registerMessageElement(
+    messageId: string,
+    element: HTMLDivElement | null,
+  ) {
+    if (!element) {
+      messageElementRefs.current.delete(messageId);
+      return;
+    }
+
+    messageElementRefs.current.set(messageId, element);
+  }
+
+  function jumpToMessage(messageId: string) {
+    const targetElement = messageElementRefs.current.get(messageId);
+
+    if (!targetElement) {
+      window.alert("Original message is no longer available.");
+      return;
+    }
+
+    targetElement.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    setHighlightedMessageId(messageId);
+
+    if (highlightTimeoutRef.current) {
+      window.clearTimeout(highlightTimeoutRef.current);
+    }
+
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightedMessageId((currentMessageId) =>
+        currentMessageId === messageId ? null : currentMessageId,
+      );
+      highlightTimeoutRef.current = null;
+    }, 1800);
+  }
 
   async function handleSendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -311,7 +362,7 @@ export function MessageThread({
 
   async function handleDeleteMessage(message: SupportMessage) {
     const confirmed = window.confirm(
-      "Delete this message? This cannot be undone.",
+      "Delete this message? It will stay in the thread as a deleted-message placeholder.",
     );
 
     if (!confirmed) {
@@ -321,7 +372,15 @@ export function MessageThread({
     try {
       setIsMutatingMessage(true);
       setError(null);
-      await deleteSupportMessage({ relationshipId, messageId: message.id });
+      if (!currentUser) {
+        return;
+      }
+
+      await deleteSupportMessage({
+        relationshipId,
+        messageId: message.id,
+        deletedById: currentUser.id,
+      });
 
       if (editingMessageId === message.id) {
         cancelEditingMessage();
@@ -483,11 +542,12 @@ export function MessageThread({
           <div className="grid gap-3">
             {messages.map((message) => {
               const isMine = message.senderId === currentUser?.id;
-              const canEditOrDelete = isMine;
+              const canEditOrDelete = isMine && !message.isDeleted;
               const canChangeUrgency =
                 currentUser?.role === "student" &&
                 isMine &&
-                message.senderRole === "student";
+                message.senderRole === "student" &&
+                !message.isDeleted;
 
               return (
                 <div key={message.id} className="grid gap-3">
@@ -498,10 +558,13 @@ export function MessageThread({
                     message={message}
                     isMine={isMine}
                     isEditing={editingMessageId === message.id}
+                    isHighlighted={highlightedMessageId === message.id}
                     editDraft={editDraft}
                     isBusy={isMutatingMessage}
                     canEditOrDelete={canEditOrDelete}
                     canChangeUrgency={canChangeUrgency}
+                    onRegisterElement={registerMessageElement}
+                    onJumpToMessage={jumpToMessage}
                     onReply={() => startReplyTo(message)}
                     onStartEdit={() => startEditingMessage(message)}
                     onEditDraftChange={setEditDraft}
@@ -734,6 +797,7 @@ function MessageBubble({
   message,
   isMine,
   isEditing,
+  isHighlighted,
   editDraft,
   isBusy,
   canEditOrDelete,
@@ -745,10 +809,13 @@ function MessageBubble({
   onSaveEdit,
   onDelete,
   onSetUrgency,
+  onRegisterElement,
+  onJumpToMessage,
 }: {
   message: SupportMessage;
   isMine: boolean;
   isEditing: boolean;
+  isHighlighted: boolean;
   editDraft: string;
   isBusy: boolean;
   canEditOrDelete: boolean;
@@ -760,48 +827,59 @@ function MessageBubble({
   onSaveEdit: () => void;
   onDelete: () => void;
   onSetUrgency: (urgency: MessageUrgency) => void;
+  onRegisterElement: (
+    messageId: string,
+    element: HTMLDivElement | null,
+  ) => void;
+  onJumpToMessage: (messageId: string) => void;
 }) {
+  const isDeleted = message.isDeleted === true;
+
   return (
-    <div className={cn("flex min-w-0", isMine ? "justify-end" : "justify-start")}>
+    <div
+      className={cn("flex min-w-0", isMine ? "justify-end" : "justify-start")}
+    >
       <div
+        ref={(element) => onRegisterElement(message.id, element)}
         className={cn(
-          "relative min-w-0 max-w-[min(42rem,85%)] overflow-hidden rounded-3xl px-4 py-3 pr-11",
+          "group relative min-w-0 max-w-[min(42rem,85%)] scroll-mt-24 overflow-visible rounded-3xl px-4 py-3 pr-11 transition-shadow duration-300",
           isMine ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-900",
+          isHighlighted ? "ring-4 ring-yellow-300 ring-offset-2" : "",
         )}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              "text-xs font-semibold",
+              isMine ? "text-slate-200" : "text-slate-600",
+            )}
+          >
+            {isMine ? "You" : message.senderName || "Unknown user"}
+          </span>
+
+          {!isDeleted && message.urgency === "urgent" ? (
             <span
               className={cn(
-                "text-xs font-semibold",
-                isMine ? "text-slate-200" : "text-slate-600",
+                "rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide",
+                isMine ? "bg-red-500 text-white" : "bg-red-100 text-red-700",
               )}
             >
-              {isMine ? "You" : message.senderName || "Unknown user"}
+              Urgent
             </span>
+          ) : null}
 
-            {message.urgency === "urgent" ? (
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide",
-                  isMine ? "bg-red-500 text-white" : "bg-red-100 text-red-700",
-                )}
-              >
-                Urgent
-              </span>
-            ) : null}
-
-            <span
-              className={cn(
-                "text-xs",
-                isMine ? "text-slate-400" : "text-slate-500",
-              )}
-            >
-              {formatMessageTime(message.createdAt)}
-              {isEdited(message) ? " · edited" : ""}
-            </span>
+          <span
+            className={cn(
+              "text-xs",
+              isMine ? "text-slate-400" : "text-slate-500",
+            )}
+          >
+            {formatMessageTime(message.createdAt)}
+            {isEdited(message) ? " · edited" : ""}
+          </span>
         </div>
 
-        {!isEditing ? (
+        {!isEditing && !isDeleted ? (
           <div className="absolute right-2 top-2">
             <MessageActionsDropdown
               isMine={isMine}
@@ -818,10 +896,16 @@ function MessageBubble({
         ) : null}
 
         {message.replyTo ? (
-          <QuotedReplyCard replyTo={message.replyTo} isMine={isMine} />
+          <QuotedReplyCard
+            replyTo={message.replyTo}
+            isMine={isMine}
+            onClick={() => onJumpToMessage(message.replyTo?.messageId ?? "")}
+          />
         ) : null}
 
-        {isEditing ? (
+        {isDeleted ? (
+          <DeletedMessageNotice isMine={isMine} />
+        ) : isEditing ? (
           <EditMessageForm
             value={editDraft}
             isMine={isMine}
@@ -849,6 +933,19 @@ function MessageBubble({
         )}
       </div>
     </div>
+  );
+}
+
+function DeletedMessageNotice({ isMine }: { isMine: boolean }) {
+  return (
+    <p
+      className={cn(
+        "mt-2 text-sm italic leading-6",
+        isMine ? "text-slate-300" : "text-slate-500",
+      )}
+    >
+      This message was deleted
+    </p>
   );
 }
 
@@ -980,7 +1077,8 @@ function MessageActionsDropdown({
         aria-expanded={isOpen}
         onClick={() => setIsOpen((currentValue) => !currentValue)}
         className={cn(
-          "grid h-7 w-7 place-items-center rounded-full text-base leading-none transition",
+          "grid h-7 w-7 place-items-center rounded-full text-base leading-none opacity-0 transition group-hover:opacity-100 focus:opacity-100",
+          isOpen ? "opacity-100" : "",
           isMine
             ? "text-slate-300 hover:bg-white/10 hover:text-white"
             : "text-slate-500 hover:bg-white hover:text-slate-950",
@@ -992,7 +1090,7 @@ function MessageActionsDropdown({
       {isOpen ? (
         <div
           className={cn(
-            "absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 text-sm text-slate-800 shadow-xl",
+            "absolute right-0 top-8 z-50 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 text-sm text-slate-800 shadow-xl",
           )}
         >
           <DropdownAction onClick={() => runAction(onReply)}>
@@ -1092,36 +1190,41 @@ function ReplyingToPreview({
 function QuotedReplyCard({
   replyTo,
   isMine,
+  onClick,
 }: {
   replyTo: ReplyToMessageSummary;
   isMine: boolean;
+  onClick: () => void;
 }) {
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
+      title="Jump to original message"
       className={cn(
-        "mt-3 rounded-2xl border-l-4 px-3 py-2 text-sm",
+        "mt-3 block w-full rounded-2xl border-l-4 px-3 py-2 text-left text-sm transition",
         isMine
-          ? "border-white/40 bg-white/10 text-slate-100"
-          : "border-slate-400 bg-white text-slate-700",
+          ? "border-white/40 bg-white/10 text-slate-100 hover:bg-white/15"
+          : "border-slate-400 bg-white text-slate-700 hover:bg-slate-50",
       )}
     >
-      <p
+      <span
         className={cn(
-          "text-xs font-semibold",
+          "block text-xs font-semibold",
           isMine ? "text-slate-200" : "text-slate-600",
         )}
       >
         {replyTo.senderName || "Message"}
-      </p>
-      <p
+      </span>
+      <span
         className={cn(
-          "mt-1 line-clamp-2 break-words [overflow-wrap:anywhere]",
+          "mt-1 block line-clamp-2 break-words [overflow-wrap:anywhere]",
           isMine ? "text-slate-300" : "text-slate-600",
         )}
       >
         {formatReplyPreview(replyTo)}
-      </p>
-    </div>
+      </span>
+    </button>
   );
 }
 
@@ -1162,7 +1265,9 @@ function AttachmentItem({
   const content = (
     <>
       <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
-      <span className="break-words [overflow-wrap:anywhere]">{attachment.name}</span>
+      <span className="break-words [overflow-wrap:anywhere]">
+        {attachment.name}
+      </span>
       <span
         className={cn(
           "ml-2 text-xs",
@@ -1308,6 +1413,10 @@ function buildReplySummary(message: SupportMessage): ReplyToMessageSummary {
 }
 
 function buildReplyBodyPreview(message: SupportMessage) {
+  if (message.isDeleted) {
+    return "This message was deleted";
+  }
+
   const bodyPreview = message.body.replace(/\s+/g, " ").trim();
 
   if (bodyPreview) {
