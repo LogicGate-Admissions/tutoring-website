@@ -126,6 +126,7 @@ export const AVAILABILITY_PRESETS = [
 ];
 
 export const DEFAULT_LEARNING_PROFILE = {
+  studiedSubjectSelections: [],
   subjectSelections: [],
   learningStyles: [],
   preferredUniversities: [],

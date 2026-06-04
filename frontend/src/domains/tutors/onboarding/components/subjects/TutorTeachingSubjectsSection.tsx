@@ -13,11 +13,7 @@ import { getSubjectsForQualification } from '@/domains/academic-options/services
 import type { SubjectOptionsByCategory } from '@/domains/academic-options/types/academicOptions';
 import { QualificationSelector } from '@/domains/students/learning-profile/components/subjects/QualificationSelector';
 import { SubjectPicker } from '@/domains/students/learning-profile/components/subjects/SubjectPicker';
-import { SubjectSummaryPanel } from '@/domains/students/learning-profile/components/subjects/SubjectSummaryPanel';
-import {
-  getSelectedCategories,
-  getSubjectsForCategory,
-} from '@/domains/students/learning-profile/components/subjects/SubjectSelectionHelpers';
+import { getSubjectsForCategory } from '@/domains/students/learning-profile/components/subjects/SubjectSelectionHelpers';
 import type {
   QualificationCategory,
   QualificationSubjectSelection,
@@ -80,8 +76,8 @@ function parsePriceInput(value: string) {
 }
 
 export function TutorTeachingSubjectsSection({
-  subjectSelections,
-  subjectRates,
+  subjectSelections = [],
+  subjectRates = [],
   activeCategory,
   subjectOptionsByCategory,
   isLoadingSubjects,
@@ -89,8 +85,6 @@ export function TutorTeachingSubjectsSection({
   onChangeSubjectRates,
   onChangeActiveCategory,
 }: TutorTeachingSubjectsSectionProps) {
-  const selectedCategories = getSelectedCategories(subjectSelections);
-
   const activeSubjects = getSubjectsForCategory(
     subjectSelections,
     activeCategory
@@ -138,6 +132,19 @@ export function TutorTeachingSubjectsSection({
     }
   }
 
+
+  function clearSubjectsForActiveCategory() {
+    if (!activeCategory) return;
+
+    const nextSelections = subjectSelections.map((selection) =>
+      selection.category === activeCategory
+        ? { ...selection, subjects: [] }
+        : selection
+    );
+
+    replaceSubjectSelections(nextSelections);
+  }
+
   function toggleSubject(subject: string) {
     if (!activeCategory) return;
 
@@ -179,19 +186,15 @@ export function TutorTeachingSubjectsSection({
   return (
     <section className="grid gap-6">
       <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="grid gap-6 lg:sticky lg:top-8">
-          <SubjectSummaryPanel
-            subjectSelections={subjectSelections}
-            activeCategory={activeCategory}
-            onClearSelection={clearSelection}
-            onSelectCategory={onChangeActiveCategory}
-            onRemoveCategory={removeCategory}
-          />
-
+        <aside className="lg:sticky lg:top-8">
           <QualificationSelector
-            selectedCategories={selectedCategories}
+            studiedSubjectSelections={subjectSelections}
             activeCategory={activeCategory}
             onChooseCategory={chooseCategory}
+            onRemoveCategory={removeCategory}
+            onClearAll={clearSelection}
+            title="Select qualifications"
+            description="Choose the qualifications you can teach. Black means you are currently editing that qualification."
           />
         </aside>
 
@@ -200,7 +203,13 @@ export function TutorTeachingSubjectsSection({
           subjectOptions={subjectOptions}
           activeSubjects={activeSubjects}
           onToggleSubject={toggleSubject}
+          onClearActiveSubjects={clearSubjectsForActiveCategory}
           isLoadingSubjects={isLoadingSubjects}
+          title="What subjects can you teach?"
+          activeDescription={(category) =>
+            `Choose the ${category} subjects you can tutor.`
+          }
+          emptyStateMessage="Choose a qualification first, then add the subjects you can teach."
         />
       </div>
 

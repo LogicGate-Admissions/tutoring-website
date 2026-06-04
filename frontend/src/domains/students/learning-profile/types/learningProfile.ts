@@ -1,5 +1,6 @@
 /**
- * File purpose: Application source file. Comments explain what this file owns and what should stay elsewhere.
+ * File purpose: Shared student learning-profile types used by onboarding,
+ * tutor discovery, and profile persistence.
  */
 
 export type QualificationCategory =
@@ -27,15 +28,14 @@ export type QualificationSubjectSelection = {
 };
 
 /**
- * The learning profile is the useful outcome of student onboarding.
+ * The learning profile separates two ideas that students described as different:
+ * what they study at school/college, and what they actually want tutoring for.
  *
- * Subject selections are grouped by qualification because the same subject
- * can mean different things at different levels.
- *
- * Example:
- * GCSE Maths and A-level Maths should be treated as different choices.
+ * `studiedSubjectSelections` is the broader academic context.
+ * `subjectSelections` remains the tutoring need and is still used for tutor matching.
  */
 export type StudentLearningProfile = {
+  studiedSubjectSelections: QualificationSubjectSelection[];
   subjectSelections: QualificationSubjectSelection[];
   learningStyles: string[];
   preferredUniversities: string[];

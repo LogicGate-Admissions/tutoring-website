@@ -60,7 +60,10 @@ export function SearchableMultiSelect<Option>({
   function chooseOption(option: Option) {
     onSelect(option);
     setSearch('');
-    setIsOpen(false);
+    // Keep the list open after a selection because the input still has focus.
+    // Without this, clicking the already-focused input again does not fire
+    // onFocus, so users have to type or blur/refocus to see options.
+    setIsOpen(true);
   }
 
   return (

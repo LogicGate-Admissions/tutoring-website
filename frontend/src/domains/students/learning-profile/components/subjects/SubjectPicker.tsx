@@ -17,28 +17,51 @@ export function SubjectPicker({
   subjectOptions,
   activeSubjects,
   onToggleSubject,
+  onClearActiveSubjects,
   isLoadingSubjects = false,
+  title = 'What subjects do you study?',
+  activeDescription,
+  inactiveDescription = 'Choose a qualification first.',
+  emptyStateMessage = 'Choose a qualification first, then add the subjects you currently study.',
 }: {
   activeCategory: QualificationCategory | '';
   subjectOptions: string[];
   activeSubjects: string[];
   onToggleSubject: (subject: string) => void;
+  onClearActiveSubjects: () => void;
   isLoadingSubjects?: boolean;
+  title?: string;
+  activeDescription?: (category: QualificationCategory) => string;
+  inactiveDescription?: string;
+  emptyStateMessage?: string;
 }) {
   return (
     <Card>
-      <div>
-        <h2 className="text-xl font-semibold">Subjects</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          {activeCategory
-            ? `Choose subjects for ${activeCategory}.`
-            : 'Choose a qualification first.'}
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">{title}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {activeCategory
+              ? activeDescription?.(activeCategory) ??
+                `Choose the ${activeCategory} subjects you are currently studying.`
+              : inactiveDescription}
+          </p>
+        </div>
+
+        {activeCategory && activeSubjects.length > 0 && (
+          <button
+            type="button"
+            onClick={onClearActiveSubjects}
+            className="self-start rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-950 hover:text-slate-950"
+          >
+            Clear subjects
+          </button>
+        )}
       </div>
 
       {!activeCategory && (
         <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
-          Choose a qualification on the left to start selecting subjects.
+          {emptyStateMessage}
         </div>
       )}
 
@@ -49,6 +72,7 @@ export function SubjectPicker({
               Loading subjects from Firebase...
             </p>
           )}
+
 
           <SearchableMultiSelect
             label="Search subjects"
@@ -67,7 +91,7 @@ export function SubjectPicker({
 
           {activeSubjects.length > 0 && (
             <p className="mt-4 text-sm text-slate-600">
-              Selected subjects are shown here and in the summary on the left.
+              Next, choose which of these subjects you want tutoring for below.
             </p>
           )}
         </div>

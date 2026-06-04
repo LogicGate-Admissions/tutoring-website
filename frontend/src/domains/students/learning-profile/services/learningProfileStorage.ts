@@ -45,9 +45,14 @@ export async function getStoredLearningProfile(): Promise<StudentLearningProfile
 
   const storedProfile = snapshot.data() as Partial<StudentLearningProfile>;
 
+  const subjectSelections = storedProfile.subjectSelections ?? [];
+
   return {
     ...DEFAULT_LEARNING_PROFILE,
     ...storedProfile,
+    subjectSelections,
+    studiedSubjectSelections:
+      storedProfile.studiedSubjectSelections ?? subjectSelections,
   };
 }
 
