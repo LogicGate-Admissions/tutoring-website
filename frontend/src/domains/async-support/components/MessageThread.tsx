@@ -9,6 +9,8 @@
  */
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { MathKeyboard, MATH_PLACEHOLDER, moveToNextMathPlaceholder } from "@/domains/async-support/components/MathKeyboard";
+import { MathRenderer, normalizeMathMessage, stripMathDelimiters } from "@/domains/async-support/components/MathRenderer";
 import { uploadAttachments } from "@/domains/attachments/services/attachmentUploadService";
 import {
   canEmailTutorForUrgentMessage,
@@ -85,6 +87,7 @@ export function MessageThread({
   const [isMutatingMessage, setIsMutatingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [isMathKeyboardOpen, setIsMathKeyboardOpen] = useState(false);
   const [scheduleTab, setScheduleTab] = useState<'availability' | 'booking'>('availability');
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TimeBlock[]>([]);
   const [availSelectedBlockId, setAvailSelectedBlockId] = useState<string | null>(null);
@@ -265,7 +268,7 @@ export function MessageThread({
   async function handleSendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const trimmedMessage = draftMessage.trim();
+    const trimmedMessage = normalizeMathMessage(draftMessage).trim();
 
     if (!currentUser || (!trimmedMessage && selectedFiles.length === 0)) {
       return;
@@ -342,7 +345,7 @@ export function MessageThread({
   }
 
   async function saveEditedMessage(message: SupportMessage) {
-    const trimmedEdit = editDraft.trim();
+    const trimmedEdit = normalizeMathMessage(editDraft).trim();
 
     if (!trimmedEdit && message.attachments.length === 0) {
       setError("A message must include text or an attachment.");
@@ -634,11 +637,42 @@ export function MessageThread({
             id="support-message"
             value={draftMessage}
             onChange={(event) => setDraftMessage(event.target.value)}
+            onKeyDown={(event) => {
+              // Tab remains an optional shortcut for moving between maths slots.
+              if (event.key === "Tab") {
+                const ta = event.currentTarget;
+                if (ta.value.includes(MATH_PLACEHOLDER)) {
+                  event.preventDefault();
+                  moveToNextMathPlaceholder(ta);
+                }
+              }
+            }}
             placeholder="Write a message..."
             rows={4}
             maxLength={2000}
             className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
           />
+
+          {/* Live rendered preview – shown whenever the draft contains $...$ math */}
+          {draftMessage.includes("$") ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Preview
+              </p>
+              <div className="text-sm leading-6 text-slate-900">
+                <MathRenderer value={normalizeMathMessage(draftMessage)} />
+              </div>
+            </div>
+          ) : null}
+
+          {isMathKeyboardOpen ? (
+            <MathKeyboard
+              textareaRef={textareaRef}
+              onValueChange={setDraftMessage}
+              isOpen={isMathKeyboardOpen}
+              onClose={() => setIsMathKeyboardOpen(false)}
+            />
+          ) : null}
 
           <div className="grid gap-2">
             <input
@@ -660,6 +694,20 @@ export function MessageThread({
                   disabled={isSending}
                 >
                   Attach files
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setIsMathKeyboardOpen((prev) => !prev);
+                    // Re-focus textarea after toggling so caret is preserved
+                    requestAnimationFrame(() => textareaRef.current?.focus());
+                  }}
+                  disabled={isSending}
+                  className={isMathKeyboardOpen ? "border-slate-950 bg-slate-50" : ""}
+                >
+                  ∑ Math
                 </Button>
 
                 <p className="text-xs text-slate-500">
@@ -988,8 +1036,8 @@ function MessageBubble({
         ) : (
           <>
             {message.body ? (
-              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">
-                {message.body}
+              <p className="mt-2 text-sm leading-6">
+                <MathRenderer value={message.body} />
               </p>
             ) : null}
 
@@ -1487,7 +1535,7 @@ function buildReplyBodyPreview(message: SupportMessage) {
     return "This message was deleted";
   }
 
-  const bodyPreview = message.body.replace(/\s+/g, " ").trim();
+  const bodyPreview = stripMathDelimiters(message.body).replace(/\s+/g, " ").trim();
 
   if (bodyPreview) {
     return bodyPreview.length > 140

@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next';
 import './globals.css';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
   title: 'LogicGate',
@@ -24,7 +25,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="flex min-h-full flex-col">{children}</body>
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+          crossOrigin="anonymous"
+        />
+      </head>
+      <body className="flex min-h-full flex-col">
+        {children}
+        <Script
+          src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"
+          crossOrigin="anonymous"
+          strategy="beforeInteractive"
+        />
+      </body>
     </html>
   );
 }
