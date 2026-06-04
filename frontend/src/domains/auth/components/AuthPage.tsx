@@ -8,8 +8,10 @@
  * tutor account types separate in Firebase/Firestore.
  */
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { BrandHomeLink } from '@/shared/components/BrandHomeLink';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
@@ -44,7 +46,7 @@ function getAuthCopy(role: AuthRole): AuthCopy {
       eyebrow: 'Student access',
       title: 'Log in or sign up as a student',
       description:
-        'Create a student account to save your learning profile, browse matched tutors, and manage trial requests.',
+        'Create a student account to save your learning profile, browse matched tutors, and manage match requests.',
       switchLabel: 'I am a tutor',
       switchHref: ROUTES.tutorLogin,
       onboardingRoute: ROUTES.studentOnboardingSubjects,
@@ -56,7 +58,7 @@ function getAuthCopy(role: AuthRole): AuthCopy {
     eyebrow: 'Tutor access',
     title: 'Log in or sign up as a tutor',
     description:
-      'Create a tutor account to build your tutor profile, receive trial requests, and manage your tutor area.',
+      'Create a tutor account to build your tutor profile, receive match requests, and manage your tutor area.',
     switchLabel: 'I am a student',
     switchHref: ROUTES.studentLogin,
     onboardingRoute: ROUTES.tutorOnboarding,
@@ -67,6 +69,19 @@ function getAuthCopy(role: AuthRole): AuthCopy {
 function getNextRouteAfterAuth(account: AuthUser, copy: AuthCopy) {
   /** New accounts go through onboarding; completed accounts can enter dashboard. */
   return account.hasCompletedOnboarding ? copy.dashboardRoute : copy.onboardingRoute;
+}
+
+
+function AuthShell({ children }: { children: ReactNode }) {
+  /** Login and sign-up pages need an obvious route back to the landing page. */
+  return (
+    <main className="min-h-screen bg-[#f8f7f4]">
+      <div className="px-6 pt-6 lg:px-8">
+        <BrandHomeLink className="w-fit" />
+      </div>
+      {children}
+    </main>
+  );
 }
 
 function friendlyAuthError(error: unknown) {
@@ -200,11 +215,11 @@ export function AuthPage({ role }: AuthPageProps) {
 
   if (!hasCheckedExistingSession) {
     return (
-      <main className="min-h-screen bg-[#f8f7f4]">
+      <AuthShell>
         <Container className="py-16">
           <p className="text-sm text-slate-600">Checking your session...</p>
         </Container>
-      </main>
+      </AuthShell>
     );
   }
 
@@ -213,7 +228,7 @@ export function AuthPage({ role }: AuthPageProps) {
       signedInAsDifferentRole.role === 'student' ? ROUTES.studentDashboard : ROUTES.tutorDashboard;
 
     return (
-      <main className="min-h-screen bg-[#f8f7f4]">
+      <AuthShell>
         <PageHeader
           eyebrow="Already signed in"
           title={`You are signed in as a ${signedInAsDifferentRole.role}`}
@@ -241,12 +256,12 @@ export function AuthPage({ role }: AuthPageProps) {
             )}
           </Card>
         </Container>
-      </main>
+      </AuthShell>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#f8f7f4]">
+    <AuthShell>
       <PageHeader
         eyebrow={copy.eyebrow}
         title={copy.title}
@@ -360,7 +375,7 @@ export function AuthPage({ role }: AuthPageProps) {
           </div>
         </Card>
       </Container>
-    </main>
+    </AuthShell>
   );
 }
 

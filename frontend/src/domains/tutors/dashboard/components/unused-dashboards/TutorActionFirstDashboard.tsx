@@ -47,7 +47,7 @@ const tabs: Array<{ id: Section; label: string; description: string }> = [
   },
   {
     id: 'trial-requests',
-    label: 'Trial requests',
+    label: 'Match requests',
     description: 'Review requests',
   },
 ];
@@ -116,10 +116,10 @@ function InboxContent({
   if (activeSection === 'trial-requests') {
     return (
       <ActionCard
-        title="Trial requests"
-        description="Review students who have requested a trial session with you."
+        title="Match requests"
+        description="Review students who have requested a match with you."
         href={ROUTES.tutorTrialSessions}
-        buttonLabel="View trial requests"
+        buttonLabel="View match requests"
       />
     );
   }

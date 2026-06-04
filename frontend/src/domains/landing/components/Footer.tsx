@@ -18,7 +18,7 @@ const links = {
   ],
   Tutors: [
     { label: 'Tutor dashboard', href: ROUTES.tutorLogin },
-    { label: 'Trial requests', href: ROUTES.tutorTrialSessions },
+    { label: 'Match requests', href: ROUTES.tutorTrialSessions },
     { label: 'For tutors', href: '/#for-tutors' },
   ],
 };
@@ -30,11 +30,14 @@ export default function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div>
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-[10px] font-bold text-slate-950">
-                TM
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-sm font-bold text-slate-950">
+                LG
               </div>
-              <span className="text-base font-semibold tracking-[-0.02em] text-white">LogicGate</span>
+              <span className="leading-tight">
+                <span className="block text-sm font-bold text-white">LogicGate</span>
+                <span className="block text-xs text-slate-400">Admissions</span>
+              </span>
             </div>
             <p className="mt-4 max-w-[200px] text-sm leading-6 text-slate-400">
               Connecting students with expert tutors from the UK&apos;s top universities.

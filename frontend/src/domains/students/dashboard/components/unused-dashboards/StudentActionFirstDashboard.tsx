@@ -117,7 +117,7 @@ function InboxContent({
     return (
       <ActionCard
         title="Find tutors"
-        description="Browse tutors that match your learning profile and request a trial session."
+        description="Browse tutors that match your learning profile and request a match."
         href={ROUTES.studentTutors}
         buttonLabel="Find tutors"
       />

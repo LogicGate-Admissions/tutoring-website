@@ -51,8 +51,8 @@ export function TutorTrialSessionsPage() {
     <main className="min-h-screen bg-[#f8f7f4]">
       <PageHeader
         eyebrow="Tutor area"
-        title="Trial session requests"
-        description="Review student requirements and accept or reject trial requests asynchronously."
+        title="Match requests"
+        description="Review student requirements and accept or reject match requests asynchronously."
       />
 
       <DashboardShell
@@ -63,7 +63,7 @@ export function TutorTrialSessionsPage() {
             description: 'Tutor overview',
           },
           {
-            label: 'Trial requests',
+            label: 'Match requests',
             href: ROUTES.tutorTrialSessions,
             active: true,
             description: 'Student requirements',
@@ -88,7 +88,7 @@ export function TutorTrialSessionsPage() {
 
           {requests.length === 0 && (
             <Card>
-              <p className="font-medium">No trial requests yet.</p>
+              <p className="font-medium">No match requests yet.</p>
               <p className="mt-2 text-sm text-slate-600">
                 When students request a trial with you, their requirements will appear here.
               </p>

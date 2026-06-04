@@ -28,7 +28,7 @@ export function SelectedAvailabilityList({
         <div>
           <h2 className="text-xl font-semibold">Selected availability</h2>
           <p className="mt-2 text-sm text-slate-600">
-            These times will be used when you request a trial session.
+            These times will be used when you request a match.
           </p>
         </div>
 

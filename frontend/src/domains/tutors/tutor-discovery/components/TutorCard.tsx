@@ -73,7 +73,7 @@ export function TutorCard({
       <div className="mt-5 border-t border-slate-200 pt-4">
         {existingRequest && (
           <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-slate-700">Trial request</p>
+            <p className="text-sm font-medium text-slate-700">Match request</p>
             <TrialStatusBadge status={existingRequest.status} />
           </div>
         )}

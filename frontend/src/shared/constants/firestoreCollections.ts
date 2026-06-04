@@ -16,7 +16,7 @@ export const FIRESTORE_COLLECTIONS = {
   /** Tutor public/searchable profiles keyed by Firebase Auth uid. */
   tutorProfiles: 'tutorProfiles',
 
-  /** Trial requests between one student and one tutor. */
+  /** Match requests between one student and one tutor. */
   trialSessionRequests: 'trialSessionRequests',
 
   /** Booking lifecycle documents for confirmed and pending sessions. */

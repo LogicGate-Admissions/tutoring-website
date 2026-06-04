@@ -180,8 +180,8 @@ function buildTutorTrialNotifications(requests: TrialSessionRequest[]) {
     .map((request) => ({
       id: `trial-request-${request.id}`,
       type: 'trial-request' as const,
-      title: `New trial request from ${request.studentName}`,
-      description: request.message || 'A student has requested a trial session.',
+      title: `New match request from ${request.studentName}`,
+      description: request.message || 'A student has requested a match.',
       meta: `${request.level} ${request.subject}`.trim(),
       href: '/tutor/trial-sessions',
       createdAt: normaliseNotificationDate(request.createdAt, request.updatedAt),
