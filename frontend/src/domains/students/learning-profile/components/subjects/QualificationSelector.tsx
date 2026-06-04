@@ -33,12 +33,16 @@ export function QualificationSelector({
   onChooseCategory,
   onRemoveCategory,
   onClearAll,
+  title = 'Select qualifications',
+  description = 'Choose the qualifications you study. Black means you are currently editing that qualification.',
 }: {
-  studiedSubjectSelections: QualificationSubjectSelection[];
+  studiedSubjectSelections?: QualificationSubjectSelection[];
   activeCategory: QualificationCategory | '';
   onChooseCategory: (category: QualificationCategory) => void;
   onRemoveCategory: (category: QualificationCategory) => void;
   onClearAll: () => void;
+  title?: string;
+  description?: string;
 }) {
   const selectedCategories = studiedSubjectSelections.map(
     (selection) => selection.category
@@ -47,10 +51,9 @@ export function QualificationSelector({
     <Card>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Select qualifications</h2>
+          <h2 className="text-xl font-semibold">{title}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Choose the qualifications you study. Black means you are currently
-            editing that qualification.
+            {description}
           </p>
         </div>
 

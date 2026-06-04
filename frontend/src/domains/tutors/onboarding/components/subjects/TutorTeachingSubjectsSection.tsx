@@ -193,6 +193,8 @@ export function TutorTeachingSubjectsSection({
             onChooseCategory={chooseCategory}
             onRemoveCategory={removeCategory}
             onClearAll={clearSelection}
+            title="Select qualifications"
+            description="Choose the qualifications you can teach. Black means you are currently editing that qualification."
           />
         </aside>
 
@@ -203,6 +205,11 @@ export function TutorTeachingSubjectsSection({
           onToggleSubject={toggleSubject}
           onClearActiveSubjects={clearSubjectsForActiveCategory}
           isLoadingSubjects={isLoadingSubjects}
+          title="What subjects can you teach?"
+          activeDescription={(category) =>
+            `Choose the ${category} subjects you can tutor.`
+          }
+          emptyStateMessage="Choose a qualification first, then add the subjects you can teach."
         />
       </div>
 

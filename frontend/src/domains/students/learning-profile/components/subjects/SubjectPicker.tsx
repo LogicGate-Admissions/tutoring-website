@@ -19,6 +19,10 @@ export function SubjectPicker({
   onToggleSubject,
   onClearActiveSubjects,
   isLoadingSubjects = false,
+  title = 'What subjects do you study?',
+  activeDescription,
+  inactiveDescription = 'Choose a qualification first.',
+  emptyStateMessage = 'Choose a qualification first, then add the subjects you currently study.',
 }: {
   activeCategory: QualificationCategory | '';
   subjectOptions: string[];
@@ -26,16 +30,21 @@ export function SubjectPicker({
   onToggleSubject: (subject: string) => void;
   onClearActiveSubjects: () => void;
   isLoadingSubjects?: boolean;
+  title?: string;
+  activeDescription?: (category: QualificationCategory) => string;
+  inactiveDescription?: string;
+  emptyStateMessage?: string;
 }) {
   return (
     <Card>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">What subjects do you study?</h2>
+          <h2 className="text-xl font-semibold">{title}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             {activeCategory
-              ? `Choose the ${activeCategory} subjects you are currently studying.`
-              : 'Choose a qualification first.'}
+              ? activeDescription?.(activeCategory) ??
+                `Choose the ${activeCategory} subjects you are currently studying.`
+              : inactiveDescription}
           </p>
         </div>
 
@@ -52,7 +61,7 @@ export function SubjectPicker({
 
       {!activeCategory && (
         <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
-          Choose a qualification first, then add the subjects you currently study.
+          {emptyStateMessage}
         </div>
       )}
 
