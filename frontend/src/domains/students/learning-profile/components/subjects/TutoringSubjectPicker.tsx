@@ -27,10 +27,12 @@ export function TutoringSubjectPicker({
   studiedSubjectSelections,
   tutoringSubjectSelections,
   onToggleSubject,
+  stepNumber,
 }: {
   studiedSubjectSelections: QualificationSubjectSelection[];
   tutoringSubjectSelections: QualificationSubjectSelection[];
   onToggleSubject: (category: QualificationCategory, subject: string) => void;
+  stepNumber?: number;
 }) {
   const studiedSubjects = studiedSubjectSelections.filter(
     (selection) => selection.subjects.length > 0
@@ -39,7 +41,14 @@ export function TutoringSubjectPicker({
   return (
     <Card>
       <div>
-        <h2 className="text-xl font-semibold">What do you want tutoring for?</h2>
+        <div className="flex items-center gap-3">
+          {stepNumber && (
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white">
+              {stepNumber}
+            </span>
+          )}
+          <h2 className="text-xl font-semibold">What do you want tutoring for?</h2>
+        </div>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           Select from the subjects you study. These choices are used to match you
           with tutors.

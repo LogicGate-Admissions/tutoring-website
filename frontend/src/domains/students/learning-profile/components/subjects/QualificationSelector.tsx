@@ -35,6 +35,7 @@ export function QualificationSelector({
   onClearAll,
   title = 'Select qualifications',
   description = 'Choose the qualifications you study. Black means you are currently editing that qualification.',
+  stepNumber,
 }: {
   studiedSubjectSelections?: QualificationSubjectSelection[];
   activeCategory: QualificationCategory | '';
@@ -43,6 +44,7 @@ export function QualificationSelector({
   onClearAll: () => void;
   title?: string;
   description?: string;
+  stepNumber?: number;
 }) {
   const selectedCategories = studiedSubjectSelections.map(
     (selection) => selection.category
@@ -51,7 +53,14 @@ export function QualificationSelector({
     <Card>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">{title}</h2>
+          <div className="flex items-center gap-3">
+            {stepNumber && (
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white">
+                {stepNumber}
+              </span>
+            )}
+            <h2 className="text-xl font-semibold">{title}</h2>
+          </div>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             {description}
           </p>

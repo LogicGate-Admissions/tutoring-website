@@ -65,7 +65,7 @@ export function NotificationBell({ userType }: NotificationBellProps) {
           <div className="border-b border-slate-200 px-4 py-3">
             <p className="text-sm font-semibold text-slate-950">Notifications</p>
             <p className="mt-0.5 text-xs text-slate-500">
-              Messages, trial requests, and support activity.
+              Messages, match requests, and support activity.
             </p>
           </div>
 

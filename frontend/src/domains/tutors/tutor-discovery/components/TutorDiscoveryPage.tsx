@@ -166,7 +166,10 @@ export function TutorDiscoveryPage() {
   }
 
   function handleChat(tutor: Tutor) {
-    setNotice(`Chat with ${tutor.name} is coming soon.`);
+    const message = `Chat with ${tutor.name} is coming soon.`;
+
+    setNotice(message);
+    window.alert(message);
   }
 
   function toggleShortlist(tutor: Tutor) {
@@ -188,14 +191,14 @@ export function TutorDiscoveryPage() {
 
   async function requestTrial(tutor: Tutor) {
     if (!currentStudent) {
-      setNotice('Please log in again before booking a trial.');
+      setNotice('Please log in again before requesting a match.');
       return;
     }
 
     const existingRequest = findExistingRequest(tutor.id);
 
     if (existingRequest) {
-      setNotice(`You have already sent a trial request to ${tutor.name}.`);
+      setNotice(`You have already sent a match request to ${tutor.name}.`);
       return;
     }
 
@@ -227,10 +230,10 @@ export function TutorDiscoveryPage() {
         profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
         tutor.availability,
       message:
-        'I would like a trial session. I want help identifying weak points and getting clearer resources before sessions.',
+        'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
     });
 
-    setNotice(`Trial request sent to ${tutor.name}.`);
+    setNotice(`Match request sent to ${tutor.name}.`);
   }
 
   return (

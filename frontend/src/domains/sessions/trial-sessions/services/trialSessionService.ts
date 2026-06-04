@@ -120,7 +120,7 @@ export function subscribeToTutorTrialSessions(
 /**
  * Subscribes to trial requests created by a specific student.
  *
- * This is what lets the student-facing tutor cards change from "Book trial" to
+ * This is what lets the student-facing tutor cards change from "Request match" to
  * "Request sent" and later show Accepted/Rejected.
  */
 export function subscribeToStudentTrialSessions(

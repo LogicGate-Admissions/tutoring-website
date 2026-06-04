@@ -10,6 +10,7 @@
  */
 
 import Link from 'next/link';
+import { BrandHomeLink } from '@/shared/components/BrandHomeLink';
 import { SignOutButton } from '@/domains/auth/components/SignOutButton';
 import { NotificationBell } from '@/domains/notifications/components/NotificationBell';
 import { Container } from '@/shared/components/Container';
@@ -28,18 +29,7 @@ export function AppTopNav({ userType }: AppTopNavProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <Container className="flex items-center justify-between py-4">
-        <Link
-          href={ROUTES.home}
-          className="flex items-center gap-3 rounded-2xl text-slate-950 transition hover:opacity-80"
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-bold text-white">
-            LG
-          </span>
-          <span className="leading-tight">
-            <span className="block text-sm font-bold">LogicGate</span>
-            <span className="block text-xs text-slate-500">Admissions</span>
-          </span>
-        </Link>
+        <BrandHomeLink />
 
         <div className="flex items-center gap-3">
           <NotificationBell userType={userType} />

@@ -5,6 +5,7 @@
  */
 
 import Link from 'next/link';
+import { BrandHomeLink } from '@/shared/components/BrandHomeLink';
 import { ROUTES } from '@/shared/constants/routes';
 import { useEffect, useState } from 'react';
 
@@ -34,14 +35,7 @@ export default function Navbar() {
       >
         <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-6 lg:px-8">
           {/* Logo */}
-          <Link href={ROUTES.home} className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950 text-[10px] font-bold text-white">
-              TM
-            </div>
-            <span className="text-base font-semibold tracking-[-0.02em] text-slate-950">
-              LogicGate
-            </span>
-          </Link>
+          <BrandHomeLink />
 
           {/* Desktop nav */}
           <div className="hidden items-center gap-6 md:flex">

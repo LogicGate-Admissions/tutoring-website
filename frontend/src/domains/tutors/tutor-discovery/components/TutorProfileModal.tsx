@@ -4,7 +4,6 @@
 
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
-import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
@@ -65,8 +64,6 @@ export function TutorProfileModal({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            <HomeLinkButton label="Home" />
-
             <button
               type="button"
               onClick={onClose}
@@ -153,7 +150,7 @@ export function TutorProfileModal({
           {existingRequest && (
             <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-medium text-slate-700">
-                Trial request
+                Match request
               </p>
               <TrialStatusBadge status={existingRequest.status} />
             </div>
@@ -169,7 +166,7 @@ export function TutorProfileModal({
             </Button>
 
             <Button disabled={hasExistingRequest} onClick={() => onRequestTrial(tutor)}>
-              {hasExistingRequest ? 'Request sent' : 'Book trial'}
+              {hasExistingRequest ? 'Request sent' : 'Request match'}
             </Button>
           </div>
         </div>
