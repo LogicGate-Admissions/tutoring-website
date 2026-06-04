@@ -8,7 +8,7 @@
  * tutor account types separate in Firebase/Firestore.
  */
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
@@ -18,6 +18,8 @@ import { ROUTES } from '@/shared/constants/routes';
 import {
   authenticateWithEmailAndPassword,
   continueWithGoogle,
+  signOutCurrentUser,
+  subscribeToCurrentUser,
 } from '@/domains/auth/services/authService';
 import type { AuthMode, AuthRole, AuthUser } from '@/domains/auth/types/auth';
 
@@ -94,7 +96,7 @@ function friendlyAuthError(error: unknown) {
 
 export function AuthPage({ role }: AuthPageProps) {
   const router = useRouter();
-  const copy = getAuthCopy(role);
+  const copy = useMemo(() => getAuthCopy(role), [role]);
 
   const [mode, setMode] = useState<AuthMode>('login');
   const [name, setName] = useState('');
@@ -102,10 +104,51 @@ export function AuthPage({ role }: AuthPageProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasCheckedExistingSession, setHasCheckedExistingSession] = useState(false);
+  const [signedInAsDifferentRole, setSignedInAsDifferentRole] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    /**
+     * Firebase keeps users signed in across pages. If someone returns to the
+     * landing page and clicks Get Started again, send them straight back into
+     * their existing area instead of asking them to log in twice.
+     */
+    const unsubscribe = subscribeToCurrentUser((currentUser) => {
+      if (!currentUser) {
+        setSignedInAsDifferentRole(null);
+        setHasCheckedExistingSession(true);
+        return;
+      }
+
+      if (currentUser.role === role) {
+        router.replace(getNextRouteAfterAuth(currentUser, copy));
+        return;
+      }
+
+      setSignedInAsDifferentRole(currentUser);
+      setHasCheckedExistingSession(true);
+    });
+
+    return () => unsubscribe();
+  }, [copy, role, router]);
 
   async function finishAuth(account: AuthUser) {
     /** Centralise routing so email and Google auth behave the same way. */
     router.push(getNextRouteAfterAuth(account, copy));
+  }
+
+  async function handleSignOutDifferentRole() {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await signOutCurrentUser();
+      setSignedInAsDifferentRole(null);
+    } catch (caughtError) {
+      setError(friendlyAuthError(caughtError));
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function submitEmailPasswordForm(event: FormEvent<HTMLFormElement>) {
@@ -153,6 +196,53 @@ export function AuthPage({ role }: AuthPageProps) {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (!hasCheckedExistingSession) {
+    return (
+      <main className="min-h-screen bg-[#f8f7f4]">
+        <Container className="py-16">
+          <p className="text-sm text-slate-600">Checking your session...</p>
+        </Container>
+      </main>
+    );
+  }
+
+  if (signedInAsDifferentRole) {
+    const signedInDashboard =
+      signedInAsDifferentRole.role === 'student' ? ROUTES.studentDashboard : ROUTES.tutorDashboard;
+
+    return (
+      <main className="min-h-screen bg-[#f8f7f4]">
+        <PageHeader
+          eyebrow="Already signed in"
+          title={`You are signed in as a ${signedInAsDifferentRole.role}`}
+          description={`To continue as a ${role}, sign out first. Otherwise, go back to your current dashboard.`}
+        />
+
+        <Container className="max-w-2xl py-10">
+          <Card>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Button href={signedInDashboard}>Go to dashboard</Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleSignOutDifferentRole}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Signing out...' : `Sign out to use ${role} login`}
+              </Button>
+            </div>
+
+            {error && (
+              <p className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {error}
+              </p>
+            )}
+          </Card>
+        </Container>
+      </main>
+    );
   }
 
   return (
