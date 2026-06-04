@@ -19,6 +19,7 @@ import {
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { AppNotification } from '@/domains/notifications/types/notification';
+import { useBookingNotifications } from '@/domains/booking/hooks/useBookingNotifications';
 
 type UseNotificationsResult = {
   notifications: AppNotification[];
@@ -29,6 +30,7 @@ type UseNotificationsResult = {
 export function useNotifications(
   viewerRole: AsyncSupportRole
 ): UseNotificationsResult {
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const [messageNotifications, setMessageNotifications] = useState<
     AppNotification[]
   >([]);
@@ -38,6 +40,11 @@ export function useNotifications(
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isLoadingTrials, setIsLoadingTrials] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { notifications: bookingNotifications } = useBookingNotifications(
+    currentUserId,
+    viewerRole
+  );
 
   useEffect(() => {
     let unsubscribeRelationships: (() => void) | undefined;
@@ -50,6 +57,7 @@ export function useNotifications(
       unsubscribeTrials = undefined;
 
       if (!user || user.role !== viewerRole) {
+        setCurrentUserId('');
         setMessageNotifications([]);
         setTrialNotifications([]);
         setIsLoadingMessages(false);
@@ -57,6 +65,8 @@ export function useNotifications(
         setError(null);
         return;
       }
+
+      setCurrentUserId(user.id);
 
       setIsLoadingMessages(true);
       setIsLoadingTrials(true);
@@ -114,9 +124,11 @@ export function useNotifications(
     };
   }, [viewerRole]);
 
-  const notifications = [...messageNotifications, ...trialNotifications].sort(
-    (first, second) => second.createdAt.localeCompare(first.createdAt)
-  );
+  const notifications = [
+    ...messageNotifications,
+    ...trialNotifications,
+    ...bookingNotifications,
+  ].sort((first, second) => second.createdAt.localeCompare(first.createdAt));
 
   return {
     notifications,

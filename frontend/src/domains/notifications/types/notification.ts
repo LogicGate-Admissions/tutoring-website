@@ -6,7 +6,14 @@
  * questions, resources, homework, or payment events.
  */
 
-export type AppNotificationType = 'message' | 'trial-request' | 'trial-update';
+export type AppNotificationType =
+  | 'message'
+  | 'trial-request'
+  | 'trial-update'
+  | 'booking_request'
+  | 'booking_accepted'
+  | 'booking_declined'
+  | 'booking_cancelled';
 
 export type AppNotificationTone = 'default' | 'urgent';
 
