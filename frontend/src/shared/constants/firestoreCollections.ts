@@ -18,4 +18,13 @@ export const FIRESTORE_COLLECTIONS = {
 
   /** Trial requests between one student and one tutor. */
   trialSessionRequests: 'trialSessionRequests',
+
+  /** Booking lifecycle documents for confirmed and pending sessions. */
+  bookingRequests: 'bookingRequests',
+
+  /** Firestore-persisted in-app notifications for booking status changes. */
+  bookingNotifications: 'bookingNotifications',
+
+  /** Subject-independent lookup index for tutor↔student relationships. Used by security rules. */
+  tutorStudentLinks: 'tutorStudentLinks',
 } as const;

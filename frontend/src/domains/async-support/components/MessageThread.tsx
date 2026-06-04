@@ -32,21 +32,25 @@ import type {
   ReplyToMessageSummary,
   SupportAttachment,
   SupportMessage,
-} from "@/domains/async-support/types/asyncSupport";
-import { Button } from "@/shared/components/Button";
-import { Card } from "@/shared/components/Card";
-import { cn } from "@/shared/utils/cn";
+} from '@/domains/async-support/types/asyncSupport';
+import { Button } from '@/shared/components/Button';
+import { Card } from '@/shared/components/Card';
+import { cn } from '@/shared/utils/cn';
+import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
+import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
+import { createManualTimeBlock, mergeTimeBlocks } from '@/domains/students/learning-profile/utils/timeBlocks';
+import { getStoredLearningProfile, getStudentAvailabilityById, updateStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
+import { getTutorProfileDraft, saveTutorProfileFromOnboarding } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
+import type { AuthUser } from '@/domains/auth/types/auth';
+import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
+import type { TutorProfileDraft } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 
 type MessageThreadProps = {
   relationshipId: string;
   viewerRole: AsyncSupportRole;
 };
 
-type CurrentThreadUser = {
-  id: string;
-  name: string;
-  role: AsyncSupportRole;
-};
+type CurrentThreadUser = AuthUser | null;
 
 export function MessageThread({
   relationshipId,
@@ -80,6 +84,12 @@ export function MessageThread({
   const [isSending, setIsSending] = useState(false);
   const [isMutatingMessage, setIsMutatingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [scheduleTab, setScheduleTab] = useState<'availability' | 'booking'>('availability');
+  const [availabilityBlocks, setAvailabilityBlocks] = useState<TimeBlock[]>([]);
+  const [availSelectedBlockId, setAvailSelectedBlockId] = useState<string | null>(null);
+  const [tutorDraft, setTutorDraft] = useState<TutorProfileDraft | null>(null);
+  const [counterpartyStudentBlocks, setCounterpartyStudentBlocks] = useState<TimeBlock[]>([]);
 
   useEffect(() => {
     const unsubscribe = subscribeToCurrentUser((user) => {
@@ -88,15 +98,50 @@ export function MessageThread({
         return;
       }
 
-      setCurrentUser({
-        id: user.id,
-        name: user.name,
-        role: user.role,
-      });
+      setCurrentUser(user);
     });
 
     return unsubscribe;
   }, [viewerRole]);
+
+  useEffect(() => {
+    if (!isScheduleOpen || !currentUser) return;
+
+    let isActive = true;
+
+    async function loadInitialAvailability() {
+      try {
+        if (!currentUser) return;
+        if (currentUser.role === 'student') {
+          const profile = await getStoredLearningProfile();
+          if (!isActive) return;
+          setAvailabilityBlocks(profile.availability ?? []);
+        } else {
+          const draft = await getTutorProfileDraft(currentUser.id);
+          if (!isActive) return;
+          setTutorDraft(draft);
+          setAvailabilityBlocks(draft.availability ?? []);
+        }
+      } catch {
+        // ignore; leave availability empty
+      }
+    }
+
+    loadInitialAvailability();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isScheduleOpen, currentUser]);
+
+  useEffect(() => {
+    if (!isScheduleOpen || !relationship?.studentId || currentUser?.role !== 'tutor') return;
+    let isActive = true;
+    getStudentAvailabilityById(relationship.studentId).then((blocks) => {
+      if (isActive) setCounterpartyStudentBlocks(blocks);
+    }).catch(() => {});
+    return () => { isActive = false; };
+  }, [isScheduleOpen, relationship?.studentId, currentUser?.role]);
 
   useEffect(() => {
     return () => {
@@ -407,6 +452,62 @@ export function MessageThread({
     );
   }
 
+  function addGridRange(day: Day, from: string, to: string) {
+    const newBlock = createManualTimeBlock(day, from, to);
+    setAvailabilityBlocks((current) => mergeTimeBlocks([...current, newBlock]));
+    setAvailSelectedBlockId(newBlock.id);
+  }
+
+  function resizeAvailBlock(blockId: string, from: string, to: string) {
+    setAvailabilityBlocks((current) =>
+      mergeTimeBlocks(
+        current.map((b) => (b.id === blockId ? { ...b, from, to } : b))
+      )
+    );
+  }
+
+  function removeAvailBlock(block: TimeBlock) {
+    setAvailabilityBlocks((current) => current.filter((b) => b.id !== block.id));
+    setAvailSelectedBlockId(null);
+  }
+
+  async function handleSaveAvailability() {
+    try {
+      if (!currentUser) return;
+
+      const merged = mergeTimeBlocks(availabilityBlocks);
+
+      if (currentUser.role === 'student') {
+        await updateStoredLearningProfile({ availability: merged });
+      } else {
+        // save tutor draft availability; preserve other draft fields if we loaded one
+        if (tutorDraft) {
+          await saveTutorProfileFromOnboarding(currentUser, { ...tutorDraft, availability: merged });
+        }
+      }
+      // Keep the modal open so the user can switch to the booking tab immediately
+    } catch {
+      window.alert('Could not save availability.');
+    }
+  }
+
+  function handleCloseSchedule() {
+    setIsScheduleOpen(false);
+  }
+
+  const bookingTutorId =
+    currentUser?.role === 'student' ? relationship?.tutorId : currentUser?.id;
+  const bookingTutorName =
+    currentUser?.role === 'student'
+      ? relationship?.tutorName
+      : currentUser?.name;
+  const bookingStudentId =
+    currentUser?.role === 'student' ? currentUser.id : relationship?.studentId;
+  const bookingInitiatedBy = currentUser?.role;
+  const canOpenBooking = Boolean(
+    relationship && bookingTutorId && bookingTutorName && bookingStudentId && bookingInitiatedBy,
+  );
+
   const firstUnreadMessageId = getFirstUnreadMessageId({
     messages,
     currentUserId: currentUser?.id,
@@ -550,20 +651,32 @@ export function MessageThread({
               className="hidden"
             />
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSending}
-              >
-                Attach files
-              </Button>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSending}
+                >
+                  Attach files
+                </Button>
 
-              <p className="text-xs text-slate-500">
-                Images, PDFs, documents or screenshots up to 10MB each. Demo
-                stores file details only.
-              </p>
+                <p className="text-xs text-slate-500">
+                  Images, PDFs, documents or screenshots up to 10MB each. Demo stores file details only.
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => { setScheduleTab('availability'); setIsScheduleOpen(true); }}
+                  disabled={isSending}
+                >
+                  Schedule session
+                </Button>
+              </div>
             </div>
 
             {selectedFiles.length > 0 ? (
@@ -593,6 +706,93 @@ export function MessageThread({
           </div>
         </form>
       </Card>
+
+      {isScheduleOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-slate-950/40"
+            onClick={handleCloseSchedule}
+          />
+
+          <div className="relative m-auto w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <h2 className="text-lg font-semibold text-slate-950">
+                Schedule a session with{' '}
+                {viewerRole === 'student' ? relationship?.tutorName : relationship?.studentName}
+              </h2>
+              <button
+                type="button"
+                onClick={handleCloseSchedule}
+                className="rounded-full border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="mt-4 flex gap-1 rounded-xl bg-slate-100 p-1">
+              {(['availability', 'booking'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setScheduleTab(tab)}
+                  className={cn(
+                    'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition',
+                    scheduleTab === tab
+                      ? 'bg-white text-slate-950 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-950'
+                  )}
+                >
+                  {tab === 'availability' ? 'My availability' : 'Book session'}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab: My availability */}
+            {scheduleTab === 'availability' ? (
+              <div className="mt-4">
+                <StudentAvailabilityGrid
+                  blocks={availabilityBlocks}
+                  selectedBlockId={availSelectedBlockId}
+                  onSelectBlock={setAvailSelectedBlockId}
+                  onAddTimeRange={addGridRange}
+                  onDeleteBlock={removeAvailBlock}
+                  onResizeBlock={resizeAvailBlock}
+                />
+                <div className="mt-4 flex justify-end gap-3">
+                  <Button variant="secondary" onClick={handleCloseSchedule}>
+                    Close without saving
+                  </Button>
+                  <Button onClick={handleSaveAvailability}>Save availability</Button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Tab: Book session */}
+            {scheduleTab === 'booking' && canOpenBooking && bookingTutorId && bookingStudentId ? (
+              <div className="mt-4">
+                <DragToBookCalendar
+                  tutorId={bookingTutorId}
+                  studentId={bookingStudentId}
+                  counterpartyName={
+                    viewerRole === 'student'
+                      ? (relationship?.tutorName ?? '')
+                      : (relationship?.studentName ?? '')
+                  }
+                  initiatedBy={viewerRole}
+                  studentAvailabilityBlocks={
+                    viewerRole === 'student' ? availabilityBlocks : counterpartyStudentBlocks
+                  }
+                  onSuccess={handleCloseSchedule}
+                  onCancel={handleCloseSchedule}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
     </div>
   );
 }

@@ -4,24 +4,32 @@
  * File purpose: Main tutor dashboard for ongoing student support.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
 import { useRelationshipSummaries } from '@/domains/async-support/hooks/useRelationshipSummaries';
 import type { RelationshipSupportSummary } from '@/domains/async-support/types/asyncSupport';
+import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
+import { MySessionsTab } from '@/domains/booking/components/sessions/MySessionsTab';
+import type { BookingRequest } from '@/domains/booking/types/booking';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
 
-type Section = 'my-students' | 'tutor-profile' | 'trial-requests';
+type Section = 'my-students' | 'tutor-profile' | 'trial-requests' | 'my-sessions';
 
 const tabs: Array<{ id: Section; label: string; description: string }> = [
   {
     id: 'my-students',
     label: 'My students',
     description: 'Student support',
+  },
+  {
+    id: 'my-sessions',
+    label: 'My sessions',
+    description: 'Book & manage',
   },
   {
     id: 'tutor-profile',
@@ -37,7 +45,15 @@ const tabs: Array<{ id: Section; label: string; description: string }> = [
 
 export function TutorDashboard() {
   const [activeSection, setActiveSection] = useState<Section>('my-students');
+  const [currentUserId, setCurrentUserId] = useState('');
   const { relationships, isLoading, error } = useRelationshipSummaries('tutor');
+
+  useEffect(() => {
+    const unsub = subscribeToCurrentUser((user) => {
+      setCurrentUserId(user?.id ?? '');
+    });
+    return unsub;
+  }, []);
 
   return (
     <Container className="grid gap-6 py-8">
@@ -63,12 +79,27 @@ export function TutorDashboard() {
         />
 
         <main className="min-w-0">
-          <RelationshipContent
-            activeSection={activeSection}
-            relationships={relationships}
-            isLoading={isLoading}
-            error={error}
-          />
+          {activeSection === 'my-sessions' ? (
+            <MySessionsTab
+              userId={currentUserId}
+              role="tutor"
+              counterparties={relationships.map((r) => ({
+                id: r.studentId,
+                name: r.studentName,
+              }))}
+              getOtherPartyName={(b: BookingRequest) => {
+                const rel = relationships.find((r) => r.studentId === b.studentId);
+                return rel?.studentName ?? 'Student';
+              }}
+            />
+          ) : (
+            <RelationshipContent
+              activeSection={activeSection}
+              relationships={relationships}
+              isLoading={isLoading}
+              error={error}
+            />
+          )}
         </main>
       </div>
     </Container>

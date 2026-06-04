@@ -11,7 +11,7 @@ import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import { getCurrentFirebaseUser } from '@/domains/auth/services/authService';
 import { DEFAULT_LEARNING_PROFILE } from '@/domains/students/learning-profile/constants/learningProfileOptions';
-import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
+import type { StudentLearningProfile, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
 
 /** Return the Firestore document reference for the signed-in student's profile. */
 function studentProfileDocumentRef(studentId: string) {
@@ -69,6 +69,14 @@ export async function saveLearningProfile(profile: StudentLearningProfile) {
     },
     { merge: true }
   );
+}
+
+/** Read the availability blocks for any student by ID (used by tutors to compute intersection). */
+export async function getStudentAvailabilityById(studentId: string): Promise<TimeBlock[]> {
+  const snapshot = await getDoc(studentProfileDocumentRef(studentId));
+  if (!snapshot.exists()) return [];
+  const data = snapshot.data() as Partial<StudentLearningProfile>;
+  return data.availability ?? [];
 }
 
 /**
