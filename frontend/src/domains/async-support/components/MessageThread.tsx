@@ -9,7 +9,7 @@
  */
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
-import { MathKeyboard } from "@/domains/async-support/components/MathKeyboard";
+import { MathKeyboard, MATH_PLACEHOLDER, moveToNextMathPlaceholder } from "@/domains/async-support/components/MathKeyboard";
 import { MathRenderer, normalizeMathMessage, stripMathDelimiters } from "@/domains/async-support/components/MathRenderer";
 import { uploadAttachments } from "@/domains/attachments/services/attachmentUploadService";
 import {
@@ -638,13 +638,12 @@ export function MessageThread({
             value={draftMessage}
             onChange={(event) => setDraftMessage(event.target.value)}
             onKeyDown={(event) => {
-              // Tab jumps to the next █ placeholder (inserted by math keyboard)
+              // Tab remains an optional shortcut for moving between maths slots.
               if (event.key === "Tab") {
                 const ta = event.currentTarget;
-                const nextPlaceholder = ta.value.indexOf("█", ta.selectionEnd ?? 0);
-                if (nextPlaceholder !== -1) {
+                if (ta.value.includes(MATH_PLACEHOLDER)) {
                   event.preventDefault();
-                  ta.setSelectionRange(nextPlaceholder, nextPlaceholder + 1);
+                  moveToNextMathPlaceholder(ta);
                 }
               }
             }}

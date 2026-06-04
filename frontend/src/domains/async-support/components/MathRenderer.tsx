@@ -189,7 +189,7 @@ function MathSpan({ latex }: { latex: string }) {
 
     if (typeof window !== "undefined" && window.katex) {
       try {
-        el.innerHTML = window.katex.renderToString(latex.replaceAll("█", "\\square"), {
+        el.innerHTML = window.katex.renderToString(latex.replaceAll("□", "\\square"), {
           throwOnError: false,
           displayMode: false,
         });

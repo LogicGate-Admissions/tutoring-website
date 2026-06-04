@@ -8,11 +8,14 @@
  * Basic Math, Calculus & Sums, Vectors & Matrices, Trigonometry, Symbols.
  * Buttons insert LaTeX into the message textarea. The helper is deliberately
  * context-aware: if the cursor is already inside a $...$ expression, it inserts
- * raw LaTeX instead of creating invalid nested math delimiters.
+ * raw LaTeX instead of creating invalid nested math delimiters. Empty
+ * argument slots use a hollow □ marker instead of a heavy black block, so
+ * students can replace the placeholder without the input feeling broken.
  */
 
 import { useEffect, useState } from "react";
 import { cn } from "@/shared/utils/cn";
+import { MathRenderer } from "@/domains/async-support/components/MathRenderer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,21 +25,23 @@ type MathCategory = {
 };
 
 type MathSymbol = {
-  /** Button label shown in the keyboard. Keep this compact like Wolfram Alpha. */
+  /** Plain-text fallback / accessible label for the button. */
   display: string;
   /** LaTeX inserted into textarea. Use $...$ for normal insertion. */
   insert: string;
+  /** Optional LaTeX used only for rendering the button face. */
+  buttonLatex?: string;
   title?: string;
 };
 
-// ─── Placeholder char used as tab-stops ───────────────────────────────────────
-export const MATH_PLACEHOLDER = "█";
+// ─── Placeholder char used as editable placeholder positions ───────────────────────────────────────
+export const MATH_PLACEHOLDER = "□";
 
 const P = MATH_PLACEHOLDER;
 
 // ─── Symbol catalogue ─────────────────────────────────────────────────────────
 
-const MATH_CATEGORIES: MathCategory[] = [
+const BASE_MATH_CATEGORIES: MathCategory[] = [
   {
     label: "Basic Math",
     symbols: [
@@ -189,6 +194,14 @@ const MATH_CATEGORIES: MathCategory[] = [
   },
 ];
 
+const MATH_CATEGORIES: MathCategory[] = [
+  ...BASE_MATH_CATEGORIES,
+  {
+    label: "All Math Inputs",
+    symbols: BASE_MATH_CATEGORIES.flatMap((category) => category.symbols),
+  },
+];
+
 // ─── Dollar-delimiter helpers ────────────────────────────────────────────────
 
 function isUnescapedDollar(text: string, index: number): boolean {
@@ -269,7 +282,24 @@ export function insertAtCaret(
   });
 }
 
+export function moveToNextMathPlaceholder(textarea: HTMLTextAreaElement): void {
+  textarea.focus();
+  const start = textarea.selectionEnd ?? 0;
+  const next = textarea.value.indexOf(MATH_PLACEHOLDER, start);
+  const fallback = textarea.value.indexOf(MATH_PLACEHOLDER);
+  const target = next !== -1 ? next : fallback;
+
+  if (target !== -1) {
+    textarea.setSelectionRange(target, target + MATH_PLACEHOLDER.length);
+  }
+}
+
 // ─── Symbol button ────────────────────────────────────────────────────────────
+
+function latexForButton(symbol: MathSymbol): string {
+  if (symbol.buttonLatex) return symbol.buttonLatex;
+  return stripOuterMathDelimiters(symbol.insert);
+}
 
 function SymbolButton({
   symbol,
@@ -284,14 +314,17 @@ function SymbolButton({
       title={symbol.title ?? symbol.display}
       onClick={() => onInsert(symbol)}
       className={cn(
-        "flex h-10 min-w-[3.75rem] items-center justify-center rounded-lg border border-slate-200 bg-white px-2",
-        "font-mono text-xs font-medium text-slate-800 transition",
+        "flex h-12 min-w-[3.75rem] items-center justify-center rounded-lg border border-slate-200 bg-white px-2",
+        "text-sm font-medium text-slate-800 transition",
         "hover:border-slate-950 hover:bg-slate-50 hover:text-slate-950",
         "focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-1",
         "active:scale-95"
       )}
     >
-      {symbol.display}
+      <span className="pointer-events-none flex min-w-0 items-center justify-center text-center leading-none">
+        <MathRenderer value={`$${latexForButton(symbol)}$`} />
+      </span>
+      <span className="sr-only">{symbol.title ?? symbol.display}</span>
     </button>
   );
 }
@@ -370,21 +403,29 @@ export function MathKeyboard({
       </div>
 
       <div className="flex flex-wrap gap-2 overflow-y-auto p-3" style={{ maxHeight: "226px" }}>
-        {category.symbols.map((sym) => (
+        {category.symbols.map((sym, idx) => (
           <SymbolButton
-            key={sym.display + sym.insert}
+            key={`${activeCategory}-${idx}-${sym.title ?? sym.display}`}
             symbol={sym}
             onInsert={handleInsert}
           />
         ))}
       </div>
 
-      <div className="border-t border-slate-100 px-4 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-2">
         <p className="text-xs text-slate-400">
-          Tip: click inside an existing $...$ expression to add more math without starting a new block.{' '}
-          <kbd className="rounded bg-slate-100 px-1 font-mono text-[10px]">Tab</kbd>{' '}
-          jumps between placeholders (█).
+          Empty maths slots use □. Type over the selected slot, press Tab, or use Next slot.
         </p>
+        <button
+          type="button"
+          onClick={() => {
+            const ta = textareaRef.current;
+            if (ta) moveToNextMathPlaceholder(ta);
+          }}
+          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-950 hover:bg-slate-50 hover:text-slate-950"
+        >
+          Next slot
+        </button>
       </div>
     </div>
   );
