@@ -23,12 +23,8 @@ import {
 } from '@/domains/students/learning-profile/components/StudentOnboardingSectionBar';
 import { QualificationSelector } from '@/domains/students/learning-profile/components/subjects/QualificationSelector';
 import { SubjectPicker } from '@/domains/students/learning-profile/components/subjects/SubjectPicker';
-import { SubjectSummaryPanel } from '@/domains/students/learning-profile/components/subjects/SubjectSummaryPanel';
 import { TutoringSubjectPicker } from '@/domains/students/learning-profile/components/subjects/TutoringSubjectPicker';
-import {
-  getSelectedCategories,
-  getSubjectsForCategory,
-} from '@/domains/students/learning-profile/components/subjects/SubjectSelectionHelpers';
+import { getSubjectsForCategory } from '@/domains/students/learning-profile/components/subjects/SubjectSelectionHelpers';
 import {
   getStoredLearningProfile,
   updateStoredLearningProfile,
@@ -163,8 +159,6 @@ export function StudentSubjectsStep() {
     };
   }, []);
 
-  const selectedCategories = getSelectedCategories(studiedSubjectSelections);
-
   const studiedSubjectsForActiveCategory = getSubjectsForCategory(
     studiedSubjectSelections,
     activeCategory
@@ -196,6 +190,20 @@ export function StudentSubjectsStep() {
     ]);
 
     setActiveCategory(category);
+  }
+
+
+  function clearSubjectsForCategory(category: QualificationCategory) {
+    /** Keep the qualification selected but remove all subjects and matching needs. */
+    setStudiedSubjectSelections((currentSelections) =>
+      currentSelections.map((selection) =>
+        selection.category === category ? { ...selection, subjects: [] } : selection
+      )
+    );
+
+    setTutoringSubjectSelections((currentSelections) =>
+      currentSelections.filter((selection) => selection.category !== category)
+    );
   }
 
   function removeCategory(category: QualificationCategory) {
@@ -279,46 +287,32 @@ export function StudentSubjectsStep() {
           </p>
         )}
 
-        <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-8">
-            <SubjectSummaryPanel
-              subjectSelections={tutoringSubjectSelections}
-              activeCategory={activeCategory}
-              title="Currently selected for tutoring"
-              description="These are the subjects that will be used for tutor matching."
-              emptyMessage="No tutoring subjects selected yet. Add what you study, then choose the ones you want help with."
-              canClear={
-                studiedSubjectSelections.length > 0 ||
-                tutoringSubjectSelections.length > 0
-              }
-              onClearSelection={clearSelection}
-              onSelectCategory={setActiveCategory}
-              onRemoveCategory={removeCategory}
-            />
-          </aside>
+        <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <QualificationSelector
+            studiedSubjectSelections={studiedSubjectSelections}
+            activeCategory={activeCategory}
+            onChooseCategory={chooseCategory}
+            onRemoveCategory={removeCategory}
+            onClearAll={clearSelection}
+          />
 
-          <section className="grid min-w-0 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-            <QualificationSelector
-              selectedCategories={selectedCategories}
+          <section className="grid min-w-0 gap-6">
+            <SubjectPicker
               activeCategory={activeCategory}
-              onChooseCategory={chooseCategory}
+              subjectOptions={subjectOptions}
+              activeSubjects={studiedSubjectsForActiveCategory}
+              onToggleSubject={toggleStudiedSubject}
+              onClearActiveSubjects={() => {
+                if (activeCategory) clearSubjectsForCategory(activeCategory);
+              }}
+              isLoadingSubjects={isLoadingSubjects}
             />
 
-            <div className="grid min-w-0 gap-6">
-              <SubjectPicker
-                activeCategory={activeCategory}
-                subjectOptions={subjectOptions}
-                activeSubjects={studiedSubjectsForActiveCategory}
-                onToggleSubject={toggleStudiedSubject}
-                isLoadingSubjects={isLoadingSubjects}
-              />
-
-              <TutoringSubjectPicker
-                studiedSubjectSelections={studiedSubjectSelections}
-                tutoringSubjectSelections={tutoringSubjectSelections}
-                onToggleSubject={toggleWantedTutoringSubject}
-              />
-            </div>
+            <TutoringSubjectPicker
+              studiedSubjectSelections={studiedSubjectSelections}
+              tutoringSubjectSelections={tutoringSubjectSelections}
+              onToggleSubject={toggleWantedTutoringSubject}
+            />
           </section>
         </div>
       </Container>

@@ -17,23 +17,37 @@ export function SubjectPicker({
   subjectOptions,
   activeSubjects,
   onToggleSubject,
+  onClearActiveSubjects,
   isLoadingSubjects = false,
 }: {
   activeCategory: QualificationCategory | '';
   subjectOptions: string[];
   activeSubjects: string[];
   onToggleSubject: (subject: string) => void;
+  onClearActiveSubjects: () => void;
   isLoadingSubjects?: boolean;
 }) {
   return (
     <Card>
-      <div>
-        <h2 className="text-xl font-semibold">What subjects do you study?</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          {activeCategory
-            ? `Choose the ${activeCategory} subjects you are currently studying.`
-            : 'Choose a qualification first.'}
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">What subjects do you study?</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {activeCategory
+              ? `Choose the ${activeCategory} subjects you are currently studying.`
+              : 'Choose a qualification first.'}
+          </p>
+        </div>
+
+        {activeCategory && activeSubjects.length > 0 && (
+          <button
+            type="button"
+            onClick={onClearActiveSubjects}
+            className="self-start rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-950 hover:text-slate-950"
+          >
+            Clear subjects
+          </button>
+        )}
       </div>
 
       {!activeCategory && (
@@ -49,6 +63,7 @@ export function SubjectPicker({
               Loading subjects from Firebase...
             </p>
           )}
+
 
           <SearchableMultiSelect
             label="Search subjects"
