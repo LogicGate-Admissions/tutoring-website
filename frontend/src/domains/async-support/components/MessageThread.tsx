@@ -36,6 +36,7 @@ import type {
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { cn } from '@/shared/utils/cn';
+import { BookingRequestForm } from '@/domains/booking/components/BookingRequestForm';
 import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
 import { createManualTimeBlock, mergeTimeBlocks } from '@/domains/students/learning-profile/utils/timeBlocks';
 import { getStoredLearningProfile, updateStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
@@ -84,6 +85,7 @@ export function MessageThread({
   const [isMutatingMessage, setIsMutatingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TimeBlock[]>([]);
   const [availSelectedBlockId, setAvailSelectedBlockId] = useState<string | null>(null);
   const [tutorDraft, setTutorDraft] = useState<TutorProfileDraft | null>(null);
@@ -484,6 +486,31 @@ export function MessageThread({
     setIsAvailabilityOpen(false);
   }
 
+  function handleOpenBooking() {
+    if (!currentUser || !relationship) {
+      return;
+    }
+
+    setIsBookingOpen(true);
+  }
+
+  function handleCloseBooking() {
+    setIsBookingOpen(false);
+  }
+
+  const bookingTutorId =
+    currentUser?.role === 'student' ? relationship?.tutorId : currentUser?.id;
+  const bookingTutorName =
+    currentUser?.role === 'student'
+      ? relationship?.tutorName
+      : currentUser?.name;
+  const bookingStudentId =
+    currentUser?.role === 'student' ? currentUser.id : relationship?.studentId;
+  const bookingInitiatedBy = currentUser?.role;
+  const canOpenBooking = Boolean(
+    relationship && bookingTutorId && bookingTutorName && bookingStudentId && bookingInitiatedBy,
+  );
+
   const firstUnreadMessageId = getFirstUnreadMessageId({
     messages,
     currentUserId: currentUser?.id,
@@ -643,7 +670,7 @@ export function MessageThread({
                 </p>
               </div>
 
-              <div className="shrink-0">
+              <div className="flex shrink-0 items-center gap-3">
                 <Button
                   type="button"
                   variant="secondary"
@@ -651,6 +678,15 @@ export function MessageThread({
                   disabled={isSending}
                 >
                   Change availability
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleOpenBooking}
+                  disabled={!canOpenBooking || isSending}
+                >
+                  Book session
                 </Button>
               </div>
             </div>
@@ -718,6 +754,45 @@ export function MessageThread({
                 Close without saving
               </Button>
               <Button onClick={handleSaveAvailability}>Save availability</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isBookingOpen && currentUser && relationship && bookingTutorId && bookingTutorName && bookingStudentId && bookingInitiatedBy ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-slate-950/40"
+            onClick={handleCloseBooking}
+          />
+
+          <div className="relative m-auto w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-950">Book a session</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Create a booking with {currentUser.role === 'student' ? relationship.tutorName : relationship.studentName} using the same booking flow as My Sessions.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseBooking}
+                className="rounded-full border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4 max-h-[80vh] overflow-y-auto pr-1">
+              <BookingRequestForm
+                tutorId={bookingTutorId}
+                tutorName={bookingTutorName}
+                studentId={bookingStudentId}
+                initiatedBy={bookingInitiatedBy}
+                onSuccess={handleCloseBooking}
+                onCancel={handleCloseBooking}
+              />
             </div>
           </div>
         </div>
