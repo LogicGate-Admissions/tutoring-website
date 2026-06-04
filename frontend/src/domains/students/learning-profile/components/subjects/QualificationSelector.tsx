@@ -28,7 +28,7 @@ function subjectCountForCategory(
  * or remove it entirely from one place.
  */
 export function QualificationSelector({
-  studiedSubjectSelections,
+  studiedSubjectSelections = [],
   activeCategory,
   onChooseCategory,
   onRemoveCategory,
