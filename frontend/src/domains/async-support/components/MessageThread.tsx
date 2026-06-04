@@ -39,7 +39,7 @@ import { cn } from '@/shared/utils/cn';
 import { BookingRequestForm } from '@/domains/booking/components/BookingRequestForm';
 import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
 import { createManualTimeBlock, mergeTimeBlocks } from '@/domains/students/learning-profile/utils/timeBlocks';
-import { getStoredLearningProfile, updateStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
+import { getStoredLearningProfile, getStudentAvailabilityById, updateStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import { getTutorProfileDraft, saveTutorProfileFromOnboarding } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 import type { AuthUser } from '@/domains/auth/types/auth';
 import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
@@ -84,11 +84,12 @@ export function MessageThread({
   const [isSending, setIsSending] = useState(false);
   const [isMutatingMessage, setIsMutatingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
-  const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [scheduleTab, setScheduleTab] = useState<'availability' | 'booking'>('availability');
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TimeBlock[]>([]);
   const [availSelectedBlockId, setAvailSelectedBlockId] = useState<string | null>(null);
   const [tutorDraft, setTutorDraft] = useState<TutorProfileDraft | null>(null);
+  const [counterpartyStudentBlocks, setCounterpartyStudentBlocks] = useState<TimeBlock[]>([]);
 
   useEffect(() => {
     const unsubscribe = subscribeToCurrentUser((user) => {
@@ -104,7 +105,7 @@ export function MessageThread({
   }, [viewerRole]);
 
   useEffect(() => {
-    if (!isAvailabilityOpen || !currentUser) return;
+    if (!isScheduleOpen || !currentUser) return;
 
     let isActive = true;
 
@@ -131,7 +132,16 @@ export function MessageThread({
     return () => {
       isActive = false;
     };
-  }, [isAvailabilityOpen, currentUser]);
+  }, [isScheduleOpen, currentUser]);
+
+  useEffect(() => {
+    if (!isScheduleOpen || !relationship?.studentId || currentUser?.role !== 'tutor') return;
+    let isActive = true;
+    getStudentAvailabilityById(relationship.studentId).then((blocks) => {
+      if (isActive) setCounterpartyStudentBlocks(blocks);
+    }).catch(() => {});
+    return () => { isActive = false; };
+  }, [isScheduleOpen, relationship?.studentId, currentUser?.role]);
 
   useEffect(() => {
     return () => {
@@ -475,27 +485,14 @@ export function MessageThread({
           await saveTutorProfileFromOnboarding(currentUser, { ...tutorDraft, availability: merged });
         }
       }
-
-      setIsAvailabilityOpen(false);
+      // Keep the modal open so the user can switch to the booking tab immediately
     } catch {
       window.alert('Could not save availability.');
     }
   }
 
-  function handleCloseAvailability() {
-    setIsAvailabilityOpen(false);
-  }
-
-  function handleOpenBooking() {
-    if (!currentUser || !relationship) {
-      return;
-    }
-
-    setIsBookingOpen(true);
-  }
-
-  function handleCloseBooking() {
-    setIsBookingOpen(false);
+  function handleCloseSchedule() {
+    setIsScheduleOpen(false);
   }
 
   const bookingTutorId =
@@ -674,19 +671,10 @@ export function MessageThread({
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => setIsAvailabilityOpen(true)}
+                  onClick={() => { setScheduleTab('availability'); setIsScheduleOpen(true); }}
                   disabled={isSending}
                 >
-                  Change availability
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleOpenBooking}
-                  disabled={!canOpenBooking || isSending}
-                >
-                  Book session
+                  Schedule session
                 </Button>
               </div>
             </div>
@@ -719,81 +707,84 @@ export function MessageThread({
         </form>
       </Card>
 
-      {isAvailabilityOpen ? (
+      {isScheduleOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-slate-950/40"
-            onClick={handleCloseAvailability}
-          />
-
-          <div className="relative m-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between">
-              <h2 className="text-lg font-semibold text-slate-950">Edit availability</h2>
-              <button
-                type="button"
-                onClick={handleCloseAvailability}
-                className="rounded-full border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="mt-4">
-              <StudentAvailabilityGrid
-                blocks={availabilityBlocks}
-                selectedBlockId={availSelectedBlockId}
-                onSelectBlock={setAvailSelectedBlockId}
-                onAddTimeRange={addGridRange}
-                onDeleteBlock={removeAvailBlock}
-                onResizeBlock={resizeAvailBlock}
-              />
-            </div>
-
-            <div className="mt-4 flex justify-end gap-3">
-              <Button variant="secondary" onClick={handleCloseAvailability}>
-                Close without saving
-              </Button>
-              <Button onClick={handleSaveAvailability}>Save availability</Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {isBookingOpen && currentUser && relationship && bookingTutorId && bookingTutorName && bookingStudentId && bookingInitiatedBy ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-slate-950/40"
-            onClick={handleCloseBooking}
+            onClick={handleCloseSchedule}
           />
 
           <div className="relative m-auto w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-950">Book a session</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Create a booking with {currentUser.role === 'student' ? relationship.tutorName : relationship.studentName} using the same booking flow as My Sessions.
-                </p>
-              </div>
-
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <h2 className="text-lg font-semibold text-slate-950">
+                Schedule a session with{' '}
+                {viewerRole === 'student' ? relationship?.tutorName : relationship?.studentName}
+              </h2>
               <button
                 type="button"
-                onClick={handleCloseBooking}
+                onClick={handleCloseSchedule}
                 className="rounded-full border border-slate-200 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
               >
                 Close
               </button>
             </div>
 
-            <div className="mt-4 max-h-[80vh] overflow-y-auto pr-1">
-              <BookingRequestForm
-                tutorId={bookingTutorId}
-                tutorName={bookingTutorName}
-                studentId={bookingStudentId}
-                initiatedBy={bookingInitiatedBy}
-                onSuccess={handleCloseBooking}
-                onCancel={handleCloseBooking}
-              />
+            {/* Tabs */}
+            <div className="mt-4 flex gap-1 rounded-xl bg-slate-100 p-1">
+              {(['availability', 'booking'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setScheduleTab(tab)}
+                  className={cn(
+                    'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition',
+                    scheduleTab === tab
+                      ? 'bg-white text-slate-950 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-950'
+                  )}
+                >
+                  {tab === 'availability' ? 'My availability' : 'Book session'}
+                </button>
+              ))}
             </div>
+
+            {/* Tab: My availability */}
+            {scheduleTab === 'availability' ? (
+              <div className="mt-4">
+                <StudentAvailabilityGrid
+                  blocks={availabilityBlocks}
+                  selectedBlockId={availSelectedBlockId}
+                  onSelectBlock={setAvailSelectedBlockId}
+                  onAddTimeRange={addGridRange}
+                  onDeleteBlock={removeAvailBlock}
+                  onResizeBlock={resizeAvailBlock}
+                />
+                <div className="mt-4 flex justify-end gap-3">
+                  <Button variant="secondary" onClick={handleCloseSchedule}>
+                    Close without saving
+                  </Button>
+                  <Button onClick={handleSaveAvailability}>Save availability</Button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Tab: Book session */}
+            {scheduleTab === 'booking' && canOpenBooking && bookingTutorId && bookingTutorName && bookingStudentId && bookingInitiatedBy ? (
+              <div className="mt-4 max-h-[70vh] overflow-y-auto pr-1">
+                <BookingRequestForm
+                  tutorId={bookingTutorId}
+                  tutorName={bookingTutorName}
+                  studentId={bookingStudentId}
+                  initiatedBy={bookingInitiatedBy}
+                  studentAvailabilityBlocks={
+                    viewerRole === 'student' ? availabilityBlocks : counterpartyStudentBlocks
+                  }
+                  onSuccess={handleCloseSchedule}
+                  onCancel={handleCloseSchedule}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
