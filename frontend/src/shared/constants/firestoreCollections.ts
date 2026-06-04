@@ -18,4 +18,10 @@ export const FIRESTORE_COLLECTIONS = {
 
   /** Trial requests between one student and one tutor. */
   trialSessionRequests: 'trialSessionRequests',
+
+  /** Booking lifecycle documents for confirmed and pending sessions. */
+  bookingRequests: 'bookingRequests',
+
+  /** Firestore-persisted in-app notifications for booking status changes. */
+  bookingNotifications: 'bookingNotifications',
 } as const;
