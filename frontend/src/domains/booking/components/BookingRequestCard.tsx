@@ -23,6 +23,8 @@ type BookingRequestCardProps = {
   viewerId: string;
   /** Name of the other party (tutor name for student viewers, student name for tutor viewers). */
   otherPartyName: string;
+  /** When true, suppresses all action buttons (used for past sessions). */
+  isPast?: boolean;
 };
 
 type ConfirmingAction = 'cancel' | 'decline' | null;
@@ -54,6 +56,7 @@ export function BookingRequestCard({
   booking,
   viewerRole,
   otherPartyName,
+  isPast,
 }: BookingRequestCardProps) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -167,7 +170,7 @@ export function BookingRequestCard({
       ) : null}
 
       {/* Actions */}
-      {!isTerminal ? (
+      {!isTerminal && !isPast ? (
         <div className="mt-4">
           {confirming ? (
             <InlineConfirm
