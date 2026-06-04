@@ -84,9 +84,6 @@ export function useBookings(
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
     const field = role === 'tutor' ? 'tutorId' : 'studentId';
     // No orderBy here — combining where() on one field with orderBy() on
     // another requires a composite Firestore index. Sort client-side instead.
@@ -120,7 +117,7 @@ export function useBookings(
 
   const pendingRequests = useMemo(
     () => allBookings.filter((b) => isPendingForUser(b, role)),
-    [allBookings]
+    [allBookings, role]
   );
 
   const sentRequests = useMemo(
@@ -129,10 +126,10 @@ export function useBookings(
         const userIsInitiator =
           (role === 'tutor' && b.initiatedBy === 'tutor') ||
           (role === 'student' && b.initiatedBy === 'student');
-        // Sent by this user, other party hasn't responded yet
+        
         return b.status === 'pending_receiver' && userIsInitiator;
       }),
-    [allBookings]
+    [allBookings, role]
   );
 
   const allSessions = useMemo(

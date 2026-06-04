@@ -74,8 +74,6 @@ export function useBookingNotifications(
 
   useEffect(() => {
     if (!userId) {
-      setRawNotifications([]);
-      setIsLoading(false);
       return;
     }
 

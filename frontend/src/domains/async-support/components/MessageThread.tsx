@@ -41,6 +41,8 @@ import { createManualTimeBlock, mergeTimeBlocks } from '@/domains/students/learn
 import { getStoredLearningProfile, updateStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import { getTutorProfileDraft, saveTutorProfileFromOnboarding } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 import type { AuthUser } from '@/domains/auth/types/auth';
+import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
+import type { TutorProfileDraft } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 
 type MessageThreadProps = {
   relationshipId: string;
@@ -77,9 +79,9 @@ export function MessageThread({
   const [isMutatingMessage, setIsMutatingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
-  const [availabilityBlocks, setAvailabilityBlocks] = useState<any[]>([]);
+  const [availabilityBlocks, setAvailabilityBlocks] = useState<TimeBlock[]>([]);
   const [availSelectedBlockId, setAvailSelectedBlockId] = useState<string | null>(null);
-  const [tutorDraft, setTutorDraft] = useState<any | null>(null);
+  const [tutorDraft, setTutorDraft] = useState<TutorProfileDraft | null>(null);
 
   useEffect(() => {
     const unsubscribe = subscribeToCurrentUser((user) => {
@@ -112,7 +114,7 @@ export function MessageThread({
           setTutorDraft(draft);
           setAvailabilityBlocks(draft.availability ?? []);
         }
-      } catch (e) {
+      } catch {
         // ignore; leave availability empty
       }
     }
@@ -379,7 +381,7 @@ export function MessageThread({
     );
   }
 
-  function addGridRange(day: any, from: string, to: string) {
+  function addGridRange(day: Day, from: string, to: string) {
     const newBlock = createManualTimeBlock(day, from, to);
     setAvailabilityBlocks((current) => mergeTimeBlocks([...current, newBlock]));
     setAvailSelectedBlockId(newBlock.id);
@@ -393,7 +395,7 @@ export function MessageThread({
     );
   }
 
-  function removeAvailBlock(block: any) {
+  function removeAvailBlock(block: TimeBlock) {
     setAvailabilityBlocks((current) => current.filter((b) => b.id !== block.id));
     setAvailSelectedBlockId(null);
   }
@@ -414,9 +416,7 @@ export function MessageThread({
       }
 
       setIsAvailabilityOpen(false);
-    } catch (e) {
-      // best-effort: show simple alert for demo
-      // eslint-disable-next-line no-alert
+    } catch {
       window.alert('Could not save availability.');
     }
   }
