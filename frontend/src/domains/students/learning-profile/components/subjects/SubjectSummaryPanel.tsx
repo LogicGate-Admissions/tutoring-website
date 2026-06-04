@@ -1,5 +1,5 @@
 /**
- * File purpose: Small subject-selection UI/helper file. It keeps StudentSubjectsStep readable.
+ * File purpose: Summary panel for the subjects selected for tutor matching.
  */
 
 import { Badge } from '@/shared/components/Badge';
@@ -12,20 +12,28 @@ import type {
 } from '@/domains/students/learning-profile/types/learningProfile';
 
 /**
- * Left summary panel for currently selected qualifications and subjects.
+ * Left summary panel for the tutoring subjects that will drive tutor matching.
  *
  * It doubles as navigation: clicking a qualification makes that section active
- * for editing in the subject picker.
+ * for editing in the main subject picker.
  */
 export function SubjectSummaryPanel({
   subjectSelections,
   activeCategory,
+  title = 'Currently selected',
+  description = 'Your choices are grouped by qualification.',
+  emptyMessage = 'No qualifications or subjects selected yet.',
+  canClear,
   onClearSelection,
   onSelectCategory,
   onRemoveCategory,
 }: {
   subjectSelections: QualificationSubjectSelection[];
   activeCategory: QualificationCategory | '';
+  title?: string;
+  description?: string;
+  emptyMessage?: string;
+  canClear?: boolean;
   onClearSelection: () => void;
   onSelectCategory: (category: QualificationCategory) => void;
   onRemoveCategory: (category: QualificationCategory) => void;
@@ -34,15 +42,15 @@ export function SubjectSummaryPanel({
     <Card>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">Currently selected</h2>
+          <h2 className="text-xl font-semibold">{title}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Your choices are grouped by qualification.
+            {description}
           </p>
         </div>
 
         <Button
           variant="ghost"
-          disabled={subjectSelections.length === 0}
+          disabled={!(canClear ?? subjectSelections.length > 0)}
           onClick={onClearSelection}
           className="shrink-0 px-4 py-2"
         >
@@ -52,9 +60,7 @@ export function SubjectSummaryPanel({
 
       <div className="mt-5 grid gap-4">
         {subjectSelections.length === 0 && (
-          <p className="text-sm text-slate-500">
-            No qualifications or subjects selected yet.
-          </p>
+          <p className="text-sm text-slate-500">{emptyMessage}</p>
         )}
 
         {subjectSelections.map((selection) => (

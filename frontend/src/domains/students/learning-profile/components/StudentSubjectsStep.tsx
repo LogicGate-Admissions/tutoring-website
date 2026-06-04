@@ -1,11 +1,12 @@
 'use client';
 
 /**
- * File purpose: First student onboarding step for qualifications and subjects.
+ * File purpose: First student onboarding step for academic subjects.
  *
- * The student chooses the qualifications they study, then chooses subjects
- * inside each qualification. The subject list itself comes from academicOptionsService so students and tutors use the same source
- * of truth.
+ * This step separates the student's full study context from the smaller set of
+ * subjects they actually want tutoring for. Tutor matching continues to use
+ * `subjectSelections`, while `studiedSubjectSelections` preserves the wider
+ * academic profile.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -23,6 +24,7 @@ import {
 import { QualificationSelector } from '@/domains/students/learning-profile/components/subjects/QualificationSelector';
 import { SubjectPicker } from '@/domains/students/learning-profile/components/subjects/SubjectPicker';
 import { SubjectSummaryPanel } from '@/domains/students/learning-profile/components/subjects/SubjectSummaryPanel';
+import { TutoringSubjectPicker } from '@/domains/students/learning-profile/components/subjects/TutoringSubjectPicker';
 import {
   getSelectedCategories,
   getSubjectsForCategory,
@@ -36,14 +38,66 @@ import type {
   QualificationSubjectSelection,
 } from '@/domains/students/learning-profile/types/learningProfile';
 
-/**
- * Student subject onboarding step.
- *
- * State stays here because the page must save the complete subject selection
- * when the user navigates away through the bottom onboarding tabs.
- */
+function removeSubjectFromSelections(
+  selections: QualificationSubjectSelection[],
+  category: QualificationCategory,
+  subject: string
+) {
+  return selections
+    .map((selection) => {
+      if (selection.category !== category) return selection;
+
+      return {
+        ...selection,
+        subjects: selection.subjects.filter((item) => item !== subject),
+      };
+    })
+    .filter((selection) => selection.subjects.length > 0);
+}
+
+function toggleSubjectInsideCategory(
+  selections: QualificationSubjectSelection[],
+  category: QualificationCategory,
+  subject: string
+) {
+  return selections.map((selection) => {
+    if (selection.category !== category) return selection;
+
+    const alreadySelected = selection.subjects.includes(subject);
+
+    return {
+      ...selection,
+      subjects: alreadySelected
+        ? selection.subjects.filter((item) => item !== subject)
+        : [...selection.subjects, subject],
+    };
+  });
+}
+
+function toggleTutoringSubject(
+  selections: QualificationSubjectSelection[],
+  category: QualificationCategory,
+  subject: string
+) {
+  const existingSelection = selections.find(
+    (selection) => selection.category === category
+  );
+
+  if (!existingSelection) {
+    return [...selections, { category, subjects: [subject] }];
+  }
+
+  return toggleSubjectInsideCategory(selections, category, subject).filter(
+    (selection) => selection.subjects.length > 0
+  );
+}
+
+/** Student subject onboarding step. */
 export function StudentSubjectsStep() {
-  const [subjectSelections, setSubjectSelections] = useState<
+  const [studiedSubjectSelections, setStudiedSubjectSelections] = useState<
+    QualificationSubjectSelection[]
+  >([]);
+  const [tutoringSubjectSelections, setTutoringSubjectSelections] = useState<
     QualificationSubjectSelection[]
   >([]);
   const [activeCategory, setActiveCategory] = useState<
@@ -63,8 +117,9 @@ export function StudentSubjectsStep() {
 
       if (!isMounted) return;
 
-      setSubjectSelections(profile.subjectSelections);
-      setActiveCategory(profile.subjectSelections[0]?.category ?? '');
+      setStudiedSubjectSelections(profile.studiedSubjectSelections);
+      setTutoringSubjectSelections(profile.subjectSelections);
+      setActiveCategory(profile.studiedSubjectSelections[0]?.category ?? '');
     }
 
     void loadProfile();
@@ -108,24 +163,24 @@ export function StudentSubjectsStep() {
     };
   }, []);
 
-  const selectedCategories = getSelectedCategories(subjectSelections);
+  const selectedCategories = getSelectedCategories(studiedSubjectSelections);
 
-  const activeSubjects = getSubjectsForCategory(
-    subjectSelections,
+  const studiedSubjectsForActiveCategory = getSubjectsForCategory(
+    studiedSubjectSelections,
     activeCategory
   );
 
-  /** Hide already-selected subjects because selected subjects appear as pills. */
+  /** Hide already-selected study subjects because selected subjects appear as pills. */
   const subjectOptions = useMemo(() => {
     return getSubjectsForQualification(
       subjectOptionsByCategory,
       activeCategory
-    ).filter((subject) => !activeSubjects.includes(subject));
-  }, [activeCategory, activeSubjects, subjectOptionsByCategory]);
+    ).filter((subject) => !studiedSubjectsForActiveCategory.includes(subject));
+  }, [activeCategory, studiedSubjectsForActiveCategory, subjectOptionsByCategory]);
 
   function chooseCategory(category: QualificationCategory) {
     /** Selecting an existing category switches the picker to that category. */
-    const alreadySelected = subjectSelections.some(
+    const alreadySelected = studiedSubjectSelections.some(
       (selection) => selection.category === category
     );
 
@@ -135,7 +190,7 @@ export function StudentSubjectsStep() {
     }
 
     /** New categories start with no subjects until the student chooses them. */
-    setSubjectSelections((currentSelections) => [
+    setStudiedSubjectSelections((currentSelections) => [
       ...currentSelections,
       { category, subjects: [] },
     ]);
@@ -144,8 +199,8 @@ export function StudentSubjectsStep() {
   }
 
   function removeCategory(category: QualificationCategory) {
-    /** Removing a qualification also removes all subjects inside it. */
-    setSubjectSelections((currentSelections) => {
+    /** Removing a study qualification also removes tutoring subjects inside it. */
+    setStudiedSubjectSelections((currentSelections) => {
       const nextSelections = currentSelections.filter(
         (selection) => selection.category !== category
       );
@@ -156,45 +211,60 @@ export function StudentSubjectsStep() {
 
       return nextSelections;
     });
+
+    setTutoringSubjectSelections((currentSelections) =>
+      currentSelections.filter((selection) => selection.category !== category)
+    );
   }
 
-  function toggleSubject(subject: string) {
+  function toggleStudiedSubject(subject: string) {
     if (!activeCategory) return;
 
+    const wasSelected = studiedSubjectsForActiveCategory.includes(subject);
+
     /** Toggle only inside the currently active qualification. */
-    setSubjectSelections((currentSelections) =>
-      currentSelections.map((selection) => {
-        if (selection.category !== activeCategory) return selection;
+    setStudiedSubjectSelections((currentSelections) =>
+      toggleSubjectInsideCategory(currentSelections, activeCategory, subject)
+    );
 
-        const alreadySelected = selection.subjects.includes(subject);
+    /** A subject cannot remain a tutoring need if the student no longer studies it. */
+    if (wasSelected) {
+      setTutoringSubjectSelections((currentSelections) =>
+        removeSubjectFromSelections(currentSelections, activeCategory, subject)
+      );
+    }
+  }
 
-        return {
-          ...selection,
-          subjects: alreadySelected
-            ? selection.subjects.filter((item) => item !== subject)
-            : [...selection.subjects, subject],
-        };
-      })
+  function toggleWantedTutoringSubject(
+    category: QualificationCategory,
+    subject: string
+  ) {
+    setTutoringSubjectSelections((currentSelections) =>
+      toggleTutoringSubject(currentSelections, category, subject)
     );
   }
 
   function clearSelection() {
-    /** Reset both the selected data and the active editor panel. */
-    setSubjectSelections([]);
+    /** Reset both the study context and the tutoring need. */
+    setStudiedSubjectSelections([]);
+    setTutoringSubjectSelections([]);
     setActiveCategory('');
   }
 
   function saveDraftProfile() {
     /** Save without blocking navigation; Firestore updates in the background. */
-    void updateStoredLearningProfile({ subjectSelections });
+    void updateStoredLearningProfile({
+      studiedSubjectSelections,
+      subjectSelections: tutoringSubjectSelections,
+    });
   }
 
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
       <PageHeader
         eyebrow="Student onboarding"
-        title="What are you studying?"
-        description="Choose your qualifications, then pick the subjects under each one."
+        title="Subjects and tutoring needs"
+        description="First add the subjects you study, then choose which of those you want tutoring for."
       />
 
       <StudentOnboardingSectionBar
@@ -210,29 +280,46 @@ export function StudentSubjectsStep() {
         )}
 
         <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="grid gap-6 lg:sticky lg:top-8">
+          <aside className="lg:sticky lg:top-8">
             <SubjectSummaryPanel
-              subjectSelections={subjectSelections}
+              subjectSelections={tutoringSubjectSelections}
               activeCategory={activeCategory}
+              title="Currently selected for tutoring"
+              description="These are the subjects that will be used for tutor matching."
+              emptyMessage="No tutoring subjects selected yet. Add what you study, then choose the ones you want help with."
+              canClear={
+                studiedSubjectSelections.length > 0 ||
+                tutoringSubjectSelections.length > 0
+              }
               onClearSelection={clearSelection}
               onSelectCategory={setActiveCategory}
               onRemoveCategory={removeCategory}
             />
+          </aside>
 
+          <section className="grid min-w-0 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
             <QualificationSelector
               selectedCategories={selectedCategories}
               activeCategory={activeCategory}
               onChooseCategory={chooseCategory}
             />
-          </aside>
 
-          <SubjectPicker
-            activeCategory={activeCategory}
-            subjectOptions={subjectOptions}
-            activeSubjects={activeSubjects}
-            onToggleSubject={toggleSubject}
-            isLoadingSubjects={isLoadingSubjects}
-          />
+            <div className="grid min-w-0 gap-6">
+              <SubjectPicker
+                activeCategory={activeCategory}
+                subjectOptions={subjectOptions}
+                activeSubjects={studiedSubjectsForActiveCategory}
+                onToggleSubject={toggleStudiedSubject}
+                isLoadingSubjects={isLoadingSubjects}
+              />
+
+              <TutoringSubjectPicker
+                studiedSubjectSelections={studiedSubjectSelections}
+                tutoringSubjectSelections={tutoringSubjectSelections}
+                onToggleSubject={toggleWantedTutoringSubject}
+              />
+            </div>
+          </section>
         </div>
       </Container>
 

@@ -28,17 +28,17 @@ export function SubjectPicker({
   return (
     <Card>
       <div>
-        <h2 className="text-xl font-semibold">Subjects</h2>
+        <h2 className="text-xl font-semibold">What subjects do you study?</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {activeCategory
-            ? `Choose subjects for ${activeCategory}.`
+            ? `Choose the ${activeCategory} subjects you are currently studying.`
             : 'Choose a qualification first.'}
         </p>
       </div>
 
       {!activeCategory && (
         <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-600">
-          Choose a qualification on the left to start selecting subjects.
+          Choose a qualification first, then add the subjects you currently study.
         </div>
       )}
 
@@ -67,7 +67,7 @@ export function SubjectPicker({
 
           {activeSubjects.length > 0 && (
             <p className="mt-4 text-sm text-slate-600">
-              Selected subjects are shown here and in the summary on the left.
+              Next, choose which of these subjects you want tutoring for below.
             </p>
           )}
         </div>

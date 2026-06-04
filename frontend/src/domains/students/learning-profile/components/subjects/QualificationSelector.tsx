@@ -26,8 +26,8 @@ export function QualificationSelector({
     <Card>
       <h2 className="text-xl font-semibold">Qualifications</h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        Select all qualifications that apply. Black means you are currently
-        editing it.
+        Select the qualifications you study. Black means you are currently
+        editing that qualification.
       </p>
 
       <div className="mt-5 grid gap-3">
