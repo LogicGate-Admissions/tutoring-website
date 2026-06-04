@@ -8,12 +8,14 @@
  * useBookings; no Firestore logic lives here.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useBookings } from '@/domains/booking/hooks/useBookings';
 import { BookingRequestCard } from '@/domains/booking/components/BookingRequestCard';
-import { BookingRequestForm } from '@/domains/booking/components/BookingRequestForm';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { cn } from '@/shared/utils/cn';
+import { getStudentAvailabilityById } from '@/domains/students/learning-profile/services/learningProfileStorage';
+import type { TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
+import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
 
 const HOUR_START = 7;   // 07:00
 const HOUR_END = 22;    // 22:00
@@ -51,6 +53,22 @@ export function MySessionsTab({
     useBookings(userId, role);
 
   const [step, setStep] = useState<BookingStep>({ type: 'idle' });
+  const [studentAvailForBooking, setStudentAvailForBooking] = useState<TimeBlock[]>([]);
+
+  useEffect(() => {
+    if (step.type !== 'form') return;
+    let active = true;
+    // Tutor: fetch the student counterparty's availability for the overlay.
+    // Student: fetch their own availability so the calendar can show the intersection.
+    const idToFetch = role === 'tutor' ? step.counterparty.id : userId;
+    getStudentAvailabilityById(idToFetch)
+      .then((blocks) => { if (active) setStudentAvailForBooking(blocks); })
+      .catch(() => {});
+    return () => {
+      active = false;
+      setStudentAvailForBooking([]);
+    };
+  }, [step, role, userId]);
 
   function openBooking() {
     if (counterparties.length === 0) return;
@@ -137,11 +155,12 @@ export function MySessionsTab({
           />
         ) : step.type === 'form' ? (
           <div className="mt-4">
-            <BookingRequestForm
+            <DragToBookCalendar
               tutorId={role === 'student' ? step.counterparty.id : userId}
-              tutorName={step.counterparty.name}
               studentId={role === 'tutor' ? step.counterparty.id : userId}
+              counterpartyName={step.counterparty.name}
               initiatedBy={role}
+              studentAvailabilityBlocks={studentAvailForBooking}
               onSuccess={closeBooking}
               onCancel={closeBooking}
             />

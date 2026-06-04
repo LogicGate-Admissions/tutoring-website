@@ -22,6 +22,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase';
+import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import type {
   AsyncSupportRole,
   RelationshipSupportSummary,
@@ -122,6 +123,13 @@ export async function createStudentTutorRelationship(
   };
 
   await setDoc(relationshipRef, documentData);
+
+  const linkRef = doc(
+    db,
+    FIRESTORE_COLLECTIONS.tutorStudentLinks,
+    `${input.tutorId}_${input.studentId}`
+  );
+  await setDoc(linkRef, { tutorId: input.tutorId, studentId: input.studentId }, { merge: true });
 
   return relationship;
 }

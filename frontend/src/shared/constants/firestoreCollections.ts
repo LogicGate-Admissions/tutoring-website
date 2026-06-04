@@ -24,4 +24,7 @@ export const FIRESTORE_COLLECTIONS = {
 
   /** Firestore-persisted in-app notifications for booking status changes. */
   bookingNotifications: 'bookingNotifications',
+
+  /** Subject-independent lookup index for tutor↔student relationships. Used by security rules. */
+  tutorStudentLinks: 'tutorStudentLinks',
 } as const;

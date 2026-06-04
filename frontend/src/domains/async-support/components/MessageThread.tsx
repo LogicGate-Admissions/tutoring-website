@@ -36,7 +36,7 @@ import type {
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { cn } from '@/shared/utils/cn';
-import { BookingRequestForm } from '@/domains/booking/components/BookingRequestForm';
+import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
 import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
 import { createManualTimeBlock, mergeTimeBlocks } from '@/domains/students/learning-profile/utils/timeBlocks';
 import { getStoredLearningProfile, getStudentAvailabilityById, updateStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
@@ -770,13 +770,17 @@ export function MessageThread({
             ) : null}
 
             {/* Tab: Book session */}
-            {scheduleTab === 'booking' && canOpenBooking && bookingTutorId && bookingTutorName && bookingStudentId && bookingInitiatedBy ? (
-              <div className="mt-4 max-h-[70vh] overflow-y-auto pr-1">
-                <BookingRequestForm
+            {scheduleTab === 'booking' && canOpenBooking && bookingTutorId && bookingStudentId ? (
+              <div className="mt-4">
+                <DragToBookCalendar
                   tutorId={bookingTutorId}
-                  tutorName={bookingTutorName}
                   studentId={bookingStudentId}
-                  initiatedBy={bookingInitiatedBy}
+                  counterpartyName={
+                    viewerRole === 'student'
+                      ? (relationship?.tutorName ?? '')
+                      : (relationship?.studentName ?? '')
+                  }
+                  initiatedBy={viewerRole}
                   studentAvailabilityBlocks={
                     viewerRole === 'student' ? availabilityBlocks : counterpartyStudentBlocks
                   }

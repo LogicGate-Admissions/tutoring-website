@@ -31,6 +31,21 @@ function minutesToTime(minutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+/** Returns the overlapping sub-blocks between two sets of availability blocks on the same day. */
+function intersectBlocks(tutorBlocks: TimeBlock[], studentBlocks: TimeBlock[]): TimeBlock[] {
+  const result: TimeBlock[] = [];
+  for (const t of tutorBlocks) {
+    for (const s of studentBlocks) {
+      const from = t.from > s.from ? t.from : s.from;
+      const to = t.to < s.to ? t.to : s.to;
+      if (from < to) {
+        result.push({ id: `${t.id}x${s.id}`, day: t.day, from, to, source: 'manual' });
+      }
+    }
+  }
+  return result;
+}
+
 /** Returns 30-minute-increment start times within a block where duration fits. */
 function slotsForBlock(block: TimeBlock, durationMinutes: number): string[] {
   const slots: string[] = [];
@@ -58,6 +73,7 @@ type BookingRequestFormProps = {
   tutorName: string;
   studentId: string;
   initiatedBy: 'tutor' | 'student';
+  studentAvailabilityBlocks?: TimeBlock[];
   onSuccess: () => void;
   onCancel: () => void;
 };
@@ -77,6 +93,7 @@ export function BookingRequestForm({
   tutorName,
   studentId,
   initiatedBy,
+  studentAvailabilityBlocks,
   onSuccess,
   onCancel,
 }: BookingRequestFormProps) {
@@ -129,10 +146,13 @@ export function BookingRequestForm({
     [form.date]
   );
 
-  const dayBlocks = useMemo(
-    () => (selectedDate ? blocksForDate(availabilityBlocks, selectedDate) : []),
-    [selectedDate, availabilityBlocks]
-  );
+  const dayBlocks = useMemo(() => {
+    if (!selectedDate) return [];
+    const tutorDay = blocksForDate(availabilityBlocks, selectedDate);
+    if (!studentAvailabilityBlocks?.length) return tutorDay;
+    const studentDay = blocksForDate(studentAvailabilityBlocks, selectedDate);
+    return intersectBlocks(tutorDay, studentDay);
+  }, [selectedDate, availabilityBlocks, studentAvailabilityBlocks]);
 
   const validDurations = useMemo(() => {
     if (dayBlocks.length === 0) return DURATION_OPTIONS as readonly number[];
@@ -164,7 +184,9 @@ export function BookingRequestForm({
     if (!form.date) {
       errs.date = 'Please select a date.';
     } else if (isTutorUnavailableOnDay) {
-      errs.date = 'The tutor is not available on this day. Please choose another date.';
+      errs.date = studentAvailabilityBlocks?.length
+        ? 'No mutually available time on this day. Please choose another date.'
+        : 'The tutor is not available on this day. Please choose another date.';
     }
     if (!form.time) errs.time = 'Please select a start time.';
     if (!form.durationMinutes) errs.durationMinutes = 'Please select a duration.';
@@ -299,7 +321,9 @@ export function BookingRequestForm({
           />
           {isTutorUnavailableOnDay && !errors.date ? (
             <p className="mt-1 text-xs text-amber-600">
-              Tutor has no availability on this day.
+              {studentAvailabilityBlocks?.length
+                ? 'No mutually available time on this day.'
+                : 'Tutor has no availability on this day.'}
             </p>
           ) : null}
           {errors.date ? (
