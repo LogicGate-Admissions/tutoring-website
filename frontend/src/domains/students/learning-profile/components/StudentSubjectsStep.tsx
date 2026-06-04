@@ -294,6 +294,7 @@ export function StudentSubjectsStep() {
             onChooseCategory={chooseCategory}
             onRemoveCategory={removeCategory}
             onClearAll={clearSelection}
+            stepNumber={1}
           />
 
           <section className="grid min-w-0 gap-6">
@@ -306,12 +307,14 @@ export function StudentSubjectsStep() {
                 if (activeCategory) clearSubjectsForCategory(activeCategory);
               }}
               isLoadingSubjects={isLoadingSubjects}
+              stepNumber={2}
             />
 
             <TutoringSubjectPicker
               studiedSubjectSelections={studiedSubjectSelections}
               tutoringSubjectSelections={tutoringSubjectSelections}
               onToggleSubject={toggleWantedTutoringSubject}
+              stepNumber={3}
             />
           </section>
         </div>

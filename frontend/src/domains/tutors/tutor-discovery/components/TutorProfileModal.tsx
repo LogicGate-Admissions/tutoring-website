@@ -4,7 +4,6 @@
 
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
-import { HomeLinkButton } from '@/shared/components/HomeLinkButton';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
@@ -65,8 +64,6 @@ export function TutorProfileModal({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            <HomeLinkButton label="Home" />
-
             <button
               type="button"
               onClick={onClose}

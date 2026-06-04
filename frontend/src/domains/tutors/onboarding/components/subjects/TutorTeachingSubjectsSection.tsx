@@ -195,6 +195,7 @@ export function TutorTeachingSubjectsSection({
             onClearAll={clearSelection}
             title="Select qualifications"
             description="Choose the qualifications you can teach. Black means you are currently editing that qualification."
+            stepNumber={1}
           />
         </aside>
 
@@ -210,11 +211,17 @@ export function TutorTeachingSubjectsSection({
             `Choose the ${category} subjects you can tutor.`
           }
           emptyStateMessage="Choose a qualification first, then add the subjects you can teach."
+          stepNumber={2}
         />
       </div>
 
       <Card>
-        <h2 className="text-xl font-semibold">Rates per subject</h2>
+        <div className="flex items-center gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white">
+            3
+          </span>
+          <h2 className="text-xl font-semibold">Rates per subject</h2>
+        </div>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           Add a separate hourly rate for each qualification and subject you teach.
           This lets GCSE, A-level, and admissions support have different prices.

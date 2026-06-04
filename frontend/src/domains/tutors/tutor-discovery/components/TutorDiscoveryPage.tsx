@@ -166,7 +166,10 @@ export function TutorDiscoveryPage() {
   }
 
   function handleChat(tutor: Tutor) {
-    setNotice(`Chat with ${tutor.name} is coming soon.`);
+    const message = `Chat with ${tutor.name} is coming soon.`;
+
+    setNotice(message);
+    window.alert(message);
   }
 
   function toggleShortlist(tutor: Tutor) {
