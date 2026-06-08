@@ -53,6 +53,7 @@ export function LessonWorkspacePage({
   );
   const [now, setNow] = useState(() => new Date());
   const [hasJoinedLocally, setHasJoinedLocally] = useState(false);
+  const [hasOpenedCallThisLesson, setHasOpenedCallThisLesson] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -112,12 +113,15 @@ export function LessonWorkspacePage({
     [bookings, now],
   );
 
+  useEffect(() => {
+    setHasJoinedLocally(false);
+    setHasOpenedCallThisLesson(false);
+  }, [currentLesson?.id]);
+
   const lessonState = getLessonJoinState(currentLesson, now);
   const lessonIsLive = (currentLesson?.lessonStatus ?? "scheduled") === "live";
   const lessonCompleted = currentLesson?.lessonStatus === "completed";
-  const showLiveWorkspace = Boolean(
-    currentLesson && lessonIsLive && hasJoinedLocally,
-  );
+  const showLiveWorkspace = Boolean(currentLesson && lessonIsLive);
 
   const otherPersonName =
     viewerRole === "student"
@@ -137,6 +141,7 @@ export function LessonWorkspacePage({
       }
 
       setHasJoinedLocally(true);
+      setHasOpenedCallThisLesson(true);
     } catch {
       setActionError("Could not start the lesson workspace. Please try again.");
     } finally {
@@ -158,6 +163,7 @@ export function LessonWorkspacePage({
       setActionError(null);
       await endLessonSession(currentLesson.id);
       setHasJoinedLocally(false);
+      setHasOpenedCallThisLesson(false);
     } catch {
       setActionError("Could not end the lesson. Please try again.");
     } finally {
@@ -193,12 +199,18 @@ export function LessonWorkspacePage({
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={handleJoinLesson}
-                disabled={!lessonState.canJoin || isStarting || lessonCompleted}
-              >
-                {lessonState.primaryLabel}
-              </Button>
+              {lessonState.canJoin && !lessonCompleted && !hasJoinedLocally ? (
+                <Button onClick={handleJoinLesson} disabled={isStarting}>
+                  {isStarting
+                    ? "Opening..."
+                    : lessonIsLive && hasOpenedCallThisLesson
+                      ? "Rejoin call"
+                      : lessonState.primaryLabel}
+                </Button>
+              ) : null}
+              {!lessonState.canJoin && !lessonCompleted ? (
+                <Button disabled>{lessonState.primaryLabel}</Button>
+              ) : null}
               {viewerRole === "tutor" && lessonIsLive ? (
                 <Button
                   variant="danger"
@@ -262,6 +274,8 @@ export function LessonWorkspacePage({
               <LiveLessonStage
                 lesson={currentLesson}
                 relationshipId={relationshipId}
+                showCall={hasJoinedLocally}
+                onCallLeft={() => setHasJoinedLocally(false)}
               />
             ) : (
               <WaitingWorkspaceCard
@@ -358,31 +372,64 @@ function WorkspaceSidePanel({
 function LiveLessonStage({
   lesson,
   relationshipId,
+  showCall,
+  onCallLeft,
 }: {
   lesson: BookingRequest;
   relationshipId: string;
+  showCall: boolean;
+  onCallLeft: () => void;
 }) {
   return (
     <div className="relative min-w-0">
       <WhiteboardPlaceholder />
-      <FloatingJitsiCall lesson={lesson} relationshipId={relationshipId} />
+      {showCall ? (
+        <FloatingJitsiCall
+          lesson={lesson}
+          relationshipId={relationshipId}
+          onCallLeft={onCallLeft}
+        />
+      ) : null}
     </div>
   );
+}
+
+type JitsiMeetExternalApi = {
+  addEventListener: (eventName: string, handler: () => void) => void;
+  dispose: () => void;
+};
+
+type JitsiMeetExternalApiConstructor = new (
+  domain: string,
+  options: {
+    roomName: string;
+    parentNode: HTMLElement;
+    width: string;
+    height: string;
+    configOverwrite?: Record<string, unknown>;
+    interfaceConfigOverwrite?: Record<string, unknown>;
+  },
+) => JitsiMeetExternalApi;
+
+declare global {
+  interface Window {
+    JitsiMeetExternalAPI?: JitsiMeetExternalApiConstructor;
+  }
 }
 
 function FloatingJitsiCall({
   lesson,
   relationshipId,
+  onCallLeft,
 }: {
   lesson: BookingRequest;
   relationshipId: string;
+  onCallLeft: () => void;
 }) {
-  const headerHeight = 64;
-  const jitsiBaseWidth = 760;
-  const jitsiBaseHeight = 560;
-  const minSize = { width: 420, height: 390 };
+  const headerHeight = 18;
+  const minSize = { width: 380, height: 280 };
   const [position, setPosition] = useState({ x: 24, y: 24 });
-  const [size, setSize] = useState({ width: 640, height: 520 });
+  const [size, setSize] = useState({ width: 680, height: 520 });
   const dragStartRef = useRef<{
     pointerId: number;
     startX: number;
@@ -398,14 +445,6 @@ function FloatingJitsiCall({
     originHeight: number;
   } | null>(null);
   const roomName = buildJitsiRoomName(lesson.id || relationshipId);
-  const src = `https://meet.jit.si/${encodeURIComponent(roomName)}`;
-  const bodyHeight = Math.max(0, size.height - headerHeight);
-  const jitsiScale = Math.min(
-    size.width / jitsiBaseWidth,
-    bodyHeight / jitsiBaseHeight,
-  );
-  const scaledJitsiWidth = jitsiBaseWidth * jitsiScale;
-  const scaledJitsiHeight = jitsiBaseHeight * jitsiScale;
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     dragStartRef.current = {
@@ -435,7 +474,9 @@ function FloatingJitsiCall({
     }
   }
 
-  function handleResizePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+  function handleResizePointerDown(
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
     event.preventDefault();
     event.stopPropagation();
     resizeStartRef.current = {
@@ -448,11 +489,16 @@ function FloatingJitsiCall({
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function handleResizePointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+  function handleResizePointerMove(
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
     const resizeStart = resizeStartRef.current;
     if (!resizeStart || resizeStart.pointerId !== event.pointerId) return;
 
-    const maxWidth = Math.max(minSize.width, window.innerWidth - position.x - 24);
+    const maxWidth = Math.max(
+      minSize.width,
+      window.innerWidth - position.x - 24,
+    );
     const maxHeight = Math.max(
       minSize.height,
       window.innerHeight - position.y - 24,
@@ -481,7 +527,7 @@ function FloatingJitsiCall({
 
   return (
     <div
-      className="absolute z-20 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+      className="absolute z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
       style={{
         left: position.x,
         top: position.y,
@@ -492,48 +538,25 @@ function FloatingJitsiCall({
       <div
         role="button"
         tabIndex={0}
+        aria-label="Drag call window"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className="flex h-16 cursor-move items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2 select-none"
+        className="flex h-[18px] cursor-move items-center justify-center border-b border-slate-200 bg-slate-100 select-none"
       >
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Live call
-          </p>
-          <h2 className="mt-1 text-sm font-semibold tracking-tight text-slate-950">
-            Lesson call
-          </h2>
-        </div>
-        <span className="text-xs font-semibold text-slate-400">
-          Drag · Resize
-        </span>
+        <span
+          className="h-1 w-12 rounded-full bg-slate-400"
+          aria-hidden="true"
+        />
       </div>
 
-      <div
-        className="relative overflow-hidden bg-slate-950"
-        style={{ height: bodyHeight }}
-      >
-        <div
-          className="absolute left-1/2 top-1/2"
-          style={{
-            width: jitsiBaseWidth,
-            height: jitsiBaseHeight,
-            transform: `translate(-50%, -50%) scale(${jitsiScale})`,
-          }}
-        >
-          <iframe
-            title="Embedded lesson call"
-            src={src}
-            allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write"
-            className="h-full w-full border-0"
-          />
-        </div>
-        {scaledJitsiWidth < size.width || scaledJitsiHeight < bodyHeight ? (
-          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
-        ) : null}
-      </div>
+      <JitsiCallSurface
+        roomName={roomName}
+        width={size.width}
+        height={Math.max(0, size.height - headerHeight)}
+        onLeave={onCallLeft}
+      />
 
       <button
         type="button"
@@ -545,10 +568,116 @@ function FloatingJitsiCall({
         className="absolute bottom-2 right-2 h-6 w-6 cursor-nwse-resize rounded-lg border border-white/40 bg-slate-950/70 text-white shadow-lg transition hover:bg-slate-800"
       >
         <span className="sr-only">Resize lesson call</span>
-        <span aria-hidden="true" className="block translate-x-[7px] translate-y-[7px] text-xs leading-none">
+        <span
+          aria-hidden="true"
+          className="block translate-x-[7px] translate-y-[7px] text-xs leading-none"
+        >
           ⌟
         </span>
       </button>
+    </div>
+  );
+}
+
+function JitsiCallSurface({
+  roomName,
+  width,
+  height,
+  onLeave,
+}: {
+  roomName: string;
+  width: number;
+  height: number;
+  onLeave: () => void;
+}) {
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  const apiRef = useRef<JitsiMeetExternalApi | null>(null);
+  const onLeaveRef = useRef(onLeave);
+
+  useEffect(() => {
+    onLeaveRef.current = onLeave;
+  }, [onLeave]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    function createMeeting() {
+      if (!isMounted || !parentRef.current || !window.JitsiMeetExternalAPI)
+        return;
+
+      apiRef.current?.dispose();
+      parentRef.current.innerHTML = "";
+
+      const api = new window.JitsiMeetExternalAPI("meet.jit.si", {
+        roomName,
+        parentNode: parentRef.current,
+        width: "100%",
+        height: "100%",
+        configOverwrite: {
+          disableDeepLinking: true,
+          prejoinConfig: { enabled: true },
+        },
+        interfaceConfigOverwrite: {
+          SHOW_JITSI_WATERMARK: false,
+          SHOW_WATERMARK_FOR_GUESTS: false,
+        },
+      });
+
+      const handleLeave = () => onLeaveRef.current();
+      api.addEventListener("readyToClose", handleLeave);
+      api.addEventListener("videoConferenceLeft", handleLeave);
+      apiRef.current = api;
+    }
+
+    if (window.JitsiMeetExternalAPI) {
+      createMeeting();
+    } else {
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        'script[src="https://meet.jit.si/external_api.js"]',
+      );
+
+      if (existingScript) {
+        existingScript.addEventListener("load", createMeeting, { once: true });
+      } else {
+        const script = document.createElement("script");
+        script.src = "https://meet.jit.si/external_api.js";
+        script.async = true;
+        script.onload = createMeeting;
+        document.body.appendChild(script);
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      apiRef.current?.dispose();
+      apiRef.current = null;
+    };
+  }, [roomName]);
+
+  const baseSize = { width: 720, height: 500 };
+  const scale = Math.min(width / baseSize.width, height / baseSize.height);
+  const scaledWidth = baseSize.width * scale;
+  const scaledHeight = baseSize.height * scale;
+
+  return (
+    <div
+      className="flex items-center justify-center overflow-hidden bg-slate-950"
+      style={{ height }}
+    >
+      <div
+        className="overflow-hidden rounded-b-2xl bg-slate-950"
+        style={{ width: scaledWidth, height: scaledHeight }}
+      >
+        <div
+          ref={parentRef}
+          style={{
+            width: baseSize.width,
+            height: baseSize.height,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -728,7 +857,6 @@ function formatLessonSummary(lesson: BookingRequest) {
 
   return `${lesson.subject} · ${dateLabel}–${endLabel}`;
 }
-
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
