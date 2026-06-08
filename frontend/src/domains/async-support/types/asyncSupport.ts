@@ -17,9 +17,7 @@ export type SupportAttachmentKind = 'image' | 'pdf' | 'file';
 export type SupportAttachment = {
   id: string;
   name: string;
-  /** Empty in the free-plan demo; populated by a real storage provider later. */
   url: string;
-  /** Empty in the free-plan demo; populated by a real storage provider later. */
   storagePath: string;
   contentType: string;
   sizeBytes: number;
@@ -27,7 +25,7 @@ export type SupportAttachment = {
   createdAt: string;
   /** Identifies the provider used to create this attachment metadata. */
   provider?: 'demo-metadata' | 'firebase-storage' | 'external-url';
-  /** False for demo metadata, true when a real URL can be opened. */
+  /** True when the attachment has a URL that can be opened or previewed. */
   isPreviewAvailable?: boolean;
   /** Generic ownership fields so the same attachment type can support resources/homework later. */
   ownerArea?: string;

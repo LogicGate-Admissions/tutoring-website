@@ -9,7 +9,7 @@
  * resource, homework, or calendar notifications without replacing the bell UI.
  */
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useNotifications } from '@/domains/notifications/hooks/useNotifications';
 import type { AsyncSupportRole } from '@/domains/async-support/types/asyncSupport';
@@ -92,6 +92,8 @@ function NotificationBellContent({
   error: string | null;
   onNotificationClick: () => void;
 }) {
+  const router = useRouter();
+
   if (isLoading) {
     return <NotificationStateMessage message="Loading notifications..." />;
   }
@@ -107,15 +109,18 @@ function NotificationBellContent({
   return (
     <div className="max-h-96 overflow-y-auto p-2">
       {notifications.map((notification) => (
-        <Link
+        <button
           key={notification.id}
-          href={notification.href}
+          type="button"
           onClick={() => {
-            void notification.onOpen?.();
-            onNotificationClick();
+            void (async () => {
+              await notification.onOpen?.();
+              onNotificationClick();
+              router.push(notification.href);
+            })();
           }}
           className={cn(
-            'block rounded-2xl px-3 py-3 transition',
+            'block w-full rounded-2xl px-3 py-3 text-left transition',
             notification.tone === 'urgent'
               ? 'bg-red-50 hover:bg-red-100'
               : 'hover:bg-slate-50'
@@ -140,7 +145,7 @@ function NotificationBellContent({
               </p>
             </div>
           </div>
-        </Link>
+        </button>
       ))}
     </div>
   );

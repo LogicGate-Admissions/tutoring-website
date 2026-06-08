@@ -60,6 +60,8 @@ export function MessageThread({
 }: MessageThreadProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messagesScrollRef = useRef<HTMLDivElement | null>(null);
+  const initialScrollDoneRef = useRef(false);
   const messageElementRefs = useRef(new Map<string, HTMLDivElement>());
   const highlightTimeoutRef = useRef<number | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentThreadUser | null>(
@@ -226,6 +228,33 @@ export function MessageThread({
       unsubscribeMessages?.();
     };
   }, [currentUser, relationshipId, viewerRole]);
+
+  useEffect(() => {
+    initialScrollDoneRef.current = false;
+  }, [relationshipId]);
+
+  useEffect(() => {
+    const container = messagesScrollRef.current;
+    if (!container || isLoading) return;
+
+    if (!initialScrollDoneRef.current) {
+      const scrollToBottom = () => {
+        container.scrollTop = container.scrollHeight;
+      };
+      scrollToBottom();
+      requestAnimationFrame(() => {
+        scrollToBottom();
+        initialScrollDoneRef.current = true;
+      });
+      return;
+    }
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (distanceFromBottom < 120) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages, isLoading, relationshipId]);
 
   function registerMessageElement(
     messageId: string,
@@ -566,7 +595,10 @@ export function MessageThread({
             </p>
           </div>
         ) : (
-          <div className="max-h-[min(28rem,55vh)] overflow-y-auto pr-1">
+          <div
+            ref={messagesScrollRef}
+            className="max-h-[min(28rem,55vh)] overflow-y-auto pr-1"
+          >
             <div className="grid gap-3">
             {messages.map((message) => {
               const isMine = message.senderId === currentUser?.id;
@@ -713,7 +745,7 @@ export function MessageThread({
                 </Button>
 
                 <p className="text-xs text-slate-500">
-                  Images, PDFs, documents or screenshots up to 10MB each. Demo stores file details only.
+                  Images, PDFs, and documents up to 10MB each.
                 </p>
               </div>
 
@@ -1378,14 +1410,72 @@ function AttachmentItem({
   isMine: boolean;
 }) {
   const baseClassName = cn(
-    "block min-w-0 max-w-full rounded-2xl border px-3 py-2 text-left text-sm break-words transition [overflow-wrap:anywhere]",
+    "block min-w-0 max-w-full rounded-2xl border text-left text-sm break-words transition [overflow-wrap:anywhere]",
     isMine
       ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
       : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
   );
 
-  const content = (
-    <>
+  const metaLine = (
+    <p
+      className={cn(
+        "px-3 py-2 text-xs",
+        isMine ? "text-slate-300" : "text-slate-500",
+      )}
+    >
+      <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>
+      {" · "}
+      <span className="break-words [overflow-wrap:anywhere]">{attachment.name}</span>
+      {" · "}
+      {formatFileSize(attachment.sizeBytes)}
+    </p>
+  );
+
+  if (attachment.url && attachment.kind === "image") {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        className={cn(baseClassName, "overflow-hidden p-0")}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={attachment.url}
+          alt={attachment.name}
+          className="max-h-64 w-full bg-slate-950/5 object-contain"
+        />
+        {metaLine}
+      </a>
+    );
+  }
+
+  if (attachment.url) {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        className={cn(baseClassName, "px-3 py-2")}
+      >
+        <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
+        <span className="break-words [overflow-wrap:anywhere]">
+          {attachment.name}
+        </span>
+        <span
+          className={cn(
+            "ml-2 text-xs",
+            isMine ? "text-slate-300" : "text-slate-500",
+          )}
+        >
+          {formatFileSize(attachment.sizeBytes)}
+        </span>
+      </a>
+    );
+  }
+
+  return (
+    <div className={cn(baseClassName, "px-3 py-2 opacity-70")}>
       <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
       <span className="break-words [overflow-wrap:anywhere]">
         {attachment.name}
@@ -1398,42 +1488,15 @@ function AttachmentItem({
       >
         {formatFileSize(attachment.sizeBytes)}
       </span>
-      {!attachment.isPreviewAvailable ? (
-        <span
-          className={cn(
-            "mt-1 block text-xs",
-            isMine ? "text-slate-300" : "text-slate-500",
-          )}
-        >
-          Demo attachment: too poor to pay for Firebase Storage.
-        </span>
-      ) : null}
-    </>
-  );
-
-  if (attachment.url && attachment.isPreviewAvailable !== false) {
-    return (
-      <a
-        href={attachment.url}
-        target="_blank"
-        rel="noreferrer"
-        className={baseClassName}
+      <span
+        className={cn(
+          "mt-1 block text-xs",
+          isMine ? "text-slate-300" : "text-slate-500",
+        )}
       >
-        {content}
-      </a>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className={baseClassName}
-      onClick={() => {
-        window.alert("Too poor to pay for Firebase Storage :(");
-      }}
-    >
-      {content}
-    </button>
+        File unavailable — it may have been uploaded before storage was enabled.
+      </span>
+    </div>
   );
 }
 

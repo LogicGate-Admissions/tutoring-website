@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
 import { useRelationshipSummaries } from '@/domains/async-support/hooks/useRelationshipSummaries';
@@ -43,10 +44,25 @@ const tabs: Array<{ id: Section; label: string; description: string }> = [
   },
 ];
 
+const STUDENT_SECTIONS: Section[] = [
+  'my-tutors',
+  'my-sessions',
+  'learning-profile',
+  'find-tutors',
+];
+
 export function StudentDashboard() {
+  const searchParams = useSearchParams();
   const [activeSection, setActiveSection] = useState<Section>('my-tutors');
   const [currentUserId, setCurrentUserId] = useState('');
   const { relationships, isLoading, error } = useRelationshipSummaries('student');
+
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section && STUDENT_SECTIONS.includes(section as Section)) {
+      setActiveSection(section as Section);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const unsub = subscribeToCurrentUser((user) => {

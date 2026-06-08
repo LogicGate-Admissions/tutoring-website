@@ -4,6 +4,7 @@
  * The student dashboard helps students manage connected tutors and ongoing support.
  */
 
+import { Suspense } from 'react';
 import { RequireAuth } from '@/domains/auth/components/RequireAuth';
 import { StudentDashboard } from '@/domains/students/dashboard/components/StudentDashboard';
 import { AppTopNav } from '@/shared/components/AppTopNav';
@@ -21,7 +22,9 @@ export default function StudentDashboardPage() {
           description="Manage connected tutoring relationships and asynchronous support."
         />
 
-        <StudentDashboard />
+        <Suspense fallback={null}>
+          <StudentDashboard />
+        </Suspense>
       </main>
     </RequireAuth>
   );
