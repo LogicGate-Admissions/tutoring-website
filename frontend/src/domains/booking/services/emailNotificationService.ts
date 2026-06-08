@@ -75,6 +75,10 @@ function buildEmailContent(
       subject: `${booking.subject} session cancelled`,
       body: `Your <strong>${booking.subject}</strong> session on ${dateStr} at ${timeStr} has been cancelled.`,
     },
+    booking_rescheduled: {
+      subject: `${booking.subject} session rescheduled`,
+      body: `Your <strong>${booking.subject}</strong> session has been moved to ${dateStr} at ${timeStr}.`,
+    },
   };
 
   const content = eventMessages[eventType] ?? {
@@ -82,12 +86,16 @@ function buildEmailContent(
     body: `There has been an update to your <strong>${booking.subject}</strong> session on ${dateStr}.`,
   };
 
+  const lessonSection = '';
+
+
   return {
     subject: content.subject,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
         <h2 style="color:#0f172a;margin-bottom:16px">${content.subject}</h2>
         <p style="color:#475569">${content.body}</p>
+        ${lessonSection}
         <p style="margin-top:24px;color:#94a3b8;font-size:12px">
           Log in to your dashboard to view or manage this session.
         </p>

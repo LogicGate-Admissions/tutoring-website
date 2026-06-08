@@ -14,6 +14,7 @@ import {
   cancelBookingRequest,
   declineBookingRequest,
 } from '@/domains/booking/services/bookingService';
+import { BookSessionModal } from '@/domains/booking/components/BookSessionModal';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { cn } from '@/shared/utils/cn';
 
@@ -55,12 +56,14 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
 export function BookingRequestCard({
   booking,
   viewerRole,
+  viewerId,
   otherPartyName,
   isPast,
 }: BookingRequestCardProps) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<ConfirmingAction>(null);
+  const [showReschedule, setShowReschedule] = useState(false);
 
   const viewerIsInitiator = booking.initiatedBy === viewerRole;
   const viewerIsReceiver = !viewerIsInitiator;
@@ -84,6 +87,13 @@ export function BookingRequestCard({
 
   const isTerminal =
     booking.status === 'cancelled' || booking.status === 'declined';
+
+  const canReschedule =
+    !isPast &&
+    !isTerminal &&
+    (booking.status === 'confirmed' ||
+      booking.status === 'pending_receiver' ||
+      booking.status === 'pending_requester');
 
   async function runAction(fn: () => Promise<void>) {
     setBusy(true);
@@ -190,12 +200,32 @@ export function BookingRequestCard({
               booking={booking}
               viewerIsReceiver={viewerIsReceiver}
               busy={busy}
+              canReschedule={canReschedule}
               onAccept={handleAccept}
               onDecline={handleDecline}
               onCancel={handleCancel}
+              onReschedule={() => setShowReschedule(true)}
             />
           )}
         </div>
+      ) : null}
+
+      {showReschedule ? (
+        <BookSessionModal
+          isOpen
+          onClose={() => setShowReschedule(false)}
+          tutorId={booking.tutorId}
+          studentId={booking.studentId}
+          counterpartyName={otherPartyName}
+          initiatedBy={viewerRole}
+          currentUserId={viewerId}
+          mode="reschedule"
+          existingBooking={{
+            id: booking.id,
+            subject: booking.subject,
+            durationMinutes: booking.durationMinutes,
+          }}
+        />
       ) : null}
     </div>
   );
@@ -205,16 +235,20 @@ function ActionRow({
   booking,
   viewerIsReceiver,
   busy,
+  canReschedule,
   onAccept,
   onDecline,
   onCancel,
+  onReschedule,
 }: {
   booking: BookingRequest;
   viewerIsReceiver: boolean;
   busy: boolean;
+  canReschedule: boolean;
   onAccept: () => void;
   onDecline: () => void;
   onCancel: () => void;
+  onReschedule: () => void;
 }) {
   const { status } = booking;
 
@@ -227,15 +261,27 @@ function ActionRow({
         <ActionButton onClick={onDecline} busy={busy} variant="danger">
           Decline
         </ActionButton>
+        {canReschedule ? (
+          <ActionButton onClick={onReschedule} busy={busy} variant="ghost">
+            Reschedule
+          </ActionButton>
+        ) : null}
       </div>
     );
   }
 
   if (status === 'pending_receiver' && !viewerIsReceiver) {
     return (
-      <ActionButton onClick={onCancel} busy={busy} variant="ghost">
-        Cancel request
-      </ActionButton>
+      <div className="flex flex-wrap gap-2">
+        {canReschedule ? (
+          <ActionButton onClick={onReschedule} busy={busy} variant="ghost">
+            Reschedule
+          </ActionButton>
+        ) : null}
+        <ActionButton onClick={onCancel} busy={busy} variant="ghost">
+          Cancel request
+        </ActionButton>
+      </div>
     );
   }
 
@@ -245,6 +291,11 @@ function ActionRow({
         <ActionButton onClick={onAccept} busy={busy} variant="primary">
           Confirm session
         </ActionButton>
+        {canReschedule ? (
+          <ActionButton onClick={onReschedule} busy={busy} variant="ghost">
+            Reschedule
+          </ActionButton>
+        ) : null}
         <ActionButton onClick={onCancel} busy={busy} variant="ghost">
           Cancel
         </ActionButton>
@@ -254,15 +305,29 @@ function ActionRow({
 
   if (status === 'pending_requester' && viewerIsReceiver) {
     return (
-      <p className="text-xs text-slate-500">Waiting for the other party to confirm.</p>
+      <div className="flex flex-col gap-2">
+        <p className="text-xs text-slate-500">Waiting for the other party to confirm.</p>
+        {canReschedule ? (
+          <ActionButton onClick={onReschedule} busy={busy} variant="ghost">
+            Reschedule
+          </ActionButton>
+        ) : null}
+      </div>
     );
   }
 
   if (status === 'confirmed') {
     return (
-      <ActionButton onClick={onCancel} busy={busy} variant="danger">
-        Cancel session
-      </ActionButton>
+      <div className="flex flex-wrap gap-2">
+        {canReschedule ? (
+          <ActionButton onClick={onReschedule} busy={busy} variant="ghost">
+            Reschedule
+          </ActionButton>
+        ) : null}
+        <ActionButton onClick={onCancel} busy={busy} variant="danger">
+          Cancel session
+        </ActionButton>
+      </div>
     );
   }
 

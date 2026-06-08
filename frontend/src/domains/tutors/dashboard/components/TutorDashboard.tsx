@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
 import { useRelationshipSummaries } from '@/domains/async-support/hooks/useRelationshipSummaries';
@@ -19,6 +20,7 @@ import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
 
 type Section = 'my-students' | 'tutor-profile' | 'trial-requests' | 'my-sessions';
+
 
 const tabs: Array<{ id: Section; label: string; description: string }> = [
   {
@@ -43,10 +45,31 @@ const tabs: Array<{ id: Section; label: string; description: string }> = [
   },
 ];
 
+const TUTOR_SECTIONS: Section[] = [
+  'my-students',
+  'my-sessions',
+  'tutor-profile',
+  'trial-requests',
+];
+
+function activeSectionFromParams(searchParams: ReturnType<typeof useSearchParams>): Section {
+  const section = searchParams.get('section');
+  if (section && TUTOR_SECTIONS.includes(section as Section)) {
+    return section as Section;
+  }
+  return 'my-students';
+}
+
 export function TutorDashboard() {
-  const [activeSection, setActiveSection] = useState<Section>('my-students');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeSection = activeSectionFromParams(searchParams);
   const [currentUserId, setCurrentUserId] = useState('');
   const { relationships, isLoading, error } = useRelationshipSummaries('tutor');
+
+  function setActiveSection(section: Section) {
+    router.replace(`/tutor/dashboard?section=${section}`, { scroll: false });
+  }
 
   useEffect(() => {
     const unsub = subscribeToCurrentUser((user) => {
@@ -98,6 +121,7 @@ export function TutorDashboard() {
               relationships={relationships}
               isLoading={isLoading}
               error={error}
+              currentUserId={currentUserId}
             />
           )}
         </main>
@@ -111,11 +135,13 @@ function RelationshipContent({
   relationships,
   isLoading,
   error,
+  currentUserId,
 }: {
   activeSection: Section;
   relationships: RelationshipSupportSummary[];
   isLoading: boolean;
   error: string | null;
+  currentUserId: string;
 }) {
   if (activeSection === 'tutor-profile') {
     return (
@@ -158,6 +184,7 @@ function RelationshipContent({
           key={relationship.id}
           relationship={relationship}
           viewerRole="tutor"
+          currentUserId={currentUserId}
           actions={getTutorRelationshipActions(relationship.id)}
         />
       ))}
@@ -247,6 +274,10 @@ function getTutorRelationshipActions(relationshipId: string) {
     {
       label: 'Flagged questions',
       href: `${baseHref}/questions`,
+    },
+    {
+      label: 'Workspace',
+      href: `${baseHref}/workspace`,
     },
   ];
 }

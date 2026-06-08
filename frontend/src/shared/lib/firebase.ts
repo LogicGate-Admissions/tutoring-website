@@ -9,6 +9,7 @@
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 /**
  * Firebase client configuration.
@@ -61,6 +62,8 @@ export const auth = getAuth(firebaseApp);
 /** Firestore database instance used by all persistence services. */
 export const db = getFirestore(firebaseApp);
 
+/** Firebase Storage instance used for message and resource attachments. */
+export const storage = getStorage(firebaseApp);
 
 /** Google sign-in provider used by the auth service. */
 export const googleProvider = new GoogleAuthProvider();

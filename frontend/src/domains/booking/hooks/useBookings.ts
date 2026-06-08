@@ -37,6 +37,14 @@ function toBookingRequest(id: string, data: Record<string, unknown>): BookingReq
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp,
     confirmedAt: data.confirmedAt as Timestamp | undefined,
+    cancelledByRole: data.cancelledByRole as 'tutor' | 'student' | undefined,
+    rescheduledByRole: data.rescheduledByRole as 'tutor' | 'student' | undefined,
+    meetingLink: data.meetingLink as string | undefined,
+    calendarEventId: data.calendarEventId as string | undefined,
+    meetingLinkStatus: data.meetingLinkStatus as BookingRequest['meetingLinkStatus'],
+    lessonStatus: data.lessonStatus as BookingRequest['lessonStatus'],
+    lessonStartedAt: data.lessonStartedAt as Timestamp | undefined,
+    lessonEndedAt: data.lessonEndedAt as Timestamp | undefined,
   };
 }
 

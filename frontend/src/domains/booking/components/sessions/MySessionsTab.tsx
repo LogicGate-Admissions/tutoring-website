@@ -3,26 +3,27 @@
 /**
  * File purpose: My Sessions tab shown in both student and tutor dashboards.
  *
- * Three sections: pending requests, upcoming confirmed sessions, and a weekly
- * calendar view of this week's confirmed sessions. All data comes from
- * useBookings; no Firestore logic lives here.
+ * Sections: pending requests, upcoming confirmed sessions, weekly calendar,
+ * and past sessions. Booking new sessions happens from relationship cards
+ * or the messages thread — not from this tab.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useBookings } from '@/domains/booking/hooks/useBookings';
 import { BookingRequestCard } from '@/domains/booking/components/BookingRequestCard';
+import { createPortal } from 'react-dom';
+import { SessionDetailModal } from '@/domains/booking/components/SessionDetailModal';
+import { rescheduleBookingRequest } from '@/domains/booking/services/bookingService';
 import type { BookingRequest } from '@/domains/booking/types/booking';
+import { BookingConflictError } from '@/domains/booking/types/booking';
 import { cn } from '@/shared/utils/cn';
-import { getStudentAvailabilityById } from '@/domains/students/learning-profile/services/learningProfileStorage';
-import type { TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
-import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
 
 const MAX_VISIBLE = 4;
 
-const HOUR_START = 7;   // 07:00
-const HOUR_END = 22;    // 22:00
+const HOUR_START = 7;
+const HOUR_END = 22;
 const TOTAL_HOURS = HOUR_END - HOUR_START;
-const SLOT_HEIGHT_REM = 3.5; // rem per hour
+const SLOT_HEIGHT_REM = 3.5;
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
@@ -34,58 +35,52 @@ export type Counterparty = {
 type MySessionsTabProps = {
   userId: string;
   role: 'tutor' | 'student';
-  /** People the viewer can book with: tutors for students, students for tutors. */
   counterparties: Counterparty[];
-  /** Resolve the other party's display name for a given booking card. */
   getOtherPartyName: (booking: BookingRequest) => string;
 };
-
-type BookingStep =
-  | { type: 'idle' }
-  | { type: 'picking' }
-  | { type: 'form'; counterparty: Counterparty };
 
 type ModalSection = 'pending' | 'sent' | 'upcoming' | 'past' | null;
 
 export function MySessionsTab({
   userId,
   role,
-  counterparties,
   getOtherPartyName,
 }: MySessionsTabProps) {
   const { pendingRequests, sentRequests, upcomingSessions, pastSessions, allSessions, loading, error } =
     useBookings(userId, role);
 
-  const [step, setStep] = useState<BookingStep>({ type: 'idle' });
   const [modalSection, setModalSection] = useState<ModalSection>(null);
-  const [studentAvailForBooking, setStudentAvailForBooking] = useState<TimeBlock[]>([]);
+  const [selectedBooking, setSelectedBooking] = useState<BookingRequest | null>(null);
+  const [pendingReschedule, setPendingReschedule] = useState<{
+    booking: BookingRequest;
+    newDate: Date;
+  } | null>(null);
+  const [rescheduleBusy, setRescheduleBusy] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (step.type !== 'form') return;
-    let active = true;
-    // Tutor: fetch the student counterparty's availability for the overlay.
-    // Student: fetch their own availability so the calendar can show the intersection.
-    const idToFetch = role === 'tutor' ? step.counterparty.id : userId;
-    getStudentAvailabilityById(idToFetch)
-      .then((blocks) => { if (active) setStudentAvailForBooking(blocks); })
-      .catch(() => {});
-    return () => {
-      active = false;
-      setStudentAvailForBooking([]);
-    };
-  }, [step, role, userId]);
-
-  function openBooking() {
-    if (counterparties.length === 0) return;
-    if (counterparties.length === 1) {
-      setStep({ type: 'form', counterparty: counterparties[0] });
-    } else {
-      setStep({ type: 'picking' });
+  async function confirmDragReschedule() {
+    if (!pendingReschedule) return;
+    setRescheduleBusy(true);
+    setRescheduleError(null);
+    try {
+      await rescheduleBookingRequest(
+        pendingReschedule.booking.id,
+        pendingReschedule.newDate,
+        pendingReschedule.booking.durationMinutes,
+        role
+      );
+      setPendingReschedule(null);
+    } catch (err) {
+      if (err instanceof BookingConflictError) {
+        setRescheduleError('That time overlaps another confirmed session.');
+      } else {
+        setRescheduleError(
+          err instanceof Error ? err.message : 'Could not reschedule. Please try again.'
+        );
+      }
+    } finally {
+      setRescheduleBusy(false);
     }
-  }
-
-  function closeBooking() {
-    setStep({ type: 'idle' });
   }
 
   if (loading) {
@@ -123,7 +118,6 @@ export function MySessionsTab({
         />
       )}
 
-      {/* ── Pending Requests ─────────────────────────────────────────────── */}
       <section>
         <SectionHeading>Pending Requests</SectionHeading>
         {pendingRequests.length === 0 ? (
@@ -146,7 +140,6 @@ export function MySessionsTab({
         )}
       </section>
 
-      {/* ── Sent Requests ────────────────────────────────────────────────── */}
       {sentRequests.length > 0 ? (
         <section>
           <SectionHeading>Sent Requests</SectionHeading>
@@ -170,44 +163,17 @@ export function MySessionsTab({
         </section>
       ) : null}
 
-      {/* ── Upcoming Sessions ─────────────────────────────────────────────── */}
       <section>
         <SectionHeading>Upcoming Sessions</SectionHeading>
-
-        {step.type === 'picking' ? (
-          <CounterpartyPicker
-            counterparties={counterparties}
-            role={role}
-            onSelect={(cp) => setStep({ type: 'form', counterparty: cp })}
-            onCancel={closeBooking}
-          />
-        ) : step.type === 'form' ? (
-          <div className="mt-4">
-            <DragToBookCalendar
-              tutorId={role === 'student' ? step.counterparty.id : userId}
-              studentId={role === 'tutor' ? step.counterparty.id : userId}
-              counterpartyName={step.counterparty.name}
-              initiatedBy={role}
-              studentAvailabilityBlocks={studentAvailForBooking}
-              onSuccess={closeBooking}
-              onCancel={closeBooking}
-            />
-          </div>
-        ) : upcomingSessions.length === 0 ? (
-          <div className="mt-4 flex flex-col items-start gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        {upcomingSessions.length === 0 ? (
+          <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm text-slate-500">No upcoming sessions scheduled.</p>
-            {counterparties.length > 0 ? (
-              <BookSessionButton onClick={openBooking} />
-            ) : null}
+            <p className="mt-2 text-xs text-slate-400">
+              Book a session from a tutor or student card, or from your message thread.
+            </p>
           </div>
         ) : (
           <div className="mt-4 grid gap-4">
-            <div className="flex items-center justify-between">
-              <span />
-              {counterparties.length > 0 ? (
-                <BookSessionButton onClick={openBooking} />
-              ) : null}
-            </div>
             {upcomingSessions.slice(0, MAX_VISIBLE).map((b) => (
               <BookingRequestCard
                 key={b.id}
@@ -224,19 +190,48 @@ export function MySessionsTab({
         )}
       </section>
 
-      {/* ── Weekly Calendar View ──────────────────────────────────────────── */}
       <section>
         <SectionHeading>Calendar</SectionHeading>
+        <p className="mt-1 text-sm text-slate-500">
+          Click a session for details. Drag a session to reschedule it.
+        </p>
         <div className="relative mt-4 overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
           <WeeklyCalendar
             sessions={allSessions}
             getOtherPartyName={getOtherPartyName}
-            onBookSession={counterparties.length > 0 ? openBooking : undefined}
+            onSessionClick={setSelectedBooking}
+            onRescheduleRequest={(booking, newDate) => {
+              setRescheduleError(null);
+              setPendingReschedule({ booking, newDate });
+            }}
           />
         </div>
       </section>
 
-      {/* Past sessions (no heading in spec; shown below for completeness) */}
+      {selectedBooking ? (
+        <SessionDetailModal
+          booking={selectedBooking}
+          otherPartyName={getOtherPartyName(selectedBooking)}
+          viewerRole={role}
+          viewerId={userId}
+          onClose={() => setSelectedBooking(null)}
+        />
+      ) : null}
+
+      {pendingReschedule ? (
+        <RescheduleConfirmDialog
+          booking={pendingReschedule.booking}
+          newDate={pendingReschedule.newDate}
+          busy={rescheduleBusy}
+          error={rescheduleError}
+          onConfirm={() => void confirmDragReschedule()}
+          onCancel={() => {
+            setPendingReschedule(null);
+            setRescheduleError(null);
+          }}
+        />
+      ) : null}
+
       {pastSessions.length > 0 ? (
         <section>
           <SectionHeading>Past Sessions</SectionHeading>
@@ -261,84 +256,9 @@ export function MySessionsTab({
   );
 }
 
-// ─── Counterparty picker ──────────────────────────────────────────────────────
-
-function CounterpartyPicker({
-  counterparties,
-  role,
-  onSelect,
-  onCancel,
-}: {
-  counterparties: Counterparty[];
-  role: 'tutor' | 'student';
-  onSelect: (cp: Counterparty) => void;
-  onCancel: () => void;
-}) {
-  const label = role === 'student' ? 'tutor' : 'student';
-
-  return (
-    <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h3 className="text-base font-semibold text-slate-950">
-        Choose a {label} to book with
-      </h3>
-      <p className="mt-1 text-sm text-slate-500">
-        Select which {label} this session is with.
-      </p>
-
-      <div className="mt-4 grid gap-2">
-        {counterparties.map((cp) => (
-          <div
-            key={cp.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => onSelect(cp)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') onSelect(cp);
-            }}
-            className={cn(
-              'flex cursor-pointer items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 transition',
-              'hover:border-slate-950 hover:bg-slate-50',
-              'focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2'
-            )}
-          >
-            <span className="text-sm font-medium text-slate-900">{cp.name}</span>
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 16 16"
-              className="h-4 w-4 text-slate-400"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M6 3l5 5-5 5" />
-            </svg>
-          </div>
-        ))}
-      </div>
-
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onCancel}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') onCancel();
-        }}
-        className="mt-4 inline-flex cursor-pointer items-center text-sm text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline focus:outline-none"
-      >
-        Cancel
-      </div>
-    </div>
-  );
-}
-
-// ─── Weekly Calendar ──────────────────────────────────────────────────────────
-
-/** Returns the Monday of the ISO week containing `date`. */
 function weekStart(date: Date): Date {
   const d = new Date(date);
-  const day = d.getDay(); // 0 = Sun
+  const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
@@ -372,16 +292,51 @@ function sessionHeightPercent(durationMinutes: number): number {
   return (durationMinutes / (TOTAL_HOURS * 60)) * 100;
 }
 
+function topPercentToDate(day: Date, topPercent: number): Date {
+  const totalMinutes = TOTAL_HOURS * 60;
+  const startMinute = (topPercent / 100) * totalMinutes;
+  const snapped = Math.round(startMinute / 15) * 15;
+  const hours = HOUR_START + Math.floor(snapped / 60);
+  const minutes = snapped % 60;
+  const d = new Date(day);
+  d.setHours(hours, minutes, 0, 0);
+  return d;
+}
+
+function isDraggableSession(booking: BookingRequest): boolean {
+  if (booking.status !== 'confirmed') return false;
+  return booking.date.toDate() > new Date();
+}
+
+const DRAG_THRESHOLD_PX = 8;
+
+type PointerDragState = {
+  booking: BookingRequest;
+  startX: number;
+  startY: number;
+  active: boolean;
+};
+
 function WeeklyCalendar({
   sessions,
   getOtherPartyName,
-  onBookSession,
+  onSessionClick,
+  onRescheduleRequest,
 }: {
   sessions: BookingRequest[];
   getOtherPartyName: (b: BookingRequest) => string;
-  onBookSession?: () => void;
+  onSessionClick: (booking: BookingRequest) => void;
+  onRescheduleRequest: (booking: BookingRequest, newDate: Date) => void;
 }) {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragPreview, setDragPreview] = useState<{ colIdx: number; topPercent: number } | null>(null);
+
+  const columnRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const dragBookingRef = useRef<BookingRequest | null>(null);
+  const dragPreviewRef = useRef<{ colIdx: number; topPercent: number } | null>(null);
+  const pointerDragRef = useRef<PointerDragState | null>(null);
+  const didDragRef = useRef(false);
 
   const monday = addDays(weekStart(new Date()), weekOffset * 7);
   const weekDays = DAY_LABELS.map((_, i) => addDays(monday, i));
@@ -392,73 +347,159 @@ function WeeklyCalendar({
   );
 
   const totalHeightRem = TOTAL_HOURS * SLOT_HEIGHT_REM;
-
   const weekLabel = `${monday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${sunday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+  const draggingBooking = draggingId
+    ? sessions.find((s) => s.id === draggingId) ?? null
+    : null;
+
+  const weekDaysRef = useRef(weekDays);
+
+  useEffect(() => {
+    weekDaysRef.current = weekDays;
+  }, [weekDays]);
+
+  useEffect(() => {
+    function onPointerMove(e: PointerEvent) {
+      const pointer = pointerDragRef.current;
+      if (!pointer) return;
+
+      const dx = e.clientX - pointer.startX;
+      const dy = e.clientY - pointer.startY;
+
+      if (!pointer.active) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+        pointer.active = true;
+        didDragRef.current = true;
+        dragBookingRef.current = pointer.booking;
+        setDraggingId(pointer.booking.id);
+        const start = pointer.booking.date.toDate();
+        const colIdx = weekDaysRef.current.findIndex((d) => isSameDay(start, d));
+        if (colIdx >= 0) {
+          const preview = { colIdx, topPercent: sessionTopPercent(start) };
+          dragPreviewRef.current = preview;
+          setDragPreview(preview);
+        }
+      }
+
+      for (const [colIdx, col] of columnRefs.current.entries()) {
+        const rect = col.getBoundingClientRect();
+        if (e.clientX >= rect.left && e.clientX <= rect.right) {
+          const relativeY = e.clientY - rect.top;
+          const topPercent = Math.max(0, Math.min(100, (relativeY / rect.height) * 100));
+          const preview = { colIdx, topPercent };
+          dragPreviewRef.current = preview;
+          setDragPreview(preview);
+          break;
+        }
+      }
+    }
+
+    function onPointerUp() {
+      const booking = dragBookingRef.current;
+      const preview = dragPreviewRef.current;
+      const days = weekDaysRef.current;
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const wasDrag = didDragRef.current;
+
+      pointerDragRef.current = null;
+      setDraggingId(null);
+      setDragPreview(null);
+      dragBookingRef.current = null;
+      dragPreviewRef.current = null;
+
+      window.setTimeout(() => { didDragRef.current = false; }, 0);
+
+      if (!wasDrag || !booking || !preview) return;
+
+      const targetDay = days[preview.colIdx];
+      if (targetDay < todayStart) return;
+
+      const newDate = topPercentToDate(targetDay, preview.topPercent);
+      const originalDate = booking.date.toDate();
+
+      if (
+        originalDate.getTime() !== newDate.getTime() &&
+        isDraggableSession(booking)
+      ) {
+        onRescheduleRequest(booking, newDate);
+      }
+    }
+
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
+    return () => {
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, [onRescheduleRequest]);
+
+  function handlePointerDown(booking: BookingRequest, e: React.PointerEvent) {
+    if (!isDraggableSession(booking)) return;
+    didDragRef.current = false;
+    pointerDragRef.current = {
+      booking,
+      startX: e.clientX,
+      startY: e.clientY,
+      active: false,
+    };
+  }
+
+  function handleSessionClick(booking: BookingRequest) {
+    if (didDragRef.current) return;
+    onSessionClick(booking);
+  }
 
   return (
     <div className="relative">
-      {/* Week navigation header */}
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <div
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           aria-label="Previous week"
           onClick={() => setWeekOffset((o) => o - 1)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setWeekOffset((o) => o - 1); }}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-950 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-1"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-950 hover:text-slate-950"
         >
           <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3L5 8l5 5" /></svg>
-        </div>
+        </button>
         <div className="text-center">
           <p className="text-sm font-semibold text-slate-950">{weekLabel}</p>
-          {weekOffset !== 0 && (
-            <div
-              role="button"
-              tabIndex={0}
+          {weekOffset !== 0 ? (
+            <button
+              type="button"
               onClick={() => setWeekOffset(0)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setWeekOffset(0); }}
-              className="mt-0.5 cursor-pointer text-xs text-slate-400 underline underline-offset-2 hover:text-slate-600 focus:outline-none"
+              className="mt-0.5 text-xs text-slate-400 underline underline-offset-2 hover:text-slate-600"
             >
               Back to today
-            </div>
-          )}
+            </button>
+          ) : null}
         </div>
-        <div
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           aria-label="Next week"
           onClick={() => setWeekOffset((o) => o + 1)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setWeekOffset((o) => o + 1); }}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-950 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-1"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-950 hover:text-slate-950"
         >
           <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3l5 5-5 5" /></svg>
-        </div>
+        </button>
       </div>
 
-      {/* Day headers */}
       <div className="grid grid-cols-[3rem_repeat(7,minmax(5rem,1fr))] border-b border-slate-200">
         <div className="border-r border-slate-100 py-3" />
         {weekDays.map((day, i) => (
-          <div
-            key={i}
-            className="border-r border-slate-100 px-2 py-3 last:border-r-0"
-          >
-            <p className="text-center text-xs font-semibold text-slate-700">
-              {DAY_LABELS[i]}
-            </p>
-            <p className="mt-0.5 text-center text-[0.65rem] text-slate-400">
-              {formatDayLabel(day)}
-            </p>
+          <div key={i} className="border-r border-slate-100 px-2 py-3 last:border-r-0">
+            <p className="text-center text-xs font-semibold text-slate-700">{DAY_LABELS[i]}</p>
+            <p className="mt-0.5 text-center text-[0.65rem] text-slate-400">{formatDayLabel(day)}</p>
           </div>
         ))}
       </div>
 
-      {/* Time grid */}
       <div
         className="grid grid-cols-[3rem_repeat(7,minmax(5rem,1fr))]"
         style={{ height: `${totalHeightRem}rem` }}
       >
-        {/* Time labels column */}
         <div className="relative border-r border-slate-100">
           {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
             <div
@@ -473,18 +514,21 @@ function WeeklyCalendar({
           ))}
         </div>
 
-        {/* Day columns */}
         {weekDays.map((day, colIdx) => {
           const daySessions = thisWeekSessions.filter((s) =>
             isSameDay(s.date.toDate(), day)
           );
+          const isDraggingHere = draggingBooking && dragPreview?.colIdx === colIdx;
 
           return (
             <div
               key={colIdx}
+              ref={(el) => {
+                if (el) columnRefs.current.set(colIdx, el);
+                else columnRefs.current.delete(colIdx);
+              }}
               className="relative border-r border-slate-100 last:border-r-0"
             >
-              {/* Hour lines */}
               {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
                 <div
                   key={i}
@@ -493,8 +537,9 @@ function WeeklyCalendar({
                 />
               ))}
 
-              {/* Session blocks */}
               {daySessions.map((s) => {
+                if (draggingId === s.id) return null;
+
                 const start = s.date.toDate();
                 const top = sessionTopPercent(start);
                 const height = sessionHeightPercent(s.durationMinutes);
@@ -502,12 +547,24 @@ function WeeklyCalendar({
                   hour: '2-digit',
                   minute: '2-digit',
                 });
+                const isPast = start <= new Date();
+                const draggable = isDraggableSession(s);
 
                 return (
-                  <div
+                  <button
                     key={s.id}
-                    className="absolute inset-x-0.5 overflow-hidden rounded-xl bg-slate-900 px-2 py-1"
-                    style={{ top: `${top}%`, height: `${height}%` }}
+                    type="button"
+                    onClick={() => handleSessionClick(s)}
+                    onPointerDown={(e) => handlePointerDown(s, e)}
+                    className={cn(
+                      'absolute inset-x-0.5 overflow-hidden rounded-xl px-2 py-1 text-left transition',
+                      isPast
+                        ? 'bg-slate-300 opacity-70'
+                        : 'bg-slate-900 hover:bg-slate-800',
+                      draggable && 'cursor-grab active:cursor-grabbing'
+                    )}
+                    style={{ top: `${top}%`, height: `${height}%`, minHeight: '1.5rem' }}
+                    title={draggable ? 'Click for details, drag to reschedule' : 'Click for details'}
                   >
                     <p className="truncate text-[0.6rem] font-semibold leading-tight text-white">
                       {s.subject}
@@ -515,27 +572,116 @@ function WeeklyCalendar({
                     <p className="truncate text-[0.55rem] leading-tight text-slate-300">
                       {timeLabel} · {getOtherPartyName(s)}
                     </p>
-                  </div>
+                  </button>
                 );
               })}
+
+              {isDraggingHere && draggingBooking && dragPreview ? (
+                <div
+                  className="pointer-events-none absolute inset-x-0.5 overflow-hidden rounded-xl border-2 border-dashed border-indigo-400 bg-indigo-300/80 px-2 py-1 opacity-90"
+                  style={{
+                    top: `${dragPreview.topPercent}%`,
+                    height: `${sessionHeightPercent(draggingBooking.durationMinutes)}%`,
+                    minHeight: '1.5rem',
+                  }}
+                >
+                  <p className="truncate text-[0.6rem] font-semibold leading-tight text-indigo-950">
+                    {draggingBooking.subject}
+                  </p>
+                  <p className="truncate text-[0.55rem] leading-tight text-indigo-800">
+                    New time
+                  </p>
+                </div>
+              ) : null}
             </div>
           );
         })}
       </div>
 
-      {/* Empty-week CTA overlay */}
-      {thisWeekSessions.length === 0 && onBookSession ? (
-        <div className="absolute inset-0 flex items-center justify-end p-6 pointer-events-none">
-          <div className="pointer-events-auto">
-            <BookSessionButton onClick={onBookSession} />
-          </div>
+      {thisWeekSessions.length === 0 ? (
+        <div className="border-t border-slate-100 px-6 py-8 text-center">
+          <p className="text-sm text-slate-500">No sessions this week.</p>
         </div>
       ) : null}
     </div>
   );
 }
 
-// ─── Shared sub-components ────────────────────────────────────────────────────
+function RescheduleConfirmDialog({
+  booking,
+  newDate,
+  busy,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  booking: BookingRequest;
+  newDate: Date;
+  busy: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onCancel();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-slate-950">Reschedule session?</h3>
+        <p className="mt-2 text-sm text-slate-600">
+          Move <strong>{booking.subject}</strong> to{' '}
+          {newDate.toLocaleDateString('en-GB', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          })}{' '}
+          at{' '}
+          {newDate.toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+          ? The other party will be notified.
+        </p>
+        {error ? (
+          <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</p>
+        ) : null}
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onConfirm}
+            className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          >
+            {busy ? 'Rescheduling…' : 'Yes, reschedule'}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onCancel}
+            className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
@@ -550,8 +696,6 @@ function EmptyState({ message }: { message: string }) {
     <p className="mt-3 text-sm italic text-slate-400">{message}</p>
   );
 }
-
-// ─── Sessions Modal ───────────────────────────────────────────────────────────
 
 function SessionsModal({
   title,
@@ -589,18 +733,16 @@ function SessionsModal({
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 className="text-base font-semibold text-slate-950">{title}</h2>
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             onClick={onClose}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClose(); }}
             aria-label="Close"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
           >
             <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M3 3l10 10M13 3L3 13" />
             </svg>
-          </div>
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid gap-4">
@@ -621,37 +763,14 @@ function SessionsModal({
   );
 }
 
-// ─── See All Link ─────────────────────────────────────────────────────────────
-
 function SeeAllLink({ count, onClick }: { count: number; onClick: () => void }) {
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
-      className="mt-1 cursor-pointer text-sm text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline focus:outline-none"
+      className="mt-1 text-sm text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
     >
       See all {count} →
-    </div>
-  );
-}
-
-function BookSessionButton({ onClick }: { onClick: () => void }) {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onClick();
-      }}
-      className={cn(
-        'inline-flex cursor-pointer items-center rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition',
-        'hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2'
-      )}
-    >
-      Book a session
-    </div>
+    </button>
   );
 }

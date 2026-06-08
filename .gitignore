@@ -7,7 +7,15 @@ __pycache__/
 # Local Database
 db.sqlite3
 
-# Environment variables
+# Environment variables (secrets — share via secure channel, not git)
 .env
+.env.local
+.env.*.local
+!.env.example
 .vercel
 .env*
+functions/node_modules/
+functions/lib/
+frontend/.google-oauth-client.json
+**/firebase-service-account.json
+.miscellaneous

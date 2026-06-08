@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "bookingRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tutorId", "order": "ASCENDING" },
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

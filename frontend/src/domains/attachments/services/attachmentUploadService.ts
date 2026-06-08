@@ -1,13 +1,12 @@
 /**
- * File purpose: Generic attachment preparation for support features.
+ * File purpose: Upload support attachments to Firebase Storage.
  *
- * Firebase Storage is not available on our free-plan demo setup, so this file
- * currently uses a metadata-only provider. Users can still test the attachment
- * workflow: choosing files, sending them with a message, and seeing attachment
- * cards in the thread. Later, a real provider can upload the same files to
- * Firebase Storage/S3/another service without changing the message UI.
+ * Files are stored under support/{area}/{ownerId}/{attachmentId}/{filename}
+ * and the returned metadata is saved on the parent Firestore document.
  */
 
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { storage } from '@/shared/lib/firebase';
 import type {
   SupportAttachment,
   SupportAttachmentKind,
@@ -32,29 +31,22 @@ export type AttachmentProvider = {
 const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_ATTACHMENTS_PER_MESSAGE = 5;
 
-/**
- * Metadata-only provider used for the current free-plan demo.
- *
- * It deliberately does not upload file bytes. This avoids Firebase Storage while
- * keeping the data shape close to a future real upload implementation.
- */
-const demoMetadataAttachmentProvider: AttachmentProvider = {
+const firebaseStorageAttachmentProvider: AttachmentProvider = {
   async prepareAttachments({ files, context }) {
     const createdAt = new Date().toISOString();
 
-    return files.map((file) => prepareDemoAttachment({ file, context, createdAt }));
+    return Promise.all(
+      files.map((file) =>
+        uploadAttachmentFile({ file, context, createdAt })
+      )
+    );
   },
 };
 
-/**
- * Single entry point for support attachments.
- *
- * Swapping this provider later is the only change needed to move from demo
- * metadata to real file storage.
- */
-const activeAttachmentProvider: AttachmentProvider = demoMetadataAttachmentProvider;
+const activeAttachmentProvider: AttachmentProvider =
+  firebaseStorageAttachmentProvider;
 
-/** Prepares selected files and returns serialisable attachment metadata. */
+/** Prepares selected files and uploads them to Firebase Storage. */
 export async function uploadAttachments({
   files,
   context,
@@ -66,7 +58,7 @@ export async function uploadAttachments({
   return activeAttachmentProvider.prepareAttachments({ files, context });
 }
 
-function prepareDemoAttachment({
+async function uploadAttachmentFile({
   file,
   context,
   createdAt,
@@ -74,26 +66,40 @@ function prepareDemoAttachment({
   file: File;
   context: UploadAttachmentContext;
   createdAt: string;
-}): SupportAttachment {
+}): Promise<SupportAttachment> {
   assertFileIsAllowed(file);
 
   const attachmentId = crypto.randomUUID();
+  const safeName = sanitiseFileName(file.name);
+  const storagePath = `support/${context.area}/${context.ownerId}/${attachmentId}/${safeName}`;
+  const storageRef = ref(storage, storagePath);
+
+  await uploadBytes(storageRef, file, {
+    contentType: file.type || 'application/octet-stream',
+  });
+
+  const url = await getDownloadURL(storageRef);
 
   return {
     id: attachmentId,
     name: file.name,
-    url: '',
-    storagePath: '',
+    url,
+    storagePath,
     contentType: file.type || 'application/octet-stream',
     sizeBytes: file.size,
     kind: getAttachmentKind(file),
     createdAt,
-    provider: 'demo-metadata',
-    isPreviewAvailable: false,
+    provider: 'firebase-storage',
+    isPreviewAvailable: true,
     ownerArea: context.area,
     ownerId: context.ownerId,
     uploadedById: context.uploadedById,
   };
+}
+
+function sanitiseFileName(name: string): string {
+  const base = name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+  return base || 'file';
 }
 
 function assertAttachmentSelectionIsAllowed(files: File[]) {

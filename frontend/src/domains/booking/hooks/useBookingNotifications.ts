@@ -45,11 +45,11 @@ function toAppNotification(
 
   return {
     id: `booking-${n.id}`,
-    type: 'booking_request',
+    type: n.type,
     title: n.message,
-    description: 'Tap to view your sessions.',
+    description: 'Open My sessions to view or manage this booking.',
     meta: 'Session booking',
-    href: `/${dashboardRoot}/dashboard`,
+    href: `/${dashboardRoot}/dashboard?section=my-sessions`,
     createdAt: n.createdAt.toDate().toISOString(),
     onOpen: () => onMarkRead(n.id),
   };

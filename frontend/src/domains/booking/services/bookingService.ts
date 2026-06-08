@@ -15,11 +15,11 @@ import {
   getDocs,
   query,
   runTransaction,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
-import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
 import {
   BookingConflictError,
   BookingRequest,
@@ -30,17 +30,6 @@ import {
 import type { BookingNotificationType } from '@/domains/booking/types/bookingNotification';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const DAY_NAMES: Day[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function toDayName(date: Date): Day {
-  return DAY_NAMES[date.getDay()];
-}
-
-function timeToMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
-}
 
 function castBooking(id: string, data: Record<string, unknown>): BookingRequest {
   return {
@@ -58,6 +47,14 @@ function castBooking(id: string, data: Record<string, unknown>): BookingRequest 
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp,
     confirmedAt: data.confirmedAt as Timestamp | undefined,
+    cancelledByRole: data.cancelledByRole as 'tutor' | 'student' | undefined,
+    rescheduledByRole: data.rescheduledByRole as 'tutor' | 'student' | undefined,
+    meetingLink: data.meetingLink as string | undefined,
+    calendarEventId: data.calendarEventId as string | undefined,
+    meetingLinkStatus: data.meetingLinkStatus as BookingRequest['meetingLinkStatus'],
+    lessonStatus: data.lessonStatus as BookingRequest['lessonStatus'],
+    lessonStartedAt: data.lessonStartedAt as Timestamp | undefined,
+    lessonEndedAt: data.lessonEndedAt as Timestamp | undefined,
   };
 }
 
@@ -73,12 +70,10 @@ function sessionsOverlap(
   return aStart < bEnd && aEnd > bStart;
 }
 
-// ─── Availability validation ──────────────────────────────────────────────────
+// ─── Subject validation (availability is advisory only in the UI) ─────────────
 
-async function assertSlotAvailable(
+async function assertTutorOffersSubject(
   tutorId: string,
-  date: Date,
-  durationMinutes: number,
   subject: string
 ): Promise<void> {
   const tutorSnap = await getDoc(
@@ -89,34 +84,10 @@ async function assertSlotAvailable(
     throw new SlotUnavailableError('Tutor profile not found.');
   }
 
-  const tutorData = tutorSnap.data();
-  const subjects: string[] = tutorData.subjects ?? [];
+  const subjects: string[] = tutorSnap.data().subjects ?? [];
 
   if (!subjects.includes(subject)) {
     throw new SlotUnavailableError('The requested subject is not offered by this tutor.');
-  }
-
-  const blocks: TimeBlock[] = tutorData.availabilityBlocks ?? [];
-  const dayName = toDayName(date);
-  const dayBlocks = blocks.filter((b) => b.day === dayName);
-
-  if (dayBlocks.length === 0) {
-    throw new SlotUnavailableError('The tutor is not available on the selected day.');
-  }
-
-  const startMinutes = timeToMinutes(
-    `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-  );
-  const endMinutes = startMinutes + durationMinutes;
-
-  const fitsInBlock = dayBlocks.some(
-    (b) => timeToMinutes(b.from) <= startMinutes && endMinutes <= timeToMinutes(b.to)
-  );
-
-  if (!fitsInBlock) {
-    throw new SlotUnavailableError(
-      'The session duration or start time falls outside the tutor\'s available slot.'
-    );
   }
 }
 
@@ -177,18 +148,13 @@ async function createBookingNotification(
 
 /**
  * Create a new booking request.
- * Validates subject and slot availability against the tutor's profile before writing.
+ * Validates the tutor offers the requested subject. Availability is advisory in the UI only.
  * Returns the new document ID.
  */
 export async function createBookingRequest(
   data: CreateBookingInput
 ): Promise<string> {
-  await assertSlotAvailable(
-    data.tutorId,
-    data.date,
-    data.durationMinutes,
-    data.subject
-  );
+  await assertTutorOffersSubject(data.tutorId, data.subject);
 
   const now = Timestamp.now();
 
@@ -370,6 +336,7 @@ export async function cancelBookingRequest(
   await runTransaction(db, async (transaction) => {
     transaction.update(bookingRef, {
       status: 'cancelled',
+      cancelledByRole,
       updatedAt: Timestamp.now(),
     });
   });
@@ -389,4 +356,103 @@ export async function cancelBookingRequest(
     'booking_cancelled',
     `Your ${booking.subject} session on ${dateStr} was cancelled`
   );
+}
+
+/**
+ * Reschedule a confirmed or pending future session to a new date/time.
+ * Checks for overlapping confirmed sessions before updating.
+ */
+export async function rescheduleBookingRequest(
+  bookingId: string,
+  newDate: Date,
+  durationMinutes: number,
+  rescheduledByRole: 'tutor' | 'student'
+): Promise<void> {
+  const bookingRef = doc(db, FIRESTORE_COLLECTIONS.bookingRequests, bookingId);
+  const snap = await getDoc(bookingRef);
+  if (!snap.exists()) throw new Error('Booking not found.');
+
+  const booking = castBooking(snap.id, snap.data());
+
+  const reschedulableStatuses: BookingStatus[] = [
+    'confirmed',
+    'pending_receiver',
+    'pending_requester',
+  ];
+  if (!reschedulableStatuses.includes(booking.status)) {
+    throw new Error('This session cannot be rescheduled.');
+  }
+
+  if (booking.date.toDate() <= new Date() && booking.status === 'confirmed') {
+    throw new Error('Past sessions cannot be rescheduled.');
+  }
+
+  if (booking.status === 'confirmed') {
+    await assertNoConflict(
+      booking.tutorId,
+      newDate,
+      durationMinutes,
+      bookingId
+    );
+  }
+
+  const oldDateStr = booking.date.toDate().toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  const oldTimeStr = booking.date.toDate().toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const newDateStr = newDate.toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  const newTimeStr = newDate.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  await runTransaction(db, async (transaction) => {
+    transaction.update(bookingRef, {
+      date: Timestamp.fromDate(newDate),
+      durationMinutes,
+      rescheduledByRole,
+      updatedAt: Timestamp.now(),
+    });
+  });
+
+  const otherUserId =
+    rescheduledByRole === 'tutor' ? booking.studentId : booking.tutorId;
+
+  await createBookingNotification(
+    otherUserId,
+    bookingId,
+    'booking_rescheduled',
+    `${booking.subject} session moved from ${oldDateStr} ${oldTimeStr} to ${newDateStr} ${newTimeStr}`
+  );
+}
+
+/** Marks a confirmed session as live when a participant joins the embedded workspace. */
+export async function startLessonSession(bookingId: string): Promise<void> {
+  const bookingRef = doc(db, FIRESTORE_COLLECTIONS.bookingRequests, bookingId);
+
+  await updateDoc(bookingRef, {
+    lessonStatus: 'live',
+    lessonStartedAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+}
+
+/** Ends a live session for both participants. Tutor-only in the UI. */
+export async function endLessonSession(bookingId: string): Promise<void> {
+  const bookingRef = doc(db, FIRESTORE_COLLECTIONS.bookingRequests, bookingId);
+
+  await updateDoc(bookingRef, {
+    lessonStatus: 'completed',
+    lessonEndedAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
 }
