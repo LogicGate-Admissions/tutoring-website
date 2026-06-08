@@ -38,6 +38,12 @@ type LessonWorkspacePageProps = {
   viewerRole: AsyncSupportRole;
 };
 
+type LocalCallState = {
+  lessonId: string | null;
+  hasJoinedLocally: boolean;
+  hasOpenedCallThisLesson: boolean;
+};
+
 const JOIN_UNLOCK_MINUTES = 5;
 
 export function LessonWorkspacePage({
@@ -52,8 +58,11 @@ export function LessonWorkspacePage({
     null,
   );
   const [now, setNow] = useState(() => new Date());
-  const [hasJoinedLocally, setHasJoinedLocally] = useState(false);
-  const [hasOpenedCallThisLesson, setHasOpenedCallThisLesson] = useState(false);
+  const [localCallState, setLocalCallState] = useState<LocalCallState>({
+    lessonId: null,
+    hasJoinedLocally: false,
+    hasOpenedCallThisLesson: false,
+  });
   const [actionError, setActionError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -113,15 +122,22 @@ export function LessonWorkspacePage({
     [bookings, now],
   );
 
-  useEffect(() => {
-    setHasJoinedLocally(false);
-    setHasOpenedCallThisLesson(false);
-  }, [currentLesson?.id]);
+  const currentLessonId = currentLesson?.id ?? null;
+
+  const hasJoinedLocally =
+    localCallState.lessonId === currentLessonId &&
+    localCallState.hasJoinedLocally;
+
+  const hasOpenedCallThisLesson =
+    localCallState.lessonId === currentLessonId &&
+    localCallState.hasOpenedCallThisLesson;
 
   const lessonState = getLessonJoinState(currentLesson, now);
   const lessonIsLive = (currentLesson?.lessonStatus ?? "scheduled") === "live";
   const lessonCompleted = currentLesson?.lessonStatus === "completed";
-  const showLiveWorkspace = Boolean(currentLesson && lessonIsLive);
+  const showLiveWorkspace = Boolean(
+    currentLesson && (lessonIsLive || hasJoinedLocally || hasOpenedCallThisLesson),
+  );
 
   const otherPersonName =
     viewerRole === "student"
@@ -140,13 +156,27 @@ export function LessonWorkspacePage({
         await startLessonSession(currentLesson.id);
       }
 
-      setHasJoinedLocally(true);
-      setHasOpenedCallThisLesson(true);
+      setLocalCallState({
+        lessonId: currentLesson.id,
+        hasJoinedLocally: true,
+        hasOpenedCallThisLesson: true,
+      });
     } catch {
       setActionError("Could not start the lesson workspace. Please try again.");
     } finally {
       setIsStarting(false);
     }
+  }
+
+  function handleCallLeft() {
+    setLocalCallState((previous) => ({
+      lessonId: currentLessonId,
+      hasJoinedLocally: false,
+      hasOpenedCallThisLesson:
+        previous.lessonId === currentLessonId
+          ? previous.hasOpenedCallThisLesson
+          : true,
+    }));
   }
 
   async function handleEndLesson() {
@@ -162,8 +192,11 @@ export function LessonWorkspacePage({
       setIsEnding(true);
       setActionError(null);
       await endLessonSession(currentLesson.id);
-      setHasJoinedLocally(false);
-      setHasOpenedCallThisLesson(false);
+      setLocalCallState({
+        lessonId: currentLesson.id,
+        hasJoinedLocally: false,
+        hasOpenedCallThisLesson: false,
+      });
     } catch {
       setActionError("Could not end the lesson. Please try again.");
     } finally {
@@ -208,9 +241,11 @@ export function LessonWorkspacePage({
                       : lessonState.primaryLabel}
                 </Button>
               ) : null}
+
               {!lessonState.canJoin && !lessonCompleted ? (
                 <Button disabled>{lessonState.primaryLabel}</Button>
               ) : null}
+
               {viewerRole === "tutor" && lessonIsLive ? (
                 <Button
                   variant="danger"
@@ -275,7 +310,7 @@ export function LessonWorkspacePage({
                 lesson={currentLesson}
                 relationshipId={relationshipId}
                 showCall={hasJoinedLocally}
-                onCallLeft={() => setHasJoinedLocally(false)}
+                onCallLeft={handleCallLeft}
               />
             ) : (
               <WaitingWorkspaceCard
@@ -427,9 +462,9 @@ function FloatingJitsiCall({
   onCallLeft: () => void;
 }) {
   const headerHeight = 18;
-  const minSize = { width: 380, height: 280 };
+  const minSize = { width: 420, height: 340 };
   const [position, setPosition] = useState({ x: 24, y: 24 });
-  const [size, setSize] = useState({ width: 680, height: 520 });
+  const [size, setSize] = useState({ width: 760, height: 620 });
   const dragStartRef = useRef<{
     pointerId: number;
     startX: number;
@@ -602,8 +637,9 @@ function JitsiCallSurface({
     let isMounted = true;
 
     function createMeeting() {
-      if (!isMounted || !parentRef.current || !window.JitsiMeetExternalAPI)
+      if (!isMounted || !parentRef.current || !window.JitsiMeetExternalAPI) {
         return;
+      }
 
       apiRef.current?.dispose();
       parentRef.current.innerHTML = "";
@@ -654,7 +690,7 @@ function JitsiCallSurface({
     };
   }, [roomName]);
 
-  const baseSize = { width: 720, height: 500 };
+  const baseSize = { width: 900, height: 720 };
   const scale = Math.min(width / baseSize.width, height / baseSize.height);
   const scaledWidth = baseSize.width * scale;
   const scaledHeight = baseSize.height * scale;
