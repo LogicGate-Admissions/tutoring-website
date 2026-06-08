@@ -26,6 +26,9 @@ export type BookingStatus =
   | 'cancelled'          // either party cancelled
   | 'declined';          // receiver declined
 
+/** Live lesson state for the embedded workspace. */
+export type LessonRuntimeStatus = 'scheduled' | 'live' | 'completed';
+
 /** Persisted Firestore document for a booking request. */
 export type BookingRequest = {
   id: string;
@@ -54,6 +57,10 @@ export type BookingRequest = {
    *   skipped — Google Calendar API not configured
    */
   meetingLinkStatus?: 'pending' | 'ready' | 'failed' | 'skipped';
+  /** Embedded workspace runtime state. Defaults to scheduled if unset. */
+  lessonStatus?: LessonRuntimeStatus;
+  lessonStartedAt?: Timestamp;
+  lessonEndedAt?: Timestamp;
   // FUTURE: paymentStatus, paymentIntentId
 };
 

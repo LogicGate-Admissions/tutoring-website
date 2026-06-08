@@ -20,7 +20,6 @@ import { cn } from '@/shared/utils/cn';
 
 type Section = 'my-tutors' | 'learning-profile' | 'find-tutors' | 'my-sessions';
 
-const MIRO_WHITEBOARD_URL = 'https://miro.com/welcomeonboard/eTBPN1pxZVRBYTZoWnJRWWd3QXBvNzMvVUhsRkF4cTRhQmJCTUs0QUdwREkwWExOWWhWVVduR3ZCU21uUW02L2gzRk52cmtoRE1MRUdtZWVnT3JFMHBrWE5IK0lvYkRaRkVSL2UwenJmSWVORmRKeE9hdmxLYzFhQXV3SHR0TFZ3VHhHVHd5UWtSM1BidUtUYmxycDRnPT0hdjE=?share_link_id=6525180428';
 
 const tabs: Array<{ id: Section; label: string; description: string }> = [
   {
@@ -256,9 +255,8 @@ function getStudentRelationshipActions(relationshipId: string, onBookSession: ()
       onClick: onBookSession,
     },
     {
-      label: 'Join whiteboard',
-      href: MIRO_WHITEBOARD_URL,
-      external: true,
+      label: 'Workspace',
+      href: `${baseHref}/workspace`,
     },
   ];
 }

@@ -40,6 +40,9 @@ function toBookingRequest(id: string, data: Record<string, unknown>): BookingReq
     meetingLink: data.meetingLink as string | undefined,
     calendarEventId: data.calendarEventId as string | undefined,
     meetingLinkStatus: data.meetingLinkStatus as BookingRequest['meetingLinkStatus'],
+    lessonStatus: data.lessonStatus as BookingRequest['lessonStatus'],
+    lessonStartedAt: data.lessonStartedAt as Timestamp | undefined,
+    lessonEndedAt: data.lessonEndedAt as Timestamp | undefined,
   };
 }
 

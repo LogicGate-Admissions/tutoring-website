@@ -15,6 +15,7 @@ import {
   getDocs,
   query,
   runTransaction,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase';
@@ -62,6 +63,9 @@ function castBooking(id: string, data: Record<string, unknown>): BookingRequest 
     meetingLink: data.meetingLink as string | undefined,
     calendarEventId: data.calendarEventId as string | undefined,
     meetingLinkStatus: data.meetingLinkStatus as BookingRequest['meetingLinkStatus'],
+    lessonStatus: data.lessonStatus as BookingRequest['lessonStatus'],
+    lessonStartedAt: data.lessonStartedAt as Timestamp | undefined,
+    lessonEndedAt: data.lessonEndedAt as Timestamp | undefined,
   };
 }
 
@@ -396,4 +400,27 @@ export async function cancelBookingRequest(
     'booking_cancelled',
     `Your ${booking.subject} session on ${dateStr} was cancelled`
   );
+}
+
+
+/** Marks a confirmed session as live when a participant joins the embedded workspace. */
+export async function startLessonSession(bookingId: string): Promise<void> {
+  const bookingRef = doc(db, FIRESTORE_COLLECTIONS.bookingRequests, bookingId);
+
+  await updateDoc(bookingRef, {
+    lessonStatus: 'live',
+    lessonStartedAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+}
+
+/** Ends a live session for both participants. Tutor-only in the UI. */
+export async function endLessonSession(bookingId: string): Promise<void> {
+  const bookingRef = doc(db, FIRESTORE_COLLECTIONS.bookingRequests, bookingId);
+
+  await updateDoc(bookingRef, {
+    lessonStatus: 'completed',
+    lessonEndedAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
 }

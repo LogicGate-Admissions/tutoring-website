@@ -38,6 +38,9 @@ function toBookingRequest(id: string, data: Record<string, unknown>): BookingReq
     meetingLink: data.meetingLink as string | undefined,
     calendarEventId: data.calendarEventId as string | undefined,
     meetingLinkStatus: data.meetingLinkStatus as BookingRequest['meetingLinkStatus'],
+    lessonStatus: data.lessonStatus as BookingRequest['lessonStatus'],
+    lessonStartedAt: data.lessonStartedAt as Timestamp | undefined,
+    lessonEndedAt: data.lessonEndedAt as Timestamp | undefined,
   };
 }
 
@@ -82,7 +85,15 @@ export function useRelationshipBookings(
 
   const upcomingSession = useMemo(() => {
     const now = new Date();
-    return visibleBookings.find((b) => b.date.toDate() > now) ?? null;
+
+    return (
+      visibleBookings.find((b) => b.lessonStatus === 'live') ??
+      visibleBookings.find((b) => {
+        const lessonStatus = b.lessonStatus ?? 'scheduled';
+        return lessonStatus !== 'completed' && b.date.toDate() > now;
+      }) ??
+      null
+    );
   }, [visibleBookings]);
 
   return {

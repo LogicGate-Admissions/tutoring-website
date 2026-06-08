@@ -10,7 +10,6 @@
  */
 
 import { Button } from '@/shared/components/Button';
-import { JoinSessionLink } from '@/domains/booking/components/JoinSessionLink';
 import { useRelationshipBookings } from '@/domains/booking/hooks/useRelationshipBookings';
 import { Card } from '@/shared/components/Card';
 import type {
@@ -83,19 +82,7 @@ export function SupportRelationshipCard({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {actions.slice(0, 3).map((action) => (
-          <RelationshipActionButton key={action.label} action={action} />
-        ))}
-
-        {upcomingSession ? (
-          <JoinSessionLink booking={upcomingSession} label="Join call" />
-        ) : (
-          <Button variant="secondary" disabled>
-            Join call
-          </Button>
-        )}
-
-        {actions.slice(3).map((action) => (
+        {actions.map((action) => (
           <RelationshipActionButton key={action.label} action={action} />
         ))}
       </div>
