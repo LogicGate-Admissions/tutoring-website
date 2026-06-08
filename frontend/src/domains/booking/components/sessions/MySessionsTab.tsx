@@ -354,7 +354,10 @@ function WeeklyCalendar({
     : null;
 
   const weekDaysRef = useRef(weekDays);
-  weekDaysRef.current = weekDays;
+
+  useEffect(() => {
+    weekDaysRef.current = weekDays;
+  }, [weekDays]);
 
   useEffect(() => {
     function onPointerMove(e: PointerEvent) {

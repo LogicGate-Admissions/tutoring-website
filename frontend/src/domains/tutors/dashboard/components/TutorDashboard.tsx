@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
 import { useRelationshipSummaries } from '@/domains/async-support/hooks/useRelationshipSummaries';
@@ -51,18 +51,24 @@ const TUTOR_SECTIONS: Section[] = [
   'trial-requests',
 ];
 
+function activeSectionFromParams(searchParams: ReturnType<typeof useSearchParams>): Section {
+  const section = searchParams.get('section');
+  if (section && TUTOR_SECTIONS.includes(section as Section)) {
+    return section as Section;
+  }
+  return 'my-students';
+}
+
 export function TutorDashboard() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeSection, setActiveSection] = useState<Section>('my-students');
+  const activeSection = activeSectionFromParams(searchParams);
   const [currentUserId, setCurrentUserId] = useState('');
   const { relationships, isLoading, error } = useRelationshipSummaries('tutor');
 
-  useEffect(() => {
-    const section = searchParams.get('section');
-    if (section && TUTOR_SECTIONS.includes(section as Section)) {
-      setActiveSection(section as Section);
-    }
-  }, [searchParams]);
+  function setActiveSection(section: Section) {
+    router.replace(`/tutor/dashboard?section=${section}`, { scroll: false });
+  }
 
   useEffect(() => {
     const unsub = subscribeToCurrentUser((user) => {
