@@ -42,6 +42,18 @@ export type BookingRequest = {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   confirmedAt?: Timestamp;
+  /** Google Meet join URL — set by Cloud Function when the session is confirmed. */
+  meetingLink?: string;
+  /** Google Calendar event ID — used to cancel/update the event server-side. */
+  calendarEventId?: string;
+  /**
+   * Meet link provisioning state.
+   *   pending — confirmed, Cloud Function is creating the calendar event
+   *   ready   — meetingLink is available
+   *   failed  — creation failed (see meetingLinkError in Firestore)
+   *   skipped — Google Calendar API not configured
+   */
+  meetingLinkStatus?: 'pending' | 'ready' | 'failed' | 'skipped';
   // FUTURE: paymentStatus, paymentIntentId
 };
 

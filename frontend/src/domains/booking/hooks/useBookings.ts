@@ -37,6 +37,9 @@ function toBookingRequest(id: string, data: Record<string, unknown>): BookingReq
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp,
     confirmedAt: data.confirmedAt as Timestamp | undefined,
+    meetingLink: data.meetingLink as string | undefined,
+    calendarEventId: data.calendarEventId as string | undefined,
+    meetingLinkStatus: data.meetingLinkStatus as BookingRequest['meetingLinkStatus'],
   };
 }
 

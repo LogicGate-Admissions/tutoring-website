@@ -28,6 +28,7 @@ import {
   SlotUnavailableError,
 } from '@/domains/booking/types/booking';
 import type { BookingNotificationType } from '@/domains/booking/types/bookingNotification';
+import { requestMeetingLink } from '@/domains/booking/services/meetingLinkService';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,9 @@ function castBooking(id: string, data: Record<string, unknown>): BookingRequest 
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp,
     confirmedAt: data.confirmedAt as Timestamp | undefined,
+    meetingLink: data.meetingLink as string | undefined,
+    calendarEventId: data.calendarEventId as string | undefined,
+    meetingLinkStatus: data.meetingLinkStatus as BookingRequest['meetingLinkStatus'],
   };
 }
 
@@ -297,6 +301,9 @@ export async function acceptBookingRequest(
       'booking_accepted',
       `Your ${b.subject} session on ${dateStr} is confirmed`
     );
+
+    // Create Google Meet link via server API (non-blocking for the accept flow).
+    void requestMeetingLink(bookingId);
   } else {
     // Receiver just accepted; notify the requester that their turn has come
     const snap = await getDoc(bookingRef);

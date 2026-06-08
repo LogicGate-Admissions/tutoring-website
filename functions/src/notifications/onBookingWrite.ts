@@ -1,22 +1,32 @@
 /**
  * File purpose: Cloud Function triggered on every bookingRequests document write.
  *
- * Fires on create, update, and delete. Compares before/after status to determine
- * which notification email to send, then fetches recipient emails from the
- * `users` collection and calls the email service.
+ * On status → confirmed: creates a Google Calendar event with a Meet link and
+ * writes meetingLink back to the booking document before sending emails.
  *
- * Deploy with:  firebase deploy --only functions:onBookingWrite
+ * On status → cancelled: deletes the associated calendar event if one exists.
  *
- * CONFIG: ensure RESEND_API_KEY is set in Firebase Functions config:
- *   firebase functions:config:set resend.api_key="re_xxxx"
+ * Deploy: firebase deploy --only functions:onBookingWrite
+ *
+ * CONFIG — email:
+ *   RESEND_API_KEY
+ *
+ * CONFIG — Google Calendar (see googleCalendarService.ts for full setup):
+ *   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN
+ *   — or —
+ *   GOOGLE_SERVICE_ACCOUNT_JSON, GOOGLE_CALENDAR_IMPERSONATE_EMAIL
  */
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { initializeApp } from 'firebase-admin/app';
 import { sendBookingNotificationEmail } from '../services/emailNotificationService';
+import {
+  createSessionCalendarEvent,
+  deleteSessionCalendarEvent,
+  isCalendarConfigured,
+} from '../services/googleCalendarService';
 
-// SCHEMA ASSUMPTION: users/{uid}.email holds the user's verified email address
 const FIRESTORE_COLLECTIONS = {
   bookingRequests: 'bookingRequests',
   users: 'users',
@@ -25,9 +35,10 @@ const FIRESTORE_COLLECTIONS = {
 initializeApp();
 const db = getFirestore();
 
-type BookingStatusSnapshot = {
+type BookingSnapshot = {
   tutorId: string;
   studentId: string;
+  initiatedBy?: 'tutor' | 'student';
   subject: string;
   date: FirebaseFirestore.Timestamp;
   durationMinutes: number;
@@ -38,6 +49,9 @@ type BookingStatusSnapshot = {
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
   confirmedAt?: FirebaseFirestore.Timestamp;
+  meetingLink?: string;
+  calendarEventId?: string;
+  meetingLinkStatus?: string;
 };
 
 async function getUserEmail(uid: string): Promise<string | null> {
@@ -46,52 +60,156 @@ async function getUserEmail(uid: string): Promise<string | null> {
   return (snap.data()?.email as string) ?? null;
 }
 
+async function getUserName(uid: string): Promise<string | undefined> {
+  const snap = await db.collection(FIRESTORE_COLLECTIONS.users).doc(uid).get();
+  if (!snap.exists) return undefined;
+  return (snap.data()?.name as string) ?? undefined;
+}
+
+async function provisionMeetingLink(
+  bookingId: string,
+  data: BookingSnapshot
+): Promise<BookingSnapshot> {
+  if (data.meetingLink && data.calendarEventId) return data;
+
+  const bookingRef = db.collection(FIRESTORE_COLLECTIONS.bookingRequests).doc(bookingId);
+
+  if (!isCalendarConfigured()) {
+    await bookingRef.update({
+      meetingLinkStatus: 'skipped',
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { ...data, meetingLinkStatus: 'skipped' };
+  }
+
+  await bookingRef.update({
+    meetingLinkStatus: 'pending',
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  try {
+    const [tutorEmail, studentEmail, tutorName, studentName] = await Promise.all([
+      getUserEmail(data.tutorId),
+      getUserEmail(data.studentId),
+      getUserName(data.tutorId),
+      getUserName(data.studentId),
+    ]);
+
+    if (!tutorEmail || !studentEmail) {
+      throw new Error('Missing tutor or student email — cannot create calendar invite.');
+    }
+
+    const result = await createSessionCalendarEvent({
+      bookingId,
+      subject: data.subject,
+      start: data.date.toDate(),
+      durationMinutes: data.durationMinutes,
+      notes: data.notes,
+      tutorEmail,
+      studentEmail,
+      tutorName,
+      studentName,
+    });
+
+    if (!result) {
+      await bookingRef.update({
+        meetingLinkStatus: 'skipped',
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return { ...data, meetingLinkStatus: 'skipped' };
+    }
+
+    await bookingRef.update({
+      meetingLink: result.meetingLink,
+      calendarEventId: result.eventId,
+      meetingLinkStatus: 'ready',
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return {
+      ...data,
+      meetingLink: result.meetingLink,
+      calendarEventId: result.eventId,
+      meetingLinkStatus: 'ready',
+    };
+  } catch (error) {
+    console.error(`[onBookingWrite] Meet link creation failed for ${bookingId}:`, error);
+    await bookingRef.update({
+      meetingLinkStatus: 'failed',
+      meetingLinkError: error instanceof Error ? error.message : 'Unknown error',
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { ...data, meetingLinkStatus: 'failed' };
+  }
+}
+
+async function removeMeetingLink(bookingId: string, data: BookingSnapshot): Promise<void> {
+  if (!data.calendarEventId) return;
+
+  await deleteSessionCalendarEvent(data.calendarEventId);
+
+  await db.collection(FIRESTORE_COLLECTIONS.bookingRequests).doc(bookingId).update({
+    meetingLink: FieldValue.delete(),
+    calendarEventId: FieldValue.delete(),
+    meetingLinkStatus: FieldValue.delete(),
+    meetingLinkError: FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
 export const onBookingWrite = onDocumentWritten(
   `${FIRESTORE_COLLECTIONS.bookingRequests}/{bookingId}`,
   async (event) => {
-    const beforeData = event.data?.before?.data() as BookingStatusSnapshot | undefined;
-    const afterData = event.data?.after?.data() as BookingStatusSnapshot | undefined;
+    const beforeData = event.data?.before?.data() as BookingSnapshot | undefined;
+    const afterData = event.data?.after?.data() as BookingSnapshot | undefined;
     const bookingId = event.params.bookingId;
 
-    if (!afterData) return; // document deleted — no notification
+    if (!afterData) return;
 
     const beforeStatus = beforeData?.status;
     const afterStatus = afterData.status;
 
-    if (beforeStatus === afterStatus && beforeData !== undefined) return; // no status change
-
-    // Build a plain BookingRequest-like object for the email service
-    const booking = {
+    let bookingForEmail: BookingSnapshot & { id: string } = {
       id: bookingId,
       ...afterData,
     };
+
+    // ── Calendar: create Meet link on confirmation ──────────────────────────
+    if (afterStatus === 'confirmed' && beforeStatus !== 'confirmed') {
+      bookingForEmail = {
+        ...(await provisionMeetingLink(bookingId, afterData)),
+        id: bookingId,
+      };
+    }
+
+    // ── Calendar: remove event on cancellation ────────────────────────────────
+    if (afterStatus === 'cancelled' && beforeStatus !== 'cancelled' && afterData.calendarEventId) {
+      await removeMeetingLink(bookingId, afterData);
+    }
+
+    if (beforeStatus === afterStatus && beforeData !== undefined) return;
 
     type Notification = { userId: string; eventType: string };
     const notifications: Notification[] = [];
 
     if (!beforeData) {
-      // Document created → notify receiver
       const receiverId =
-        afterData.tutorId === afterData.studentId
-          ? afterData.tutorId
-          : afterData.tutorId; // default: receiver is tutor when student initiates
+        afterData.initiatedBy === 'student' ? afterData.tutorId : afterData.studentId;
       notifications.push({ userId: receiverId, eventType: 'booking_request' });
     } else if (afterStatus === 'confirmed') {
-      // Confirmed → notify the party whose flag just flipped
       if (!beforeData.tutorAccepted && afterData.tutorAccepted) {
         notifications.push({ userId: afterData.studentId, eventType: 'booking_accepted' });
       } else {
         notifications.push({ userId: afterData.tutorId, eventType: 'booking_accepted' });
       }
     } else if (afterStatus === 'declined') {
-      // Declined → notify requester
-      notifications.push({ userId: afterData.studentId, eventType: 'booking_declined' });
+      const requesterId =
+        afterData.initiatedBy === 'student' ? afterData.studentId : afterData.tutorId;
+      notifications.push({ userId: requesterId, eventType: 'booking_declined' });
     } else if (afterStatus === 'cancelled') {
-      // Cancelled — notify the other party
       notifications.push({ userId: afterData.tutorId, eventType: 'booking_cancelled' });
       notifications.push({ userId: afterData.studentId, eventType: 'booking_cancelled' });
     } else if (afterStatus === 'pending_requester') {
-      // Receiver accepted — notify requester
       const requesterId =
         afterData.tutorAccepted && !afterData.studentAccepted
           ? afterData.studentId
@@ -103,8 +221,7 @@ export const onBookingWrite = onDocumentWritten(
       notifications.map(async ({ userId, eventType }) => {
         const email = await getUserEmail(userId);
         if (!email) return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await sendBookingNotificationEmail(booking as any, email, eventType);
+        await sendBookingNotificationEmail(bookingForEmail, email, eventType);
       })
     );
   }

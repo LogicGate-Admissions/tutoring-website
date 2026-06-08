@@ -10,12 +10,14 @@
 
 import { useEffect, useState } from 'react';
 import { useBookings } from '@/domains/booking/hooks/useBookings';
+import { useMeetingLinkProvisioner } from '@/domains/booking/hooks/useMeetingLinkProvisioner';
 import { BookingRequestCard } from '@/domains/booking/components/BookingRequestCard';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { cn } from '@/shared/utils/cn';
 import { getStudentAvailabilityById } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import type { TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
 import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
+import { JoinSessionLink } from '@/domains/booking/components/JoinSessionLink';
 
 const MAX_VISIBLE = 4;
 
@@ -55,6 +57,8 @@ export function MySessionsTab({
 }: MySessionsTabProps) {
   const { pendingRequests, sentRequests, upcomingSessions, pastSessions, allSessions, loading, error } =
     useBookings(userId, role);
+
+  useMeetingLinkProvisioner(upcomingSessions);
 
   const [step, setStep] = useState<BookingStep>({ type: 'idle' });
   const [modalSection, setModalSection] = useState<ModalSection>(null);
@@ -515,6 +519,9 @@ function WeeklyCalendar({
                     <p className="truncate text-[0.55rem] leading-tight text-slate-300">
                       {timeLabel} · {getOtherPartyName(s)}
                     </p>
+                    {s.date.toDate() > new Date() ? (
+                      <JoinSessionLink booking={s} variant="compact" />
+                    ) : null}
                   </div>
                 );
               })}

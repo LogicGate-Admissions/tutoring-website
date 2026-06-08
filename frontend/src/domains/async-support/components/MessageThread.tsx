@@ -39,6 +39,10 @@ import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { cn } from '@/shared/utils/cn';
 import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
+import { JoinSessionLink } from '@/domains/booking/components/JoinSessionLink';
+import { useRelationshipBookings } from '@/domains/booking/hooks/useRelationshipBookings';
+import { useMeetingLinkProvisioner } from '@/domains/booking/hooks/useMeetingLinkProvisioner';
+import type { BookingRequest } from '@/domains/booking/types/booking';
 import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
 import { createManualTimeBlock, mergeTimeBlocks } from '@/domains/students/learning-profile/utils/timeBlocks';
 import { getStoredLearningProfile, getStudentAvailabilityById, updateStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
@@ -524,6 +528,13 @@ export function MessageThread({
   );
   const canMarkNewMessageUrgent = currentUser?.role === "student";
 
+  const { upcomingSession, bookings: relationshipBookings } = useRelationshipBookings(
+    relationship?.tutorId,
+    relationship?.studentId
+  );
+
+  useMeetingLinkProvisioner(relationshipBookings);
+
   return (
     <div className="grid gap-4">
       <Card>
@@ -549,6 +560,10 @@ export function MessageThread({
               {relationship.level} {relationship.subject}
             </p>
           </div>
+        ) : null}
+
+        {upcomingSession ? (
+          <UpcomingSessionBanner booking={upcomingSession} />
         ) : null}
       </Card>
 
@@ -1615,4 +1630,29 @@ function formatMessageTime(value: string) {
 
 function isEdited(message: SupportMessage) {
   return Boolean(message.updatedAt && message.updatedAt !== message.createdAt);
+}
+
+function UpcomingSessionBanner({ booking }: { booking: BookingRequest }) {
+  const sessionDate = booking.date.toDate();
+  const dateLabel = sessionDate.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const timeLabel = sessionDate.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return (
+    <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+        Upcoming session
+      </p>
+      <p className="mt-1 text-sm font-medium text-slate-900">
+        {booking.subject} · {dateLabel} at {timeLabel} · {booking.durationMinutes} min
+      </p>
+      <JoinSessionLink booking={booking} className="mt-2" />
+    </div>
+  );
 }
