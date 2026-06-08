@@ -9,7 +9,7 @@
  * while this card gives context once the user is on the dashboard.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BookSessionModal } from '@/domains/booking/components/BookSessionModal';
 import { Button } from '@/shared/components/Button';
 import { useRelationshipBookings } from '@/domains/booking/hooks/useRelationshipBookings';
@@ -51,6 +51,27 @@ export function SupportRelationshipCard({
 
   const otherPersonLabel = viewerRole === 'tutor' ? 'Student' : 'Tutor';
 
+  const actionsWithBooking = useMemo(() => {
+    const withoutBookSession = actions.filter((action) => action.label !== 'Book session');
+    const bookSessionAction: SupportRelationshipAction = {
+      label: 'Book session',
+      onClick: () => setShowBooking(true),
+    };
+    const workspaceIndex = withoutBookSession.findIndex(
+      (action) => action.label === 'Workspace'
+    );
+
+    if (workspaceIndex >= 0) {
+      return [
+        ...withoutBookSession.slice(0, workspaceIndex),
+        bookSessionAction,
+        ...withoutBookSession.slice(workspaceIndex),
+      ];
+    }
+
+    return [...withoutBookSession, bookSessionAction];
+  }, [actions]);
+
   return (
     <>
       <Card className="grid gap-4">
@@ -89,10 +110,7 @@ export function SupportRelationshipCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="primary" onClick={() => setShowBooking(true)}>
-            Book session
-          </Button>
-          {actions.map((action) => (
+          {actionsWithBooking.map((action) => (
             <RelationshipActionButton key={action.label} action={action} />
           ))}
         </div>
