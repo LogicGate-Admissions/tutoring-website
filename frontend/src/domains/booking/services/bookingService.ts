@@ -29,7 +29,6 @@ import {
   SlotUnavailableError,
 } from '@/domains/booking/types/booking';
 import type { BookingNotificationType } from '@/domains/booking/types/bookingNotification';
-import { requestMeetingLink } from '@/domains/booking/services/meetingLinkService';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -305,9 +304,6 @@ export async function acceptBookingRequest(
       'booking_accepted',
       `Your ${b.subject} session on ${dateStr} is confirmed`
     );
-
-    // Create Google Meet link via server API (non-blocking for the accept flow).
-    void requestMeetingLink(bookingId);
   } else {
     // Receiver just accepted; notify the requester that their turn has come
     const snap = await getDoc(bookingRef);

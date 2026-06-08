@@ -45,17 +45,11 @@ export type BookingRequest = {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   confirmedAt?: Timestamp;
-  /** Google Meet join URL — set by Cloud Function when the session is confirmed. */
+  /** Optional external call URL retained for older session records. */
   meetingLink?: string;
-  /** Google Calendar event ID — used to cancel/update the event server-side. */
+  /** Optional external calendar event ID retained for older session records. */
   calendarEventId?: string;
-  /**
-   * Meet link provisioning state.
-   *   pending — confirmed, Cloud Function is creating the calendar event
-   *   ready   — meetingLink is available
-   *   failed  — creation failed (see meetingLinkError in Firestore)
-   *   skipped — Google Calendar API not configured
-   */
+  /** Optional external call link status retained for older session records. */
   meetingLinkStatus?: 'pending' | 'ready' | 'failed' | 'skipped';
   /** Embedded workspace runtime state. Defaults to scheduled if unset. */
   lessonStatus?: LessonRuntimeStatus;

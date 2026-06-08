@@ -2,7 +2,7 @@
 
 /**
  * Real-time confirmed bookings between a specific tutor and student pair.
- * Used in the message thread to surface the next upcoming session + Meet link.
+ * Used by relationship-level UI to surface the next upcoming session.
  */
 
 import { useEffect, useMemo, useState } from 'react';

@@ -39,9 +39,7 @@ import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { cn } from '@/shared/utils/cn';
 import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
-import { JoinSessionLink } from '@/domains/booking/components/JoinSessionLink';
 import { useRelationshipBookings } from '@/domains/booking/hooks/useRelationshipBookings';
-import { useMeetingLinkProvisioner } from '@/domains/booking/hooks/useMeetingLinkProvisioner';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
 import { createManualTimeBlock, mergeTimeBlocks } from '@/domains/students/learning-profile/utils/timeBlocks';
@@ -65,6 +63,7 @@ export function MessageThread({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messageElementRefs = useRef(new Map<string, HTMLDivElement>());
+  const hasAutoScrolledRef = useRef(false);
   const highlightTimeoutRef = useRef<number | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentThreadUser | null>(
     null,
@@ -230,6 +229,10 @@ export function MessageThread({
       unsubscribeMessages?.();
     };
   }, [currentUser, relationshipId, viewerRole]);
+
+  useEffect(() => {
+    hasAutoScrolledRef.current = false;
+  }, [relationshipId]);
 
   function registerMessageElement(
     messageId: string,
@@ -521,6 +524,21 @@ export function MessageThread({
     previousLastSeenMessagesAt,
   });
 
+  useEffect(() => {
+    if (hasAutoScrolledRef.current || messages.length === 0) return;
+
+    const targetId = firstUnreadMessageId ?? messages[messages.length - 1]?.id;
+    if (!targetId) return;
+
+    window.requestAnimationFrame(() => {
+      messageElementRefs.current.get(targetId)?.scrollIntoView({
+        behavior: 'auto',
+        block: firstUnreadMessageId ? 'center' : 'end',
+      });
+      hasAutoScrolledRef.current = true;
+    });
+  }, [firstUnreadMessageId, messages]);
+
   const canSendMessage = Boolean(
     currentUser &&
     (draftMessage.trim() || selectedFiles.length > 0) &&
@@ -528,12 +546,10 @@ export function MessageThread({
   );
   const canMarkNewMessageUrgent = currentUser?.role === "student";
 
-  const { upcomingSession, bookings: relationshipBookings } = useRelationshipBookings(
+  const { upcomingSession } = useRelationshipBookings(
     relationship?.tutorId,
     relationship?.studentId
   );
-
-  useMeetingLinkProvisioner(relationshipBookings);
 
   return (
     <div className="grid gap-4">
@@ -1652,7 +1668,6 @@ function UpcomingSessionBanner({ booking }: { booking: BookingRequest }) {
       <p className="mt-1 text-sm font-medium text-slate-900">
         {booking.subject} · {dateLabel} at {timeLabel} · {booking.durationMinutes} min
       </p>
-      <JoinSessionLink booking={booking} className="mt-2" />
     </div>
   );
 }

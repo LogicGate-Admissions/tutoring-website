@@ -30,7 +30,7 @@ import { Container } from '@/shared/components/Container';
 import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
 
-type WorkspacePanel = 'messages' | 'resources' | 'details';
+type WorkspacePanel = 'messages' | 'resources';
 
 type LessonWorkspacePageProps = {
   relationshipId: string;
@@ -45,7 +45,7 @@ export function LessonWorkspacePage({
 }: LessonWorkspacePageProps) {
   const [relationship, setRelationship] =
     useState<StudentTutorRelationship | null>(null);
-  const [activePanel, setActivePanel] = useState<WorkspacePanel>('details');
+  const [activePanel, setActivePanel] = useState<WorkspacePanel | null>(null);
   const [isLoadingRelationship, setIsLoadingRelationship] = useState(true);
   const [relationshipError, setRelationshipError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -243,8 +243,6 @@ export function LessonWorkspacePage({
             onChange={setActivePanel}
             relationshipId={relationshipId}
             viewerRole={viewerRole}
-            relationship={relationship}
-            currentLesson={currentLesson}
           />
 
           <main className="grid min-w-0 gap-6">
@@ -255,12 +253,9 @@ export function LessonWorkspacePage({
               </>
             ) : (
               <WaitingWorkspaceCard
-                currentLesson={currentLesson}
                 lessonState={lessonState}
                 lessonIsLive={lessonIsLive}
                 lessonCompleted={lessonCompleted}
-                onJoin={handleJoinLesson}
-                isStarting={isStarting}
               />
             )}
           </main>
@@ -275,22 +270,17 @@ function WorkspaceSidePanel({
   onChange,
   relationshipId,
   viewerRole,
-  relationship,
-  currentLesson,
 }: {
-  activePanel: WorkspacePanel;
-  onChange: (panel: WorkspacePanel) => void;
+  activePanel: WorkspacePanel | null;
+  onChange: (panel: WorkspacePanel | null) => void;
   relationshipId: string;
   viewerRole: AsyncSupportRole;
-  relationship: StudentTutorRelationship | null;
-  currentLesson: BookingRequest | null;
 }) {
   return (
     <Card className="self-start p-4">
       <div className="grid gap-2">
         {(
           [
-            ['details', 'Lesson details'],
             ['messages', 'Messages'],
             ['resources', 'Shared resources'],
           ] as const
@@ -298,7 +288,7 @@ function WorkspaceSidePanel({
           <button
             key={id}
             type="button"
-            onClick={() => onChange(id)}
+            onClick={() => onChange(activePanel === id ? null : id)}
             className={cn(
               'rounded-2xl px-4 py-3 text-left text-sm font-semibold transition',
               activePanel === id
@@ -311,54 +301,29 @@ function WorkspaceSidePanel({
         ))}
       </div>
 
-      <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-        {activePanel === 'details' ? (
-          <div>
-            <h2 className="text-sm font-semibold text-slate-950">
-              Relationship context
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              {relationship
-                ? `${relationship.level} ${relationship.subject}`
-                : 'Loading relationship context...'}
-            </p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              {currentLesson
-                ? formatLessonSummary(currentLesson)
-                : 'Book a session first, then return here to join the lesson.'}
-            </p>
-          </div>
-        ) : null}
-
-        {activePanel === 'messages' ? (
-          <div>
-            <h2 className="text-sm font-semibold text-slate-950">Messages</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              The relationship message thread stays inside the workspace so the
-              call does not disappear while users check lesson context.
-            </p>
-            <div className="mt-4 max-h-[680px] overflow-y-auto pr-1">
-              <MessageThread relationshipId={relationshipId} viewerRole={viewerRole} />
+      {activePanel ? (
+        <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+          {activePanel === 'messages' ? (
+            <div>
+              <h2 className="text-sm font-semibold text-slate-950">Messages</h2>
+              <div className="mt-4 max-h-[680px] overflow-y-auto pr-1">
+                <MessageThread relationshipId={relationshipId} viewerRole={viewerRole} />
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {activePanel === 'resources' ? (
-          <div>
-            <h2 className="text-sm font-semibold text-slate-950">
-              Shared resources
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Shared resources will appear here inside the workspace, so
-              students and tutors can copy screenshots, links, or notes into the
-              whiteboard without leaving the live lesson.
-            </p>
-            <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
-              Shared resources placeholder
+          {activePanel === 'resources' ? (
+            <div>
+              <h2 className="text-sm font-semibold text-slate-950">
+                Shared resources
+              </h2>
+              <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+                Shared resources placeholder
+              </div>
             </div>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      ) : null}
     </Card>
   );
 }
@@ -402,11 +367,6 @@ function WhiteboardPlaceholder() {
       <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
         Persistent board placeholder
       </h2>
-      <p className="mt-2 text-sm leading-6 text-slate-600">
-        The embedded whiteboard will sit here in the next thin slice. For this
-        iteration, the workspace proves the call can happen inside the website
-        without switching to a separate Meet tab.
-      </p>
       <div className="mt-5 min-h-[220px] rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
         Whiteboard area
       </div>
@@ -415,19 +375,13 @@ function WhiteboardPlaceholder() {
 }
 
 function WaitingWorkspaceCard({
-  currentLesson,
   lessonState,
   lessonIsLive,
   lessonCompleted,
-  onJoin,
-  isStarting,
 }: {
-  currentLesson: BookingRequest | null;
   lessonState: LessonJoinState;
   lessonIsLive: boolean;
   lessonCompleted: boolean;
-  onJoin: () => void;
-  isStarting: boolean;
 }) {
   return (
     <Card>
@@ -444,15 +398,6 @@ function WaitingWorkspaceCard({
       <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
         {lessonState.helperText}
       </p>
-
-      <div className="mt-5">
-        <Button
-          onClick={onJoin}
-          disabled={!currentLesson || !lessonState.canJoin || isStarting || lessonCompleted}
-        >
-          {lessonState.primaryLabel}
-        </Button>
-      </div>
     </Card>
   );
 }

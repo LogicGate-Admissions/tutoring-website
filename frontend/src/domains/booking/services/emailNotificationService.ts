@@ -82,19 +82,8 @@ function buildEmailContent(
     body: `There has been an update to your <strong>${booking.subject}</strong> session on ${dateStr}.`,
   };
 
-  const meetSection =
-    booking.meetingLink && booking.meetingLinkStatus === 'ready'
-      ? `
-        <p style="margin-top:20px">
-          <a href="${booking.meetingLink}"
-             style="display:inline-block;background:#0f172a;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;font-size:14px">
-            Join Google Meet
-          </a>
-        </p>
-        <p style="margin-top:8px;color:#64748b;font-size:12px;word-break:break-all">
-          ${booking.meetingLink}
-        </p>`
-      : '';
+  const lessonSection = '';
+
 
   return {
     subject: content.subject,
@@ -102,7 +91,7 @@ function buildEmailContent(
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
         <h2 style="color:#0f172a;margin-bottom:16px">${content.subject}</h2>
         <p style="color:#475569">${content.body}</p>
-        ${meetSection}
+        ${lessonSection}
         <p style="margin-top:24px;color:#94a3b8;font-size:12px">
           Log in to your dashboard to view or manage this session.
         </p>

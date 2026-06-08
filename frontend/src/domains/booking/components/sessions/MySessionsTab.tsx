@@ -10,7 +10,6 @@
 
 import { useEffect, useState } from 'react';
 import { useBookings } from '@/domains/booking/hooks/useBookings';
-import { useMeetingLinkProvisioner } from '@/domains/booking/hooks/useMeetingLinkProvisioner';
 import { BookingRequestCard } from '@/domains/booking/components/BookingRequestCard';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { cn } from '@/shared/utils/cn';
@@ -57,7 +56,6 @@ export function MySessionsTab({
   const { pendingRequests, sentRequests, upcomingSessions, pastSessions, allSessions, loading, error } =
     useBookings(userId, role);
 
-  useMeetingLinkProvisioner(upcomingSessions);
 
   const [step, setStep] = useState<BookingStep>({ type: 'idle' });
   const [modalSection, setModalSection] = useState<ModalSection>(null);
