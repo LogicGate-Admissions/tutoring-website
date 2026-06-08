@@ -42,6 +42,8 @@ export type BookingRequest = {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   confirmedAt?: Timestamp;
+  cancelledByRole?: 'tutor' | 'student';
+  rescheduledByRole?: 'tutor' | 'student';
   // FUTURE: paymentStatus, paymentIntentId
 };
 

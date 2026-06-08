@@ -4,8 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
-import { createBookingRequest } from '@/domains/booking/services/bookingService';
-import { SlotUnavailableError } from '@/domains/booking/types/booking';
+import {
+  createBookingRequest,
+  rescheduleBookingRequest,
+} from '@/domains/booking/services/bookingService';
+import { BookingConflictError, SlotUnavailableError } from '@/domains/booking/types/booking';
 import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
 import { timeToMinutes } from '@/domains/students/learning-profile/utils/timeBlocks';
 import {
@@ -90,6 +93,13 @@ export type DragToBookCalendarProps = {
   studentAvailabilityBlocks: TimeBlock[];
   onSuccess: () => void;
   onCancel: () => void;
+  mode?: 'create' | 'reschedule';
+  /** Required when mode is 'reschedule'. */
+  existingBooking?: {
+    id: string;
+    subject: string;
+    durationMinutes: number;
+  };
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -102,7 +112,10 @@ export function DragToBookCalendar({
   studentAvailabilityBlocks,
   onSuccess,
   onCancel,
+  mode = 'create',
+  existingBooking,
 }: DragToBookCalendarProps) {
+  const isReschedule = mode === 'reschedule';
   const [tutorAvailBlocks, setTutorAvailBlocks] = useState<TimeBlock[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -112,7 +125,7 @@ export function DragToBookCalendar({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [bookingDraft, setBookingDraft] = useState<BookingDraft | null>(null);
 
-  const [subject, setSubject] = useState('');
+  const [subject, setSubject] = useState(existingBooking?.subject ?? '');
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -245,20 +258,36 @@ export function DragToBookCalendar({
       const { date, from, to } = bookingDraft;
       const [hour, minute] = from.split(':').map(Number);
       const sessionDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, minute);
-      await createBookingRequest({
-        tutorId,
-        studentId,
-        initiatedBy,
-        subject,
-        date: sessionDate,
-        durationMinutes: timeToMinutes(to) - timeToMinutes(from),
-        notes: notes.trim() || undefined,
-      });
-      setToast('Request sent — waiting for confirmation');
+      const durationMinutes = timeToMinutes(to) - timeToMinutes(from);
+
+      if (isReschedule && existingBooking) {
+        await rescheduleBookingRequest(
+          existingBooking.id,
+          sessionDate,
+          durationMinutes,
+          initiatedBy
+        );
+        setToast('Session rescheduled');
+      } else {
+        await createBookingRequest({
+          tutorId,
+          studentId,
+          initiatedBy,
+          subject,
+          date: sessionDate,
+          durationMinutes,
+          notes: notes.trim() || undefined,
+        });
+        setToast('Request sent — waiting for confirmation');
+      }
       setTimeout(() => { setToast(null); onSuccess(); }, 2000);
     } catch (err) {
       if (err instanceof SlotUnavailableError) {
-        setSubmitError('That slot is outside your set availability. Please choose a time within the green zone.');
+        setSubmitError(err.message);
+      } else if (err instanceof BookingConflictError) {
+        setSubmitError('That time overlaps another confirmed session.');
+      } else if (err instanceof Error) {
+        setSubmitError(err.message);
       } else {
         setSubmitError('Something went wrong. Please try again.');
       }
@@ -291,10 +320,12 @@ export function DragToBookCalendar({
       ) : null}
 
       <h2 className="text-xl font-semibold tracking-tight text-slate-950">
-        Book a session with {counterpartyName}
+        {isReschedule ? 'Reschedule session' : 'Book a session'} with {counterpartyName}
       </h2>
       <p className="mt-1 text-sm text-slate-500">
-        Drag on the calendar to select a session time. Green slots are mutually available.
+        {isReschedule
+          ? 'Drag on the calendar to pick a new time. Green shows availability overlap — any time works.'
+          : 'Drag on the calendar to select a session time. Green shows availability overlap — any time works.'}
       </p>
 
       {/* Week navigation */}
@@ -467,34 +498,42 @@ export function DragToBookCalendar({
               <label htmlFor="dtbc-subject" className="block text-sm font-medium text-slate-700">
                 Subject / Topic
               </label>
-              <select
-                id="dtbc-subject"
-                value={subject}
-                onChange={(e) => { setSubject(e.target.value); setFormError(null); }}
-                className={cn(
-                  'mt-1.5 w-full rounded-2xl border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 focus:ring-slate-900 focus:ring-offset-2',
-                  formError ? 'border-rose-400' : 'border-slate-300'
-                )}
-              >
-                <option value="">Select a subject…</option>
-                {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              {isReschedule ? (
+                <p className="mt-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900">
+                  {subject}
+                </p>
+              ) : (
+                <select
+                  id="dtbc-subject"
+                  value={subject}
+                  onChange={(e) => { setSubject(e.target.value); setFormError(null); }}
+                  className={cn(
+                    'mt-1.5 w-full rounded-2xl border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 focus:ring-slate-900 focus:ring-offset-2',
+                    formError ? 'border-rose-400' : 'border-slate-300'
+                  )}
+                >
+                  <option value="">Select a subject…</option>
+                  {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
               {formError ? <p className="mt-1 text-xs text-rose-600">{formError}</p> : null}
             </div>
 
-            <div>
-              <label htmlFor="dtbc-notes" className="block text-sm font-medium text-slate-700">
-                Notes <span className="font-normal text-slate-400">(optional)</span>
-              </label>
-              <textarea
-                id="dtbc-notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                placeholder="Topics to cover, questions, or anything else…"
-                className="mt-1.5 w-full resize-none rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
-              />
-            </div>
+            {!isReschedule ? (
+              <div>
+                <label htmlFor="dtbc-notes" className="block text-sm font-medium text-slate-700">
+                  Notes <span className="font-normal text-slate-400">(optional)</span>
+                </label>
+                <textarea
+                  id="dtbc-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Topics to cover, questions, or anything else…"
+                  className="mt-1.5 w-full resize-none rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
+                />
+              </div>
+            ) : null}
 
             {submitError ? (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -514,7 +553,9 @@ export function DragToBookCalendar({
                   submitting && 'pointer-events-none opacity-60'
                 )}
               >
-                {submitting ? 'Sending…' : 'Send request'}
+                {submitting
+                  ? isReschedule ? 'Rescheduling…' : 'Sending…'
+                  : isReschedule ? 'Confirm reschedule' : 'Send request'}
               </div>
               <div
                 role="button"

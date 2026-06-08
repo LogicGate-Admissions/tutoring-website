@@ -37,6 +37,8 @@ function toBookingRequest(id: string, data: Record<string, unknown>): BookingReq
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp,
     confirmedAt: data.confirmedAt as Timestamp | undefined,
+    cancelledByRole: data.cancelledByRole as 'tutor' | 'student' | undefined,
+    rescheduledByRole: data.rescheduledByRole as 'tutor' | 'student' | undefined,
   };
 }
 

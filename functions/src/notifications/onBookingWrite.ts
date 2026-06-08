@@ -38,6 +38,8 @@ type BookingStatusSnapshot = {
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
   confirmedAt?: FirebaseFirestore.Timestamp;
+  cancelledByRole?: 'tutor' | 'student';
+  rescheduledByRole?: 'tutor' | 'student';
 };
 
 async function getUserEmail(uid: string): Promise<string | null> {
@@ -58,7 +60,13 @@ export const onBookingWrite = onDocumentWritten(
     const beforeStatus = beforeData?.status;
     const afterStatus = afterData.status;
 
-    if (beforeStatus === afterStatus && beforeData !== undefined) return; // no status change
+    const beforeDateMs = beforeData?.date?.toMillis?.() ?? 0;
+    const afterDateMs = afterData.date?.toMillis?.() ?? 0;
+    const dateChanged = beforeData !== undefined && beforeDateMs !== afterDateMs;
+
+    if (beforeStatus === afterStatus && beforeData !== undefined && !dateChanged) {
+      return;
+    }
 
     // Build a plain BookingRequest-like object for the email service
     const booking = {
@@ -87,9 +95,21 @@ export const onBookingWrite = onDocumentWritten(
       // Declined → notify requester
       notifications.push({ userId: afterData.studentId, eventType: 'booking_declined' });
     } else if (afterStatus === 'cancelled') {
-      // Cancelled — notify the other party
-      notifications.push({ userId: afterData.tutorId, eventType: 'booking_cancelled' });
-      notifications.push({ userId: afterData.studentId, eventType: 'booking_cancelled' });
+      const cancelledBy = afterData.cancelledByRole;
+      const otherUserId =
+        cancelledBy === 'tutor'
+          ? afterData.studentId
+          : cancelledBy === 'student'
+            ? afterData.tutorId
+            : null;
+      if (otherUserId) {
+        notifications.push({ userId: otherUserId, eventType: 'booking_cancelled' });
+      }
+    } else if (dateChanged && afterData.rescheduledByRole) {
+      const rescheduledBy = afterData.rescheduledByRole;
+      const otherUserId =
+        rescheduledBy === 'tutor' ? afterData.studentId : afterData.tutorId;
+      notifications.push({ userId: otherUserId, eventType: 'booking_rescheduled' });
     } else if (afterStatus === 'pending_requester') {
       // Receiver accepted — notify requester
       const requesterId =

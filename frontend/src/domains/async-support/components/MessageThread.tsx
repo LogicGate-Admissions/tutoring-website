@@ -566,7 +566,8 @@ export function MessageThread({
             </p>
           </div>
         ) : (
-          <div className="grid gap-3">
+          <div className="max-h-[min(28rem,55vh)] overflow-y-auto pr-1">
+            <div className="grid gap-3">
             {messages.map((message) => {
               const isMine = message.senderId === currentUser?.id;
               const canEditOrDelete = isMine && !message.isDeleted;
@@ -605,6 +606,7 @@ export function MessageThread({
                 </div>
               );
             })}
+            </div>
           </div>
         )}
 
@@ -756,13 +758,14 @@ export function MessageThread({
       </Card>
 
       {isScheduleOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-slate-950/40"
             onClick={handleCloseSchedule}
           />
 
-          <div className="relative m-auto w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="relative m-auto flex max-h-[min(90vh,48rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div className="min-h-0 flex-1 overflow-y-auto p-6">
             {/* Header */}
             <div className="flex items-start justify-between">
               <h2 className="text-lg font-semibold text-slate-950">
@@ -837,6 +840,7 @@ export function MessageThread({
                 />
               </div>
             ) : null}
+            </div>
           </div>
         </div>
       ) : null}

@@ -75,6 +75,10 @@ function buildEmailContent(
       subject: `${booking.subject} session cancelled`,
       body: `Your <strong>${booking.subject}</strong> session on ${dateStr} at ${timeStr} has been cancelled.`,
     },
+    booking_rescheduled: {
+      subject: `${booking.subject} session rescheduled`,
+      body: `Your <strong>${booking.subject}</strong> session has been moved to ${dateStr} at ${timeStr}.`,
+    },
   };
 
   const content = eventMessages[eventType] ?? {

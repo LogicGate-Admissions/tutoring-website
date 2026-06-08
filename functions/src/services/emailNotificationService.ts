@@ -46,6 +46,7 @@ export async function sendBookingNotificationEmail(
     booking_accepted: `${booking.subject} session confirmed`,
     booking_declined: `${booking.subject} session request declined`,
     booking_cancelled: `${booking.subject} session cancelled`,
+    booking_rescheduled: `${booking.subject} session rescheduled`,
   };
 
   const emailSubject =

@@ -9,6 +9,8 @@
  * while this card gives context once the user is on the dashboard.
  */
 
+import { useState } from 'react';
+import { BookSessionModal } from '@/domains/booking/components/BookSessionModal';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import type {
@@ -24,62 +26,83 @@ type SupportRelationshipAction = {
 type SupportRelationshipCardProps = {
   relationship: RelationshipSupportSummary;
   viewerRole: AsyncSupportRole;
+  currentUserId: string;
   actions: SupportRelationshipAction[];
 };
 
 export function SupportRelationshipCard({
   relationship,
   viewerRole,
+  currentUserId,
   actions,
 }: SupportRelationshipCardProps) {
+  const [showBooking, setShowBooking] = useState(false);
+
   const otherPersonName =
     viewerRole === 'tutor' ? relationship.studentName : relationship.tutorName;
 
   const otherPersonLabel = viewerRole === 'tutor' ? 'Student' : 'Tutor';
 
   return (
-    <Card className="grid gap-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            {otherPersonLabel}
-          </p>
+    <>
+      <Card className="grid gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              {otherPersonLabel}
+            </p>
 
-          <h2 className="mt-1 text-lg font-semibold text-slate-950">
-            {otherPersonName || 'Unnamed relationship'}
-          </h2>
+            <h2 className="mt-1 text-lg font-semibold text-slate-950">
+              {otherPersonName || 'Unnamed relationship'}
+            </h2>
 
-          <p className="mt-1 text-sm text-slate-600">
-            {relationship.level} {relationship.subject}
-          </p>
+            <p className="mt-1 text-sm text-slate-600">
+              {relationship.level} {relationship.subject}
+            </p>
 
-          <LatestMessageSummary relationship={relationship} />
+            <LatestMessageSummary relationship={relationship} />
+          </div>
+
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            {relationship.hasUnreadMessageActivity ? (
+              <MetricBadge
+                label={relationship.latestMessageUrgency === 'urgent' ? 'Urgent' : 'New message'}
+                value={relationship.unreadMessageCount}
+                active
+                urgent={relationship.latestMessageUrgency === 'urgent'}
+              />
+            ) : (
+              <MetricBadge label="Unread" value={relationship.unreadMessageCount} />
+            )}
+            <MetricBadge label="Questions" value={relationship.openQuestionCount} />
+            <MetricBadge label="Resources" value={relationship.resourceCount} />
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 sm:justify-end">
-          {relationship.hasUnreadMessageActivity ? (
-            <MetricBadge
-              label={relationship.latestMessageUrgency === 'urgent' ? 'Urgent' : 'New message'}
-              value={relationship.unreadMessageCount}
-              active
-              urgent={relationship.latestMessageUrgency === 'urgent'}
-            />
-          ) : (
-            <MetricBadge label="Unread" value={relationship.unreadMessageCount} />
-          )}
-          <MetricBadge label="Questions" value={relationship.openQuestionCount} />
-          <MetricBadge label="Resources" value={relationship.resourceCount} />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {actions.map((action) => (
-          <Button key={action.label} href={action.href} variant="secondary">
-            {action.label}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="primary" onClick={() => setShowBooking(true)}>
+            Book session
           </Button>
-        ))}
-      </div>
-    </Card>
+          {actions.map((action) => (
+            <Button key={action.label} href={action.href} variant="secondary">
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      </Card>
+
+      {showBooking ? (
+        <BookSessionModal
+          isOpen
+          onClose={() => setShowBooking(false)}
+          tutorId={relationship.tutorId}
+          studentId={relationship.studentId}
+          counterpartyName={otherPersonName}
+          initiatedBy={viewerRole}
+          currentUserId={currentUserId}
+        />
+      ) : null}
+    </>
   );
 }
 

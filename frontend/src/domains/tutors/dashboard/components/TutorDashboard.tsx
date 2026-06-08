@@ -98,6 +98,7 @@ export function TutorDashboard() {
               relationships={relationships}
               isLoading={isLoading}
               error={error}
+              currentUserId={currentUserId}
             />
           )}
         </main>
@@ -111,11 +112,13 @@ function RelationshipContent({
   relationships,
   isLoading,
   error,
+  currentUserId,
 }: {
   activeSection: Section;
   relationships: RelationshipSupportSummary[];
   isLoading: boolean;
   error: string | null;
+  currentUserId: string;
 }) {
   if (activeSection === 'tutor-profile') {
     return (
@@ -158,6 +161,7 @@ function RelationshipContent({
           key={relationship.id}
           relationship={relationship}
           viewerRole="tutor"
+          currentUserId={currentUserId}
           actions={getTutorRelationshipActions(relationship.id)}
         />
       ))}

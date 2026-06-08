@@ -11,3 +11,5 @@ db.sqlite3
 .env
 .vercel
 .env*
+functions/node_modules
+frontend/.google-oauth-client.json

@@ -97,6 +97,7 @@ export function StudentDashboard() {
               relationships={relationships}
               isLoading={isLoading}
               error={error}
+              currentUserId={currentUserId}
             />
           )}
         </main>
@@ -110,11 +111,13 @@ function RelationshipContent({
   relationships,
   isLoading,
   error,
+  currentUserId,
 }: {
   activeSection: Section;
   relationships: RelationshipSupportSummary[];
   isLoading: boolean;
   error: string | null;
+  currentUserId: string;
 }) {
   if (activeSection === 'learning-profile') {
     return (
@@ -157,6 +160,7 @@ function RelationshipContent({
           key={relationship.id}
           relationship={relationship}
           viewerRole="student"
+          currentUserId={currentUserId}
           actions={getStudentRelationshipActions(relationship.id)}
         />
       ))}

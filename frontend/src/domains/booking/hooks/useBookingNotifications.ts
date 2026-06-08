@@ -45,7 +45,7 @@ function toAppNotification(
 
   return {
     id: `booking-${n.id}`,
-    type: 'booking_request',
+    type: n.type,
     title: n.message,
     description: 'Tap to view your sessions.',
     meta: 'Session booking',

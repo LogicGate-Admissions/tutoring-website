@@ -170,6 +170,7 @@ function InboxContent({
           key={`${activeSection}-${relationship.id}`}
           relationship={relationship}
           viewerRole="tutor"
+          currentUserId=""
           actions={[
             {
               label: copy.buttonLabel,
