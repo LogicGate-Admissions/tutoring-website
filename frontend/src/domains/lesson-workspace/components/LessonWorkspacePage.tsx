@@ -295,8 +295,8 @@ function WorkspaceSidePanel({
 
   return (
     <>
-      <Card className="self-start p-3">
-        <div className="grid gap-3">
+      <Card className="flex w-[72px] justify-center self-start p-2">
+        <div className="grid justify-items-center gap-3">
           {panelButtons.map(([id, label, Icon]) => (
             <button
               key={id}
@@ -377,12 +377,12 @@ function FloatingJitsiCall({
   lesson: BookingRequest;
   relationshipId: string;
 }) {
-  const headerHeight = 72;
-  const jitsiBaseWidth = 560;
-  const jitsiBaseHeight = 430;
-  const minSize = { width: 360, height: 330 };
+  const headerHeight = 64;
+  const jitsiBaseWidth = 760;
+  const jitsiBaseHeight = 560;
+  const minSize = { width: 420, height: 390 };
   const [position, setPosition] = useState({ x: 24, y: 24 });
-  const [size, setSize] = useState({ width: 520, height: 430 });
+  const [size, setSize] = useState({ width: 640, height: 520 });
   const dragStartRef = useRef<{
     pointerId: number;
     startX: number;
@@ -496,7 +496,7 @@ function FloatingJitsiCall({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className="flex h-[72px] cursor-move items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 select-none"
+        className="flex h-16 cursor-move items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2 select-none"
       >
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
