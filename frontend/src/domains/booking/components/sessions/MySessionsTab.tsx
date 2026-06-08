@@ -17,7 +17,6 @@ import { cn } from '@/shared/utils/cn';
 import { getStudentAvailabilityById } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import type { TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
 import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
-import { JoinSessionLink } from '@/domains/booking/components/JoinSessionLink';
 
 const MAX_VISIBLE = 4;
 
@@ -519,9 +518,6 @@ function WeeklyCalendar({
                     <p className="truncate text-[0.55rem] leading-tight text-slate-300">
                       {timeLabel} · {getOtherPartyName(s)}
                     </p>
-                    {s.date.toDate() > new Date() ? (
-                      <JoinSessionLink booking={s} variant="compact" />
-                    ) : null}
                   </div>
                 );
               })}

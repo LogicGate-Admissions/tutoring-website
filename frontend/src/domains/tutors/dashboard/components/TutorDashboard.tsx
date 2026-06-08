@@ -20,6 +20,8 @@ import { cn } from '@/shared/utils/cn';
 
 type Section = 'my-students' | 'tutor-profile' | 'trial-requests' | 'my-sessions';
 
+const MIRO_WHITEBOARD_URL = 'https://miro.com/welcomeonboard/eTBPN1pxZVRBYTZoWnJRWWd3QXBvNzMvVUhsRkF4cTRhQmJCTUs0QUdwREkwWExOWWhWVVduR3ZCU21uUW02L2gzRk52cmtoRE1MRUdtZWVnT3JFMHBrWE5IK0lvYkRaRkVSL2UwenJmSWVORmRKeE9hdmxLYzFhQXV3SHR0TFZ3VHhHVHd5UWtSM1BidUtUYmxycDRnPT0hdjE=?share_link_id=6525180428';
+
 const tabs: Array<{ id: Section; label: string; description: string }> = [
   {
     id: 'my-students',
@@ -98,6 +100,7 @@ export function TutorDashboard() {
               relationships={relationships}
               isLoading={isLoading}
               error={error}
+              onBookSession={() => setActiveSection('my-sessions')}
             />
           )}
         </main>
@@ -111,11 +114,13 @@ function RelationshipContent({
   relationships,
   isLoading,
   error,
+  onBookSession,
 }: {
   activeSection: Section;
   relationships: RelationshipSupportSummary[];
   isLoading: boolean;
   error: string | null;
+  onBookSession: () => void;
 }) {
   if (activeSection === 'tutor-profile') {
     return (
@@ -158,7 +163,10 @@ function RelationshipContent({
           key={relationship.id}
           relationship={relationship}
           viewerRole="tutor"
-          actions={getTutorRelationshipActions(relationship.id)}
+          actions={getTutorRelationshipActions(
+            relationship.id,
+            onBookSession
+          )}
         />
       ))}
     </div>
@@ -232,7 +240,7 @@ function ActionCard({
   );
 }
 
-function getTutorRelationshipActions(relationshipId: string) {
+function getTutorRelationshipActions(relationshipId: string, onBookSession: () => void) {
   const baseHref = `/tutor/dashboard/support/${relationshipId}`;
 
   return [
@@ -241,12 +249,17 @@ function getTutorRelationshipActions(relationshipId: string) {
       href: `${baseHref}/messages`,
     },
     {
-      label: 'Resources',
+      label: 'Shared resources',
       href: `${baseHref}/resources`,
     },
     {
-      label: 'Flagged questions',
-      href: `${baseHref}/questions`,
+      label: 'Book session',
+      onClick: onBookSession,
+    },
+    {
+      label: 'Join whiteboard',
+      href: MIRO_WHITEBOARD_URL,
+      external: true,
     },
   ];
 }

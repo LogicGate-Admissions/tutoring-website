@@ -15,6 +15,7 @@ type ButtonProps = {
   variant?: ButtonVariant;
   className?: string;
   onClick?: () => void;
+  external?: boolean;
 };
 
 /**
@@ -31,6 +32,7 @@ export function Button({
   variant = 'primary',
   className,
   onClick,
+  external = false,
 }: ButtonProps) {
   const buttonClassName = cn(
     'inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition',
@@ -43,6 +45,14 @@ export function Button({
     variant === 'danger' && 'bg-rose-600 text-white hover:bg-rose-500',
     className
   );
+
+  if (href && external) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={buttonClassName}>
+        {children}
+      </a>
+    );
+  }
 
   if (href) {
     return (

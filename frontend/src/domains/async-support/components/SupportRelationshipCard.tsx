@@ -10,6 +10,8 @@
  */
 
 import { Button } from '@/shared/components/Button';
+import { JoinSessionLink } from '@/domains/booking/components/JoinSessionLink';
+import { useRelationshipBookings } from '@/domains/booking/hooks/useRelationshipBookings';
 import { Card } from '@/shared/components/Card';
 import type {
   AsyncSupportRole,
@@ -18,7 +20,9 @@ import type {
 
 type SupportRelationshipAction = {
   label: string;
-  href: string;
+  href?: string;
+  onClick?: () => void;
+  external?: boolean;
 };
 
 type SupportRelationshipCardProps = {
@@ -32,6 +36,11 @@ export function SupportRelationshipCard({
   viewerRole,
   actions,
 }: SupportRelationshipCardProps) {
+  const { upcomingSession } = useRelationshipBookings(
+    relationship.tutorId,
+    relationship.studentId
+  );
+
   const otherPersonName =
     viewerRole === 'tutor' ? relationship.studentName : relationship.tutorName;
 
@@ -54,6 +63,7 @@ export function SupportRelationshipCard({
           </p>
 
           <LatestMessageSummary relationship={relationship} />
+          <NextLessonSummary booking={upcomingSession} />
         </div>
 
         <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -73,13 +83,75 @@ export function SupportRelationshipCard({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {actions.map((action) => (
-          <Button key={action.label} href={action.href} variant="secondary">
-            {action.label}
+        {actions.slice(0, 3).map((action) => (
+          <RelationshipActionButton key={action.label} action={action} />
+        ))}
+
+        {upcomingSession ? (
+          <JoinSessionLink booking={upcomingSession} label="Join call" />
+        ) : (
+          <Button variant="secondary" disabled>
+            Join call
           </Button>
+        )}
+
+        {actions.slice(3).map((action) => (
+          <RelationshipActionButton key={action.label} action={action} />
         ))}
       </div>
     </Card>
+  );
+}
+
+
+
+function RelationshipActionButton({ action }: { action: SupportRelationshipAction }) {
+  if (action.href) {
+    return (
+      <Button href={action.href} variant="secondary" external={action.external}>
+        {action.label}
+      </Button>
+    );
+  }
+
+  return (
+    <Button onClick={action.onClick} variant="secondary">
+      {action.label}
+    </Button>
+  );
+}
+
+function NextLessonSummary({
+  booking,
+}: {
+  booking: import('@/domains/booking/types/booking').BookingRequest | null;
+}) {
+  if (!booking) {
+    return (
+      <p className="mt-3 text-xs text-slate-500">
+        No upcoming lesson booked yet.
+      </p>
+    );
+  }
+
+  const start = booking.date.toDate();
+  const dateLabel = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(start);
+
+  return (
+    <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+        Next lesson
+      </p>
+      <p className="mt-1 text-sm font-medium text-emerald-950">
+        {booking.subject} · {dateLabel}
+      </p>
+    </div>
   );
 }
 

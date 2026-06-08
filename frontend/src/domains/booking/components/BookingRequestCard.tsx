@@ -14,7 +14,6 @@ import {
   cancelBookingRequest,
   declineBookingRequest,
 } from '@/domains/booking/services/bookingService';
-import { JoinSessionLink } from '@/domains/booking/components/JoinSessionLink';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { cn } from '@/shared/utils/cn';
 
@@ -160,9 +159,6 @@ export function BookingRequestCard({
           <p className="mt-1 rounded-2xl bg-slate-50 px-3 py-2 text-xs italic text-slate-500">
             &ldquo;{booking.notes}&rdquo;
           </p>
-        ) : null}
-        {booking.status === 'confirmed' && !isPast ? (
-          <JoinSessionLink booking={booking} />
         ) : null}
       </div>
 

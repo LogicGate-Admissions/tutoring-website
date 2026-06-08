@@ -12,12 +12,14 @@ type JoinSessionLinkProps = {
   /** Compact style for calendar blocks. */
   variant?: 'default' | 'compact';
   className?: string;
+  label?: string;
 };
 
 export function JoinSessionLink({
   booking,
   variant = 'default',
   className,
+  label = 'Join Google Meet',
 }: JoinSessionLinkProps) {
   if (booking.status !== 'confirmed') return null;
 
@@ -37,27 +39,24 @@ export function JoinSessionLink({
             className
           )}
         >
-          Join Meet →
+          {label} →
         </a>
       );
     }
 
     return (
-      <div className={cn('mt-3', className)}>
-        <a
-          href={meetingLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cn(
-            'inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition',
-            'hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2'
-          )}
-        >
-          <MeetIcon />
-          Join Google Meet
-        </a>
-        <p className="mt-1.5 truncate text-[0.65rem] text-slate-400">{meetingLink}</p>
-      </div>
+      <a
+        href={meetingLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(
+          'inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-950 transition',
+          'hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2',
+          className
+        )}
+      >
+        {label}
+      </a>
     );
   }
 
@@ -101,10 +100,3 @@ export function JoinSessionLink({
   return null;
 }
 
-function MeetIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
-      <path d="M6 9c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V9zm10.5 1.5L19 8v8l-2.5-2.5V10.5z" />
-    </svg>
-  );
-}
