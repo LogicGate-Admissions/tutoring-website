@@ -7,7 +7,8 @@
  *   GOOGLE_SERVICE_ACCOUNT_JSON, GOOGLE_CALENDAR_IMPERSONATE_EMAIL
  */
 
-import { google, calendar_v3 } from 'googleapis';
+import { google } from 'googleapis';
+import type { calendar_v3 } from 'googleapis';
 
 export type SessionCalendarInput = {
   bookingId: string;
@@ -85,7 +86,7 @@ function getCalendarClient(): calendar_v3.Calendar | null {
 function extractMeetLink(event: calendar_v3.Schema$Event): string | null {
   return (
     event.hangoutLink ??
-    event.conferenceData?.entryPoints?.find((entry) => entry.entryPointType === 'video')?.uri ??
+    event.conferenceData?.entryPoints?.find((entry: calendar_v3.Schema$EntryPoint) => entry.entryPointType === 'video')?.uri ??
     null
   );
 }

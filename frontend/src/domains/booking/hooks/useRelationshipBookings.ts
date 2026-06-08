@@ -17,6 +17,8 @@ import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import type { BookingRequest, BookingStatus } from '@/domains/booking/types/booking';
 
+const EMPTY_BOOKINGS: BookingRequest[] = [];
+
 function toBookingRequest(id: string, data: Record<string, unknown>): BookingRequest {
   return {
     id,
@@ -46,12 +48,10 @@ export function useRelationshipBookings(
   const [bookings, setBookings] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const hasRelationshipPair = Boolean(tutorId && studentId);
+
   useEffect(() => {
-    if (!tutorId || !studentId) {
-      setBookings([]);
-      setLoading(false);
-      return;
-    }
+    if (!hasRelationshipPair || !tutorId || !studentId) return;
 
     const q = query(
       collection(db, FIRESTORE_COLLECTIONS.bookingRequests),
@@ -76,14 +76,18 @@ export function useRelationshipBookings(
     );
 
     return unsubscribe;
-  }, [tutorId, studentId]);
+  }, [hasRelationshipPair, tutorId, studentId]);
 
-  const now = new Date();
+  const visibleBookings = hasRelationshipPair ? bookings : EMPTY_BOOKINGS;
 
-  const upcomingSession = useMemo(
-    () => bookings.find((b) => b.date.toDate() > now) ?? null,
-    [bookings, now]
-  );
+  const upcomingSession = useMemo(() => {
+    const now = new Date();
+    return visibleBookings.find((b) => b.date.toDate() > now) ?? null;
+  }, [visibleBookings]);
 
-  return { bookings, upcomingSession, loading };
+  return {
+    bookings: visibleBookings,
+    upcomingSession,
+    loading: hasRelationshipPair ? loading : false,
+  };
 }
