@@ -17,6 +17,7 @@ import {
   endLessonSession,
   startLessonSession,
 } from '@/domains/booking/services/bookingService';
+import { MessageThread } from '@/domains/async-support/components/MessageThread';
 import { getStudentTutorRelationshipById } from '@/domains/async-support/services/relationshipsService';
 import type {
   AsyncSupportRole,
@@ -236,7 +237,7 @@ export function LessonWorkspacePage({
           ) : null}
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="grid gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
           <WorkspaceSidePanel
             activePanel={activePanel}
             onChange={setActivePanel}
@@ -284,11 +285,6 @@ function WorkspaceSidePanel({
   relationship: StudentTutorRelationship | null;
   currentLesson: BookingRequest | null;
 }) {
-  const baseHref =
-    viewerRole === 'student'
-      ? `/student/dashboard/support/${relationshipId}`
-      : `/tutor/dashboard/support/${relationshipId}`;
-
   return (
     <Card className="self-start p-4">
       <div className="grid gap-2">
@@ -338,12 +334,12 @@ function WorkspaceSidePanel({
           <div>
             <h2 className="text-sm font-semibold text-slate-950">Messages</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Keep the message thread nearby while the lesson is live. Open the
-              full thread to copy context into the call or whiteboard.
+              The relationship message thread stays inside the workspace so the
+              call does not disappear while users check lesson context.
             </p>
-            <Button href={`${baseHref}/messages`} variant="secondary" className="mt-4">
-              Open messages
-            </Button>
+            <div className="mt-4 max-h-[680px] overflow-y-auto pr-1">
+              <MessageThread relationshipId={relationshipId} viewerRole={viewerRole} />
+            </div>
           </div>
         ) : null}
 
@@ -353,12 +349,13 @@ function WorkspaceSidePanel({
               Shared resources
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Student uploads and shared files will appear here. This stays as
-              a placeholder while the video-call workspace is tested first.
+              Shared resources will appear here inside the workspace, so
+              students and tutors can copy screenshots, links, or notes into the
+              whiteboard without leaving the live lesson.
             </p>
-            <Button href={`${baseHref}/resources`} variant="secondary" className="mt-4">
-              Open resources
-            </Button>
+            <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+              Shared resources placeholder
+            </div>
           </div>
         ) : null}
       </div>
