@@ -377,7 +377,12 @@ function FloatingJitsiCall({
   lesson: BookingRequest;
   relationshipId: string;
 }) {
+  const headerHeight = 72;
+  const jitsiBaseWidth = 560;
+  const jitsiBaseHeight = 430;
+  const minSize = { width: 360, height: 330 };
   const [position, setPosition] = useState({ x: 24, y: 24 });
+  const [size, setSize] = useState({ width: 520, height: 430 });
   const dragStartRef = useRef<{
     pointerId: number;
     startX: number;
@@ -385,8 +390,22 @@ function FloatingJitsiCall({
     originX: number;
     originY: number;
   } | null>(null);
+  const resizeStartRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originWidth: number;
+    originHeight: number;
+  } | null>(null);
   const roomName = buildJitsiRoomName(lesson.id || relationshipId);
-  const src = `https://meet.jit.si/${encodeURIComponent(roomName)}#config.prejoinPageEnabled=false`;
+  const src = `https://meet.jit.si/${encodeURIComponent(roomName)}`;
+  const bodyHeight = Math.max(0, size.height - headerHeight);
+  const jitsiScale = Math.min(
+    size.width / jitsiBaseWidth,
+    bodyHeight / jitsiBaseHeight,
+  );
+  const scaledJitsiWidth = jitsiBaseWidth * jitsiScale;
+  const scaledJitsiHeight = jitsiBaseHeight * jitsiScale;
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     dragStartRef.current = {
@@ -416,10 +435,59 @@ function FloatingJitsiCall({
     }
   }
 
+  function handleResizePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    resizeStartRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originWidth: size.width,
+      originHeight: size.height,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handleResizePointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+    const resizeStart = resizeStartRef.current;
+    if (!resizeStart || resizeStart.pointerId !== event.pointerId) return;
+
+    const maxWidth = Math.max(minSize.width, window.innerWidth - position.x - 24);
+    const maxHeight = Math.max(
+      minSize.height,
+      window.innerHeight - position.y - 24,
+    );
+
+    setSize({
+      width: clamp(
+        resizeStart.originWidth + event.clientX - resizeStart.startX,
+        minSize.width,
+        maxWidth,
+      ),
+      height: clamp(
+        resizeStart.originHeight + event.clientY - resizeStart.startY,
+        minSize.height,
+        maxHeight,
+      ),
+    });
+  }
+
+  function handleResizePointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
+    const resizeStart = resizeStartRef.current;
+    if (resizeStart?.pointerId === event.pointerId) {
+      resizeStartRef.current = null;
+    }
+  }
+
   return (
     <div
-      className="absolute z-20 w-[340px] max-w-[calc(100%-2rem)] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
-      style={{ left: position.x, top: position.y }}
+      className="absolute z-20 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+      style={{
+        left: position.x,
+        top: position.y,
+        width: size.width,
+        height: size.height,
+      }}
     >
       <div
         role="button"
@@ -428,7 +496,7 @@ function FloatingJitsiCall({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className="flex cursor-move items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 select-none"
+        className="flex h-[72px] cursor-move items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 select-none"
       >
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -438,14 +506,49 @@ function FloatingJitsiCall({
             Lesson call
           </h2>
         </div>
-        <span className="text-xs font-semibold text-slate-400">Drag</span>
+        <span className="text-xs font-semibold text-slate-400">
+          Drag · Resize
+        </span>
       </div>
-      <iframe
-        title="Embedded lesson call"
-        src={src}
-        allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write"
-        className="h-[230px] w-full border-0"
-      />
+
+      <div
+        className="relative overflow-hidden bg-slate-950"
+        style={{ height: bodyHeight }}
+      >
+        <div
+          className="absolute left-1/2 top-1/2"
+          style={{
+            width: jitsiBaseWidth,
+            height: jitsiBaseHeight,
+            transform: `translate(-50%, -50%) scale(${jitsiScale})`,
+          }}
+        >
+          <iframe
+            title="Embedded lesson call"
+            src={src}
+            allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write"
+            className="h-full w-full border-0"
+          />
+        </div>
+        {scaledJitsiWidth < size.width || scaledJitsiHeight < bodyHeight ? (
+          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        aria-label="Resize lesson call"
+        onPointerDown={handleResizePointerDown}
+        onPointerMove={handleResizePointerMove}
+        onPointerUp={handleResizePointerUp}
+        onPointerCancel={handleResizePointerUp}
+        className="absolute bottom-2 right-2 h-6 w-6 cursor-nwse-resize rounded-lg border border-white/40 bg-slate-950/70 text-white shadow-lg transition hover:bg-slate-800"
+      >
+        <span className="sr-only">Resize lesson call</span>
+        <span aria-hidden="true" className="block translate-x-[7px] translate-y-[7px] text-xs leading-none">
+          ⌟
+        </span>
+      </button>
     </div>
   );
 }
@@ -624,6 +727,11 @@ function formatLessonSummary(lesson: BookingRequest) {
   }).format(end);
 
   return `${lesson.subject} · ${dateLabel}–${endLabel}`;
+}
+
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function buildJitsiRoomName(seed: string) {
