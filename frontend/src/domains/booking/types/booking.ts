@@ -26,6 +26,9 @@ export type BookingStatus =
   | 'cancelled'          // either party cancelled
   | 'declined';          // receiver declined
 
+/** Live lesson state for the embedded workspace. */
+export type LessonRuntimeStatus = 'scheduled' | 'live' | 'completed';
+
 /** Persisted Firestore document for a booking request. */
 export type BookingRequest = {
   id: string;
@@ -44,6 +47,16 @@ export type BookingRequest = {
   confirmedAt?: Timestamp;
   cancelledByRole?: 'tutor' | 'student';
   rescheduledByRole?: 'tutor' | 'student';
+  /** Optional external call URL retained for older session records. */
+  meetingLink?: string;
+  /** Optional external calendar event ID retained for older session records. */
+  calendarEventId?: string;
+  /** Optional external call link status retained for older session records. */
+  meetingLinkStatus?: 'pending' | 'ready' | 'failed' | 'skipped';
+  /** Embedded workspace runtime state. Defaults to scheduled if unset. */
+  lessonStatus?: LessonRuntimeStatus;
+  lessonStartedAt?: Timestamp;
+  lessonEndedAt?: Timestamp;
   // FUTURE: paymentStatus, paymentIntentId
 };
 

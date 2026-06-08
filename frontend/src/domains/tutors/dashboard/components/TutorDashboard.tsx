@@ -21,6 +21,7 @@ import { cn } from '@/shared/utils/cn';
 
 type Section = 'my-students' | 'tutor-profile' | 'trial-requests' | 'my-sessions';
 
+
 const tabs: Array<{ id: Section; label: string; description: string }> = [
   {
     id: 'my-students',
@@ -273,6 +274,10 @@ function getTutorRelationshipActions(relationshipId: string) {
     {
       label: 'Flagged questions',
       href: `${baseHref}/questions`,
+    },
+    {
+      label: 'Workspace',
+      href: `${baseHref}/workspace`,
     },
   ];
 }

@@ -9,8 +9,16 @@
  */
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
-import { MathKeyboard, MATH_PLACEHOLDER, moveToNextMathPlaceholder } from "@/domains/async-support/components/MathKeyboard";
-import { MathRenderer, normalizeMathMessage, stripMathDelimiters } from "@/domains/async-support/components/MathRenderer";
+import {
+  MathKeyboard,
+  MATH_PLACEHOLDER,
+  moveToNextMathPlaceholder,
+} from "@/domains/async-support/components/MathKeyboard";
+import {
+  MathRenderer,
+  normalizeMathMessage,
+  stripMathDelimiters,
+} from "@/domains/async-support/components/MathRenderer";
 import { uploadAttachments } from "@/domains/attachments/services/attachmentUploadService";
 import {
   canEmailTutorForUrgentMessage,
@@ -34,22 +42,38 @@ import type {
   ReplyToMessageSummary,
   SupportAttachment,
   SupportMessage,
-} from '@/domains/async-support/types/asyncSupport';
-import { Button } from '@/shared/components/Button';
-import { Card } from '@/shared/components/Card';
-import { cn } from '@/shared/utils/cn';
-import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
-import { StudentAvailabilityGrid } from '@/domains/students/learning-profile/components/StudentAvailabilityGrid';
-import { createManualTimeBlock, mergeTimeBlocks } from '@/domains/students/learning-profile/utils/timeBlocks';
-import { getStoredLearningProfile, getStudentAvailabilityById, updateStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
-import { getTutorProfileDraft, saveTutorProfileFromOnboarding } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
-import type { AuthUser } from '@/domains/auth/types/auth';
-import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
-import type { TutorProfileDraft } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
+} from "@/domains/async-support/types/asyncSupport";
+import { Button } from "@/shared/components/Button";
+import { Card } from "@/shared/components/Card";
+import { cn } from "@/shared/utils/cn";
+import { DragToBookCalendar } from "@/domains/booking/components/DragToBookCalendar";
+import { useRelationshipBookings } from "@/domains/booking/hooks/useRelationshipBookings";
+import type { BookingRequest } from "@/domains/booking/types/booking";
+import { StudentAvailabilityGrid } from "@/domains/students/learning-profile/components/StudentAvailabilityGrid";
+import {
+  createManualTimeBlock,
+  mergeTimeBlocks,
+} from "@/domains/students/learning-profile/utils/timeBlocks";
+import {
+  getStoredLearningProfile,
+  getStudentAvailabilityById,
+  updateStoredLearningProfile,
+} from "@/domains/students/learning-profile/services/learningProfileStorage";
+import {
+  getTutorProfileDraft,
+  saveTutorProfileFromOnboarding,
+} from "@/domains/tutors/tutor-discovery/services/tutorProfileService";
+import type { AuthUser } from "@/domains/auth/types/auth";
+import type {
+  Day,
+  TimeBlock,
+} from "@/domains/students/learning-profile/types/learningProfile";
+import type { TutorProfileDraft } from "@/domains/tutors/tutor-discovery/services/tutorProfileService";
 
 type MessageThreadProps = {
   relationshipId: string;
   viewerRole: AsyncSupportRole;
+  density?: "default" | "embedded";
 };
 
 type CurrentThreadUser = AuthUser | null;
@@ -57,7 +81,9 @@ type CurrentThreadUser = AuthUser | null;
 export function MessageThread({
   relationshipId,
   viewerRole,
+  density = "default",
 }: MessageThreadProps) {
+  const isEmbedded = density === "embedded";
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesScrollRef = useRef<HTMLDivElement | null>(null);
@@ -90,11 +116,17 @@ export function MessageThread({
   const [error, setError] = useState<string | null>(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [isMathKeyboardOpen, setIsMathKeyboardOpen] = useState(false);
-  const [scheduleTab, setScheduleTab] = useState<'availability' | 'booking'>('availability');
+  const [scheduleTab, setScheduleTab] = useState<"availability" | "booking">(
+    "availability",
+  );
   const [availabilityBlocks, setAvailabilityBlocks] = useState<TimeBlock[]>([]);
-  const [availSelectedBlockId, setAvailSelectedBlockId] = useState<string | null>(null);
+  const [availSelectedBlockId, setAvailSelectedBlockId] = useState<
+    string | null
+  >(null);
   const [tutorDraft, setTutorDraft] = useState<TutorProfileDraft | null>(null);
-  const [counterpartyStudentBlocks, setCounterpartyStudentBlocks] = useState<TimeBlock[]>([]);
+  const [counterpartyStudentBlocks, setCounterpartyStudentBlocks] = useState<
+    TimeBlock[]
+  >([]);
 
   useEffect(() => {
     const unsubscribe = subscribeToCurrentUser((user) => {
@@ -117,7 +149,7 @@ export function MessageThread({
     async function loadInitialAvailability() {
       try {
         if (!currentUser) return;
-        if (currentUser.role === 'student') {
+        if (currentUser.role === "student") {
           const profile = await getStoredLearningProfile();
           if (!isActive) return;
           setAvailabilityBlocks(profile.availability ?? []);
@@ -140,12 +172,21 @@ export function MessageThread({
   }, [isScheduleOpen, currentUser]);
 
   useEffect(() => {
-    if (!isScheduleOpen || !relationship?.studentId || currentUser?.role !== 'tutor') return;
+    if (
+      !isScheduleOpen ||
+      !relationship?.studentId ||
+      currentUser?.role !== "tutor"
+    )
+      return;
     let isActive = true;
-    getStudentAvailabilityById(relationship.studentId).then((blocks) => {
-      if (isActive) setCounterpartyStudentBlocks(blocks);
-    }).catch(() => {});
-    return () => { isActive = false; };
+    getStudentAvailabilityById(relationship.studentId)
+      .then((blocks) => {
+        if (isActive) setCounterpartyStudentBlocks(blocks);
+      })
+      .catch(() => {});
+    return () => {
+      isActive = false;
+    };
   }, [isScheduleOpen, relationship?.studentId, currentUser?.role]);
 
   useEffect(() => {
@@ -493,13 +534,15 @@ export function MessageThread({
   function resizeAvailBlock(blockId: string, from: string, to: string) {
     setAvailabilityBlocks((current) =>
       mergeTimeBlocks(
-        current.map((b) => (b.id === blockId ? { ...b, from, to } : b))
-      )
+        current.map((b) => (b.id === blockId ? { ...b, from, to } : b)),
+      ),
     );
   }
 
   function removeAvailBlock(block: TimeBlock) {
-    setAvailabilityBlocks((current) => current.filter((b) => b.id !== block.id));
+    setAvailabilityBlocks((current) =>
+      current.filter((b) => b.id !== block.id),
+    );
     setAvailSelectedBlockId(null);
   }
 
@@ -509,17 +552,20 @@ export function MessageThread({
 
       const merged = mergeTimeBlocks(availabilityBlocks);
 
-      if (currentUser.role === 'student') {
+      if (currentUser.role === "student") {
         await updateStoredLearningProfile({ availability: merged });
       } else {
         // save tutor draft availability; preserve other draft fields if we loaded one
         if (tutorDraft) {
-          await saveTutorProfileFromOnboarding(currentUser, { ...tutorDraft, availability: merged });
+          await saveTutorProfileFromOnboarding(currentUser, {
+            ...tutorDraft,
+            availability: merged,
+          });
         }
       }
       // Keep the modal open so the user can switch to the booking tab immediately
     } catch {
-      window.alert('Could not save availability.');
+      window.alert("Could not save availability.");
     }
   }
 
@@ -528,16 +574,20 @@ export function MessageThread({
   }
 
   const bookingTutorId =
-    currentUser?.role === 'student' ? relationship?.tutorId : currentUser?.id;
+    currentUser?.role === "student" ? relationship?.tutorId : currentUser?.id;
   const bookingTutorName =
-    currentUser?.role === 'student'
+    currentUser?.role === "student"
       ? relationship?.tutorName
       : currentUser?.name;
   const bookingStudentId =
-    currentUser?.role === 'student' ? currentUser.id : relationship?.studentId;
+    currentUser?.role === "student" ? currentUser.id : relationship?.studentId;
   const bookingInitiatedBy = currentUser?.role;
   const canOpenBooking = Boolean(
-    relationship && bookingTutorId && bookingTutorName && bookingStudentId && bookingInitiatedBy,
+    relationship &&
+    bookingTutorId &&
+    bookingTutorName &&
+    bookingStudentId &&
+    bookingInitiatedBy,
   );
 
   const firstUnreadMessageId = getFirstUnreadMessageId({
@@ -553,35 +603,53 @@ export function MessageThread({
   );
   const canMarkNewMessageUrgent = currentUser?.role === "student";
 
+  const { upcomingSession } = useRelationshipBookings(
+    relationship?.tutorId,
+    relationship?.studentId,
+  );
+
   return (
-    <div className="grid gap-4">
-      <Card>
-        <h2 className="text-xl font-semibold tracking-tight text-slate-950">
-          Message thread
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Use this space for async support between sessions. New messages appear
-          automatically, and unread messages are marked when you open the
-          thread.
-        </p>
+    <div
+      className={cn("grid min-w-0 gap-4", isEmbedded && "gap-3 text-[13px]")}
+    >
+      {!isEmbedded ? (
+        <Card>
+          <h2 className="text-xl font-semibold tracking-tight text-slate-950">
+            Message thread
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Use this space for async support between sessions. New messages
+            appear automatically, and unread messages are marked when you open
+            the thread.
+          </p>
 
-        {relationship ? (
-          <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-            <p>
-              <span className="font-semibold">Conversation with:</span>{" "}
-              {viewerRole === "student"
-                ? relationship.tutorName
-                : relationship.studentName}
-            </p>
-            <p className="mt-1">
-              <span className="font-semibold">Subject:</span>{" "}
-              {relationship.level} {relationship.subject}
-            </p>
-          </div>
-        ) : null}
-      </Card>
+          {relationship ? (
+            <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
+              <p>
+                <span className="font-semibold">Conversation with:</span>{" "}
+                {viewerRole === "student"
+                  ? relationship.tutorName
+                  : relationship.studentName}
+              </p>
+              <p className="mt-1">
+                <span className="font-semibold">Subject:</span>{" "}
+                {relationship.level} {relationship.subject}
+              </p>
+            </div>
+          ) : null}
 
-      <Card className="grid gap-4">
+          {upcomingSession ? (
+            <UpcomingSessionBanner booking={upcomingSession} />
+          ) : null}
+        </Card>
+      ) : null}
+
+      <Card
+        className={cn(
+          "grid min-w-0 gap-4",
+          isEmbedded && "rounded-2xl p-3 shadow-none",
+        )}
+      >
         {isLoading ? (
           <p className="text-sm text-slate-600">Loading messages...</p>
         ) : messages.length === 0 ? (
@@ -682,7 +750,7 @@ export function MessageThread({
               }
             }}
             placeholder="Write a message..."
-            rows={4}
+            rows={isEmbedded ? 3 : 4}
             maxLength={2000}
             className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
           />
@@ -719,13 +787,24 @@ export function MessageThread({
               className="hidden"
             />
 
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "flex items-start justify-between gap-3",
+                isEmbedded && "flex-col",
+              )}
+            >
+              <div
+                className={cn(
+                  "flex items-center gap-3",
+                  isEmbedded && "flex-wrap gap-2",
+                )}
+              >
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isSending}
+                  className={isEmbedded ? "px-3 py-2 text-xs" : ""}
                 >
                   Attach files
                 </Button>
@@ -739,26 +818,36 @@ export function MessageThread({
                     requestAnimationFrame(() => textareaRef.current?.focus());
                   }}
                   disabled={isSending}
-                  className={isMathKeyboardOpen ? "border-slate-950 bg-slate-50" : ""}
+                  className={cn(
+                    isMathKeyboardOpen ? "border-slate-950 bg-slate-50" : "",
+                    isEmbedded ? "px-3 py-2 text-xs" : "",
+                  )}
                 >
                   ∑ Math
                 </Button>
 
-                <p className="text-xs text-slate-500">
-                  Images, PDFs, and documents up to 10MB each.
-                </p>
+                {!isEmbedded ? (
+                  <p className="text-xs text-slate-500">
+                    Images, PDFs, and documents up to 10MB each.
+                  </p>
+                ) : null}
               </div>
 
-              <div className="flex shrink-0 items-center gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => { setScheduleTab('availability'); setIsScheduleOpen(true); }}
-                  disabled={isSending}
-                >
-                  Schedule session
-                </Button>
-              </div>
+              {!isEmbedded ? (
+                <div className="flex shrink-0 items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setScheduleTab("availability");
+                      setIsScheduleOpen(true);
+                    }}
+                    disabled={isSending}
+                  >
+                    Schedule session
+                  </Button>
+                </div>
+              ) : null}
             </div>
 
             {selectedFiles.length > 0 ? (
@@ -782,7 +871,11 @@ export function MessageThread({
               {draftMessage.trim().length}/2000 characters
             </p>
 
-            <Button type="submit" disabled={!canSendMessage}>
+            <Button
+              type="submit"
+              disabled={!canSendMessage}
+              className={isEmbedded ? "px-4 py-2 text-xs" : ""}
+            >
               {isSending ? "Sending..." : "Send message"}
             </Button>
           </div>
@@ -801,8 +894,10 @@ export function MessageThread({
             {/* Header */}
             <div className="flex items-start justify-between">
               <h2 className="text-lg font-semibold text-slate-950">
-                Schedule a session with{' '}
-                {viewerRole === 'student' ? relationship?.tutorName : relationship?.studentName}
+                Schedule a session with{" "}
+                {viewerRole === "student"
+                  ? relationship?.tutorName
+                  : relationship?.studentName}
               </h2>
               <button
                 type="button"
@@ -815,25 +910,25 @@ export function MessageThread({
 
             {/* Tabs */}
             <div className="mt-4 flex gap-1 rounded-xl bg-slate-100 p-1">
-              {(['availability', 'booking'] as const).map((tab) => (
+              {(["availability", "booking"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setScheduleTab(tab)}
                   className={cn(
-                    'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition',
+                    "flex-1 rounded-lg px-4 py-2 text-sm font-medium transition",
                     scheduleTab === tab
-                      ? 'bg-white text-slate-950 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-950'
+                      ? "bg-white text-slate-950 shadow-sm"
+                      : "text-slate-600 hover:text-slate-950",
                   )}
                 >
-                  {tab === 'availability' ? 'My availability' : 'Book session'}
+                  {tab === "availability" ? "My availability" : "Book session"}
                 </button>
               ))}
             </div>
 
             {/* Tab: My availability */}
-            {scheduleTab === 'availability' ? (
+            {scheduleTab === "availability" ? (
               <div className="mt-4">
                 <StudentAvailabilityGrid
                   blocks={availabilityBlocks}
@@ -847,25 +942,32 @@ export function MessageThread({
                   <Button variant="secondary" onClick={handleCloseSchedule}>
                     Close without saving
                   </Button>
-                  <Button onClick={handleSaveAvailability}>Save availability</Button>
+                  <Button onClick={handleSaveAvailability}>
+                    Save availability
+                  </Button>
                 </div>
               </div>
             ) : null}
 
             {/* Tab: Book session */}
-            {scheduleTab === 'booking' && canOpenBooking && bookingTutorId && bookingStudentId ? (
+            {scheduleTab === "booking" &&
+            canOpenBooking &&
+            bookingTutorId &&
+            bookingStudentId ? (
               <div className="mt-4">
                 <DragToBookCalendar
                   tutorId={bookingTutorId}
                   studentId={bookingStudentId}
                   counterpartyName={
-                    viewerRole === 'student'
-                      ? (relationship?.tutorName ?? '')
-                      : (relationship?.studentName ?? '')
+                    viewerRole === "student"
+                      ? (relationship?.tutorName ?? "")
+                      : (relationship?.studentName ?? "")
                   }
                   initiatedBy={viewerRole}
                   studentAvailabilityBlocks={
-                    viewerRole === 'student' ? availabilityBlocks : counterpartyStudentBlocks
+                    viewerRole === "student"
+                      ? availabilityBlocks
+                      : counterpartyStudentBlocks
                   }
                   onSuccess={handleCloseSchedule}
                   onCancel={handleCloseSchedule}
@@ -876,7 +978,6 @@ export function MessageThread({
           </div>
         </div>
       ) : null}
-
     </div>
   );
 }
@@ -1602,7 +1703,9 @@ function buildReplyBodyPreview(message: SupportMessage) {
     return "This message was deleted";
   }
 
-  const bodyPreview = stripMathDelimiters(message.body).replace(/\s+/g, " ").trim();
+  const bodyPreview = stripMathDelimiters(message.body)
+    .replace(/\s+/g, " ")
+    .trim();
 
   if (bodyPreview) {
     return bodyPreview.length > 140
@@ -1682,4 +1785,29 @@ function formatMessageTime(value: string) {
 
 function isEdited(message: SupportMessage) {
   return Boolean(message.updatedAt && message.updatedAt !== message.createdAt);
+}
+
+function UpcomingSessionBanner({ booking }: { booking: BookingRequest }) {
+  const sessionDate = booking.date.toDate();
+  const dateLabel = sessionDate.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const timeLabel = sessionDate.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return (
+    <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+        Upcoming session
+      </p>
+      <p className="mt-1 text-sm font-medium text-slate-900">
+        {booking.subject} · {dateLabel} at {timeLabel} ·{" "}
+        {booking.durationMinutes} min
+      </p>
+    </div>
+  );
 }
