@@ -27,12 +27,22 @@ const RESOURCE_DRAG_MIME_TYPE = 'application/x-logicgate-resource';
 const RESOURCE_DRAG_START_EVENT = 'logicgate-resource-drag-start';
 const RESOURCE_DRAG_END_EVENT = 'logicgate-resource-drag-end';
 
+type ResourcesPanelMode = 'full' | 'embedded';
+
 type ResourcesPanelProps = {
   relationshipId: string;
   viewerRole: AsyncSupportRole;
+  mode?: ResourcesPanelMode;
+  enableBoardDrag?: boolean;
 };
 
-export function ResourcesPanel({ relationshipId, viewerRole }: ResourcesPanelProps) {
+export function ResourcesPanel({
+  relationshipId,
+  viewerRole,
+  mode = 'full',
+  enableBoardDrag = false,
+}: ResourcesPanelProps) {
+  const isEmbedded = mode === 'embedded';
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -107,7 +117,7 @@ export function ResourcesPanel({ relationshipId, viewerRole }: ResourcesPanelPro
   }
 
   return (
-    <div className="grid min-w-0 gap-3">
+    <div className={cn('grid min-w-0', isEmbedded ? 'gap-3' : 'gap-4')}>
       <input
         ref={fileInputRef}
         type="file"
@@ -116,13 +126,23 @@ export function ResourcesPanel({ relationshipId, viewerRole }: ResourcesPanelPro
         onChange={handleFileChange}
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+      <div
+        className={cn(
+          'rounded-2xl border border-slate-200 bg-white',
+          isEmbedded ? 'p-3' : 'p-5'
+        )}
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
               Shared resources
             </p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
+            <p
+              className={cn(
+                'mt-1 leading-5 text-slate-500',
+                isEmbedded ? 'text-xs' : 'text-sm'
+              )}
+            >
               Upload files for this student-tutor pair.
             </p>
           </div>
@@ -167,6 +187,8 @@ export function ResourcesPanel({ relationshipId, viewerRole }: ResourcesPanelPro
             resource={resource}
             isDeleting={deletingResourceId === resource.id}
             onDelete={handleDeleteResource}
+            mode={mode}
+            enableBoardDrag={enableBoardDrag}
           />
         ))}
       </div>
@@ -178,19 +200,30 @@ function ResourceCard({
   resource,
   isDeleting,
   onDelete,
+  mode,
+  enableBoardDrag,
 }: {
   resource: SharedResource;
   isDeleting: boolean;
   onDelete: (resource: SharedResource) => void;
+  mode: ResourcesPanelMode;
+  enableBoardDrag: boolean;
 }) {
   const attachment = resource.attachment;
   const url = attachment?.url ?? resource.url;
   const sizeLabel = attachment ? formatFileSize(attachment.sizeBytes) : null;
+  const isEmbedded = mode === 'embedded';
+  const helperText = url
+    ? enableBoardDrag
+      ? 'Click or drag to board'
+      : 'Click to open'
+    : 'No file link';
   const content = (
     <>
       <div
         className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[10px] font-bold uppercase',
+          'flex shrink-0 items-center justify-center rounded-xl font-bold uppercase',
+          isEmbedded ? 'h-8 w-8 text-[10px]' : 'h-11 w-11 text-xs',
           attachment?.kind === 'pdf'
             ? 'bg-rose-50 text-rose-700'
             : attachment?.kind === 'image'
@@ -202,29 +235,51 @@ function ResourceCard({
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-xs font-semibold text-slate-950">
+        <h3
+          className={cn(
+            'truncate font-semibold text-slate-950',
+            isEmbedded ? 'text-xs' : 'text-sm'
+          )}
+        >
           {resource.title}
         </h3>
-        <p className="mt-1 truncate text-[11px] text-slate-500">
+        <p
+          className={cn(
+            'mt-1 truncate text-slate-500',
+            isEmbedded ? 'text-[11px]' : 'text-xs'
+          )}
+        >
           {resource.createdByName} - {formatResourceTime(resource.createdAt)}
         </p>
-        <p className="mt-1 truncate text-[11px] text-slate-400">
-          {sizeLabel ? `${sizeLabel} - ` : ''}{url ? 'Click or drag to board' : 'No file link'}
+        <p
+          className={cn(
+            'mt-1 truncate text-slate-400',
+            isEmbedded ? 'text-[11px]' : 'text-xs'
+          )}
+        >
+          {sizeLabel ? `${sizeLabel} - ` : ''}{helperText}
         </p>
       </div>
     </>
   );
 
   return (
-    <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+    <article
+      className={cn(
+        'min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm',
+        isEmbedded ? 'p-2' : 'p-4'
+      )}
+    >
       <div className="grid min-w-0 gap-2">
         {url ? (
           <a
             href={url}
             target="_blank"
             rel="noreferrer"
-            draggable
+            draggable={enableBoardDrag}
             onDragStart={(event) => {
+              if (!enableBoardDrag) return;
+
               event.dataTransfer.setData(
                 RESOURCE_DRAG_MIME_TYPE,
                 JSON.stringify({
@@ -237,22 +292,37 @@ function ResourceCard({
               window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_START_EVENT));
             }}
             onDragEnd={() => {
+              if (!enableBoardDrag) return;
+
               window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_END_EVENT));
             }}
-            className="flex min-w-0 items-start gap-2 rounded-xl p-1 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            className={cn(
+              'flex min-w-0 items-start rounded-xl transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300',
+              isEmbedded ? 'gap-2 p-1' : 'gap-3 p-2'
+            )}
             title="Open resource"
           >
             {content}
           </a>
         ) : (
-          <div className="flex min-w-0 items-start gap-2 rounded-xl p-1">{content}</div>
+          <div
+            className={cn(
+              'flex min-w-0 items-start rounded-xl',
+              isEmbedded ? 'gap-2 p-1' : 'gap-3 p-2'
+            )}
+          >
+            {content}
+          </div>
         )}
 
         <button
           type="button"
           onClick={() => onDelete(resource)}
           disabled={isDeleting}
-          className="justify-self-end rounded-full border border-rose-100 px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className={cn(
+            'justify-self-end rounded-full border border-rose-100 font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60',
+            isEmbedded ? 'px-2 py-1 text-[11px]' : 'px-3 py-1.5 text-xs'
+          )}
         >
           {isDeleting ? 'Deleting...' : 'Delete'}
         </button>

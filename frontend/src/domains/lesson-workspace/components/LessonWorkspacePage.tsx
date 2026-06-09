@@ -401,6 +401,8 @@ function WorkspaceSidePanel({
               <ResourcesPanel
                 relationshipId={relationshipId}
                 viewerRole={viewerRole}
+                mode="embedded"
+                enableBoardDrag
               />
             </div>
           ) : null}
