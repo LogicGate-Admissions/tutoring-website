@@ -5,7 +5,7 @@
  *
  * Sections: pending requests, upcoming confirmed sessions, weekly calendar,
  * and past sessions. Booking new sessions happens from relationship cards
- * or the messages thread — not from this tab.
+ * or the messages thread - not from this tab.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -347,7 +347,7 @@ function WeeklyCalendar({
   );
 
   const totalHeightRem = TOTAL_HOURS * SLOT_HEIGHT_REM;
-  const weekLabel = `${monday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${sunday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const weekLabel = `${monday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${sunday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
   const draggingBooking = draggingId
     ? sessions.find((s) => s.id === draggingId) ?? null

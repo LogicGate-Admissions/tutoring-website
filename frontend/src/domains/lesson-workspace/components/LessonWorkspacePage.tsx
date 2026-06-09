@@ -295,8 +295,9 @@ export function LessonWorkspacePage({
 
         <div
           className={cn(
-            "grid gap-4 lg:grid-cols-[88px_minmax(0,1fr)]",
-            activePanel && "xl:grid-cols-[88px_380px_minmax(0,1fr)]",
+            activePanel
+              ? "grid min-w-[980px] grid-cols-[72px_320px_minmax(0,1fr)] gap-4 lg:min-w-0 lg:grid-cols-[88px_320px_minmax(0,1fr)]"
+              : "grid gap-4 lg:grid-cols-[88px_minmax(0,1fr)]",
           )}
         >
           <WorkspaceSidePanel
@@ -386,7 +387,7 @@ function WorkspaceSidePanel({
           </div>
 
           {activePanel === "messages" ? (
-            <div className="max-h-[calc(100vh-260px)] min-w-0 overflow-y-auto overflow-x-hidden pr-1">
+            <div className="max-h-[calc(100vh-260px)] min-w-0 overflow-y-auto overflow-x-hidden">
               <MessageThread
                 relationshipId={relationshipId}
                 viewerRole={viewerRole}
@@ -396,7 +397,7 @@ function WorkspaceSidePanel({
           ) : null}
 
           {activePanel === "resources" ? (
-            <div className="max-h-[calc(100vh-260px)] min-w-0 overflow-y-auto overflow-x-hidden pr-1">
+            <div className="max-h-[calc(100vh-260px)] min-w-0 overflow-y-auto overflow-x-hidden">
               <ResourcesPanel
                 relationshipId={relationshipId}
                 viewerRole={viewerRole}
@@ -876,7 +877,7 @@ function formatLessonSummary(lesson: BookingRequest) {
     minute: "2-digit",
   }).format(end);
 
-  return `${lesson.subject} · ${dateLabel}–${endLabel}`;
+  return `${lesson.subject} · ${dateLabel}-${endLabel}`;
 }
 
 function clamp(value: number, min: number, max: number) {

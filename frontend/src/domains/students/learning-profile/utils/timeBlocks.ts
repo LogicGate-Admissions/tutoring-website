@@ -9,7 +9,7 @@ export function makeTimeBlockId() {
 }
 
 export function timeBlockLabel(block: TimeBlock) {
-  return `${block.day} ${block.from}–${block.to}`;
+  return `${block.day} ${block.from}-${block.to}`;
 }
 
 export function timeToMinutes(time: string) {

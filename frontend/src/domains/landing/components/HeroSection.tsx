@@ -87,7 +87,7 @@ export default function HeroSection() {
               href={ROUTES.studentLogin}
               className="rounded-full bg-slate-950 px-8 py-3.5 text-sm font-medium text-white transition hover:bg-slate-800"
             >
-              Get Started — It&apos;s Free
+              Get Started - It&apos;s Free
             </Link>
             <button
               type="button"

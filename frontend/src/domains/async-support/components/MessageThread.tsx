@@ -755,7 +755,7 @@ export function MessageThread({
             className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
           />
 
-          {/* Live rendered preview – shown whenever the draft contains $...$ math */}
+          {/* Live rendered preview - shown whenever the draft contains $...$ math */}
           {draftMessage.includes("$") ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
@@ -1595,7 +1595,7 @@ function AttachmentItem({
           isMine ? "text-slate-300" : "text-slate-500",
         )}
       >
-        File unavailable — it may have been uploaded before storage was enabled.
+        File unavailable - it may have been uploaded before storage was enabled.
       </span>
     </div>
   );

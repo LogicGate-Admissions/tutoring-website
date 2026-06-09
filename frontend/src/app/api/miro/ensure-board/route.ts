@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     });
     const boardId = requireMiroBoardId(createdBoard);
     const boardUrl = createdBoard.viewLink || `https://miro.com/app/board/${boardId}/`;
-    const embedUrl = `https://miro.com/app/live-embed/${boardId}/`;
+    const embedUrl = `https://miro.com/app/live-embed/${boardId}/?autoplay=true`;
     const invitedEmails = await shareBoardWithRelationshipEmails({
       accessToken,
       boardId,

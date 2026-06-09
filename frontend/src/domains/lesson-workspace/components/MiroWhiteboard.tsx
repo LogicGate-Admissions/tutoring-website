@@ -84,7 +84,6 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
 
   useEffect(() => {
     let isActive = true;
-
     async function ensureBoard() {
       try {
         const response = await fetch('/api/miro/ensure-board', {
@@ -156,7 +155,7 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
 
     try {
       setIsAddingResource(true);
-      setDropMessage(`Adding ${payload.title} to Miro...`);
+      setDropMessage('Adding to Miro...');
 
       const response = await fetch('/api/miro/add-resource-to-board', {
         method: 'POST',
@@ -173,7 +172,7 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
         throw new Error(data.error || 'Could not add the resource to Miro.');
       }
 
-      setDropMessage(`${payload.title} was added to the board.`);
+      setDropMessage('Added to the board.');
     } catch (dropFailure) {
       setDropMessage(
         dropFailure instanceof Error
@@ -276,7 +275,7 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
         {boardState.status === 'ready' ? (
           <iframe
             title="Lesson Miro whiteboard"
-            src={boardState.miroEmbedUrl}
+            src={buildMiroEmbedSrc(boardState.miroEmbedUrl)}
             className="h-full w-full border-0"
             allow="fullscreen; clipboard-read; clipboard-write"
           />
@@ -298,15 +297,21 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
               <p className="text-base font-semibold text-slate-950">
                 {isAddingResource ? 'Adding to Miro...' : 'Drop to add to the board'}
               </p>
-              <p className="mt-2 text-sm text-slate-600">
-                Images become board images. PDFs become board documents. Other files become resource cards.
-              </p>
             </div>
           </div>
         ) : null}
       </div>
     </Card>
   );
+}
+
+
+function buildMiroEmbedSrc(miroEmbedUrl: string) {
+  const url = new URL(miroEmbedUrl);
+
+  url.searchParams.set('autoplay', 'true');
+
+  return url.toString();
 }
 
 function hasDraggedResource(event: DragEvent<HTMLDivElement>) {

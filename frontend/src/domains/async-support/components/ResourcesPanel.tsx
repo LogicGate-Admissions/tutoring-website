@@ -107,7 +107,7 @@ export function ResourcesPanel({ relationshipId, viewerRole }: ResourcesPanelPro
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 gap-3">
       <input
         ref={fileInputRef}
         type="file"
@@ -117,19 +117,22 @@ export function ResourcesPanel({ relationshipId, viewerRole }: ResourcesPanelPro
       />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Shared resources
-        </p>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Upload worksheets, screenshots, notes, or exam materials for this
-          student-tutor pair.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Shared resources
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Upload files for this student-tutor pair.
+            </p>
+          </div>
+        </div>
         <Button
-          className="mt-3 w-full"
+          className="mt-3 w-full text-sm"
           onClick={() => fileInputRef.current?.click()}
           disabled={!currentUser || isUploading}
         >
-          {isUploading ? 'Uploading...' : 'Upload resource'}
+          {isUploading ? 'Uploading...' : 'Upload'}
         </Button>
       </div>
 
@@ -157,7 +160,7 @@ export function ResourcesPanel({ relationshipId, viewerRole }: ResourcesPanelPro
         </p>
       ) : null}
 
-      <div className="grid gap-3">
+      <div className="grid gap-2">
         {resources.map((resource) => (
           <ResourceCard
             key={resource.id}
@@ -187,7 +190,7 @@ function ResourceCard({
     <>
       <div
         className={cn(
-          'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xs font-bold uppercase',
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[10px] font-bold uppercase',
           attachment?.kind === 'pdf'
             ? 'bg-rose-50 text-rose-700'
             : attachment?.kind === 'image'
@@ -199,27 +202,22 @@ function ResourceCard({
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-sm font-semibold text-slate-950">
+        <h3 className="truncate text-xs font-semibold text-slate-950">
           {resource.title}
         </h3>
-        <p className="mt-1 text-xs text-slate-500">
-          Uploaded by {resource.createdByName} · {formatResourceTime(resource.createdAt)}
+        <p className="mt-1 truncate text-[11px] text-slate-500">
+          {resource.createdByName} - {formatResourceTime(resource.createdAt)}
         </p>
-        {sizeLabel ? (
-          <p className="mt-1 text-xs text-slate-400">{sizeLabel}</p>
-        ) : null}
-        {url ? (
-          <p className="mt-1 text-xs font-medium text-slate-400">
-            Click to open · drag onto whiteboard
-          </p>
-        ) : null}
+        <p className="mt-1 truncate text-[11px] text-slate-400">
+          {sizeLabel ? `${sizeLabel} - ` : ''}{url ? 'Click or drag to board' : 'No file link'}
+        </p>
       </div>
     </>
   );
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="flex items-start gap-3">
+    <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+      <div className="grid min-w-0 gap-2">
         {url ? (
           <a
             href={url}
@@ -241,20 +239,20 @@ function ResourceCard({
             onDragEnd={() => {
               window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_END_EVENT));
             }}
-            className="flex min-w-0 flex-1 items-start gap-3 rounded-2xl transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            className="flex min-w-0 items-start gap-2 rounded-xl p-1 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
             title="Open resource"
           >
             {content}
           </a>
         ) : (
-          <div className="flex min-w-0 flex-1 items-start gap-3">{content}</div>
+          <div className="flex min-w-0 items-start gap-2 rounded-xl p-1">{content}</div>
         )}
 
         <button
           type="button"
           onClick={() => onDelete(resource)}
           disabled={isDeleting}
-          className="shrink-0 rounded-full border border-rose-100 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="justify-self-end rounded-full border border-rose-100 px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isDeleting ? 'Deleting...' : 'Delete'}
         </button>

@@ -139,7 +139,7 @@ function availabilitySummary(availability: TimeBlock[]) {
 
   const firstBlocks = availability
     .slice(0, 4)
-    .map((block) => `${block.day} ${block.from}–${block.to}`);
+    .map((block) => `${block.day} ${block.from}-${block.to}`);
 
   const remainingCount = Math.max(availability.length - firstBlocks.length, 0);
   const suffix = remainingCount > 0 ? `, +${remainingCount} more` : '';

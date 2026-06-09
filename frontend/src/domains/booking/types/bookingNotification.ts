@@ -17,7 +17,7 @@ export type BookingNotificationType =
 
 export type BookingNotification = {
   id: string;
-  userId: string;           // recipient — indexed for per-user queries
+  userId: string;           // recipient - indexed for per-user queries
   type: BookingNotificationType;
   bookingId: string;
   message: string;          // e.g. "Alex requested a Maths session on Tue 10 Jun"

@@ -64,7 +64,7 @@ function buildUrgentMessageMailtoUrl({
     `Subject: ${relationship.level} ${relationship.subject}`.trim(),
     '',
     'Message:',
-    messageBody.trim() || '(No text message — check the support thread for attachments/context.)',
+    messageBody.trim() || '(No text message - check the support thread for attachments/context.)',
     '',
     attachmentCount > 0
       ? `Attachment note: ${attachmentCount} demo attachment${attachmentCount === 1 ? '' : 's'} were added in the support thread.`

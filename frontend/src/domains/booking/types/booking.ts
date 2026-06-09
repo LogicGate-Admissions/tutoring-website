@@ -3,7 +3,7 @@
  *
  * All Firestore document shapes, status unions, and input types for the
  * booking lifecycle live here. The service and hook files cast raw Firestore
- * data through these types — no component should import firebase/firestore.
+ * data through these types - no component should import firebase/firestore.
  */
 
 import type { Timestamp } from 'firebase/firestore';
