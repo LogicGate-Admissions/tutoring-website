@@ -267,7 +267,7 @@ function getStudentRelationshipActions(relationshipId: string) {
       href: `${baseHref}/messages`,
     },
     {
-      label: 'Resources',
+      label: 'Shared resources',
       href: `${baseHref}/resources`,
     },
     {

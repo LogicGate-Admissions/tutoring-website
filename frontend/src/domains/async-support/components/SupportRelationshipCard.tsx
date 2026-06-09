@@ -104,7 +104,7 @@ export function SupportRelationshipCard({
             ) : (
               <MetricBadge label="Unread" value={relationship.unreadMessageCount} />
             )}
-            <MetricBadge label="Resources" value={relationship.resourceCount} />
+            <MetricBadge label="Shared resources" value={relationship.resourceCount} />
           </div>
         </div>
 

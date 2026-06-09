@@ -3,7 +3,7 @@
  * Shared TypeScript types for asynchronous support.
  *
  * A support relationship is the shared space between one student and one tutor.
- * Messages, flagged questions, resources, and future notification indicators all
+ * Messages, resources, and future notification indicators all
  * attach to this relationship so context stays in one place.
  */
 
@@ -181,6 +181,9 @@ export type SharedResource = {
   type: SharedResourceType;
 
   url?: string;
+
+  /** Uploaded file metadata when this resource is a Firebase Storage file. */
+  attachment?: SupportAttachment;
 
   createdAt: string;
   updatedAt: string;

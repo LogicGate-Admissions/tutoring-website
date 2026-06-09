@@ -4,13 +4,12 @@
  * File purpose:
  * Shared page for async-support features.
  *
- * In this messaging stage, the message thread is implemented. Flagged
- * questions and shared resources stay as placeholders for later feedback-led
- * iterations.
+ * Relationship feature page for messages and shared resources.
  */
 
 import { useEffect, useState } from 'react';
 import { MessageThread } from '@/domains/async-support/components/MessageThread';
+import { ResourcesPanel } from '@/domains/async-support/components/ResourcesPanel';
 import { getStudentTutorRelationshipById } from '@/domains/async-support/services/relationshipsService';
 import type {
   AsyncSupportRole,
@@ -57,10 +56,10 @@ const featureCopy: Record<
   resources: {
     title: 'Shared resources',
     description:
-      'A planned space for links, notes, worksheets, and lesson materials.',
-    emptyTitle: 'Shared resources not implemented yet',
+      'Upload and open worksheets, screenshots, notes, and lesson materials for this relationship.',
+    emptyTitle: 'No shared resources yet',
     emptyDescription:
-      'This stays as a placeholder until the shared-resource feature issue is implemented.',
+      'Upload the first resource to make it available to both student and tutor.',
   },
 };
 
@@ -173,6 +172,10 @@ export function SupportFeaturePage({
           </Card>
         ) : feature === 'messages' ? (
           <MessageThread relationshipId={relationshipId} viewerRole={viewerRole} />
+        ) : feature === 'resources' ? (
+          <Card>
+            <ResourcesPanel relationshipId={relationshipId} viewerRole={viewerRole} />
+          </Card>
         ) : (
           <Card>
             <h2 className="text-xl font-semibold tracking-tight text-slate-950">

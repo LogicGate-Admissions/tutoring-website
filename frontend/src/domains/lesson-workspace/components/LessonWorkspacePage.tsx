@@ -6,8 +6,8 @@
  *
  * Iteration 2 brings the lesson back into the platform: users enter a shared
  * workspace, then join an embedded Jitsi call when the session opens. The
- * whiteboard and shared resources panels are intentionally lightweight
- * placeholders so the video-call slice can be tested first.
+ * whiteboard and resources panels now sit alongside the embedded call so
+ * live lesson materials stay in one workspace.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -19,6 +19,7 @@ import {
   startLessonSession,
 } from "@/domains/booking/services/bookingService";
 import { MessageThread } from "@/domains/async-support/components/MessageThread";
+import { ResourcesPanel } from "@/domains/async-support/components/ResourcesPanel";
 import { MiroWhiteboard } from "@/domains/lesson-workspace/components/MiroWhiteboard";
 import { getStudentTutorRelationshipById } from "@/domains/async-support/services/relationshipsService";
 import type {
@@ -395,8 +396,11 @@ function WorkspaceSidePanel({
           ) : null}
 
           {activePanel === "resources" ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm leading-6 text-slate-500">
-              Shared resources placeholder
+            <div className="max-h-[calc(100vh-260px)] min-w-0 overflow-y-auto overflow-x-hidden pr-1">
+              <ResourcesPanel
+                relationshipId={relationshipId}
+                viewerRole={viewerRole}
+              />
             </div>
           ) : null}
         </Card>

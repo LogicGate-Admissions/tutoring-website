@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getFirebaseAdminDb } from '@/shared/lib/firebaseAdmin';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 type EnsureBoardRequest = {
   relationshipId?: string;
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
 }
 
 async function getMiroAccessToken() {
-  const staticAccessToken = process.env.MIRO_ACCESS_TOKEN;
+  const staticAccessToken = normaliseMiroToken(process.env.MIRO_ACCESS_TOKEN);
 
   if (staticAccessToken) {
     return staticAccessToken;
@@ -144,7 +145,17 @@ async function getMiroAccessToken() {
     throw new Error(data.error || 'Could not refresh Miro access token.');
   }
 
-  return data.access_token;
+  return normaliseMiroToken(data.access_token);
+}
+
+function normaliseMiroToken(token: string | undefined) {
+  const trimmedToken = token?.trim();
+
+  if (!trimmedToken) {
+    return '';
+  }
+
+  return trimmedToken.replace(/^Bearer\s+/i, '').trim();
 }
 
 async function createMiroBoard({
@@ -167,10 +178,16 @@ async function createMiroBoard({
       description: buildBoardDescription(relationship),
     }),
   });
-  const data = (await response.json()) as MiroBoardResponse & { message?: string };
+  const data = (await response.json()) as MiroBoardResponse & {
+    message?: string;
+    error?: string;
+  };
 
   if (!response.ok) {
-    throw new Error(data.message || 'Could not create Miro board.');
+    const miroMessage = data.message || data.error || 'Could not create Miro board.';
+    throw new Error(
+      `Miro board creation failed (${response.status}): ${miroMessage}. Check that MIRO_ACCESS_TOKEN is the OAuth access_token from /api/miro/oauth/start and restart npm run dev after editing .env.local.`
+    );
   }
 
   return data;
