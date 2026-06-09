@@ -23,6 +23,10 @@ import type { AuthUser } from '@/domains/auth/types/auth';
 import { Button } from '@/shared/components/Button';
 import { cn } from '@/shared/utils/cn';
 
+const RESOURCE_DRAG_MIME_TYPE = 'application/x-logicgate-resource';
+const RESOURCE_DRAG_START_EVENT = 'logicgate-resource-drag-start';
+const RESOURCE_DRAG_END_EVENT = 'logicgate-resource-drag-end';
+
 type ResourcesPanelProps = {
   relationshipId: string;
   viewerRole: AsyncSupportRole;
@@ -204,6 +208,11 @@ function ResourceCard({
         {sizeLabel ? (
           <p className="mt-1 text-xs text-slate-400">{sizeLabel}</p>
         ) : null}
+        {url ? (
+          <p className="mt-1 text-xs font-medium text-slate-400">
+            Click to open · drag onto whiteboard
+          </p>
+        ) : null}
       </div>
     </>
   );
@@ -218,9 +227,21 @@ function ResourceCard({
             rel="noreferrer"
             draggable
             onDragStart={(event) => {
+              event.dataTransfer.setData(
+                RESOURCE_DRAG_MIME_TYPE,
+                JSON.stringify({
+                  relationshipId: resource.relationshipId,
+                  resourceId: resource.id,
+                  title: resource.title,
+                })
+              );
               event.dataTransfer.setData('text/uri-list', url);
               event.dataTransfer.setData('text/plain', url);
               event.dataTransfer.effectAllowed = 'copy';
+              window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_START_EVENT));
+            }}
+            onDragEnd={() => {
+              window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_END_EVENT));
             }}
             className="flex min-w-0 flex-1 items-start gap-3 rounded-2xl transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
             title="Open resource"
