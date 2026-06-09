@@ -19,6 +19,7 @@ import {
   startLessonSession,
 } from "@/domains/booking/services/bookingService";
 import { MessageThread } from "@/domains/async-support/components/MessageThread";
+import { MiroWhiteboard } from "@/domains/lesson-workspace/components/MiroWhiteboard";
 import { getStudentTutorRelationshipById } from "@/domains/async-support/services/relationshipsService";
 import type {
   AsyncSupportRole,
@@ -417,7 +418,7 @@ function LiveLessonStage({
 }) {
   return (
     <div className="relative min-w-0">
-      <WhiteboardPlaceholder />
+      <MiroWhiteboard relationshipId={relationshipId} />
       {showCall ? (
         <FloatingJitsiCall
           lesson={lesson}
@@ -715,26 +716,6 @@ function JitsiCallSurface({
         />
       </div>
     </div>
-  );
-}
-
-function WhiteboardPlaceholder() {
-  return (
-    <Card className="min-w-0">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Whiteboard
-          </p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
-            Persistent board
-          </h2>
-        </div>
-      </div>
-      <div className="mt-5 min-h-[calc(100vh-320px)] rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
-        Whiteboard area
-      </div>
-    </Card>
   );
 }
 

@@ -83,6 +83,13 @@ export type StudentTutorRelationship = {
 
   status: StudentTutorRelationshipStatus;
 
+  /** Persistent Miro board created for this student-tutor pair. */
+  miroBoardId?: string;
+  miroBoardUrl?: string;
+  miroEmbedUrl?: string;
+  miroBoardName?: string;
+  miroCreatedAt?: string;
+
   createdAt: string;
   updatedAt: string;
 } & LatestMessageSummary &

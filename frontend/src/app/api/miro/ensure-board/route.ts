@@ -1,0 +1,242 @@
+import { NextResponse } from 'next/server';
+import { getFirebaseAdminDb } from '@/shared/lib/firebaseAdmin';
+
+export const runtime = 'nodejs';
+
+type EnsureBoardRequest = {
+  relationshipId?: string;
+};
+
+type RelationshipMiroFields = {
+  miroBoardId?: string;
+  miroBoardUrl?: string;
+  miroEmbedUrl?: string;
+};
+
+type RelationshipDocument = RelationshipMiroFields & {
+  studentName?: string;
+  tutorName?: string;
+  studentEmail?: string;
+  tutorEmail?: string;
+  subject?: string;
+  level?: string;
+};
+
+type MiroBoardResponse = {
+  id?: string;
+  name?: string;
+  viewLink?: string;
+};
+
+const RELATIONSHIPS_COLLECTION = 'studentTutorRelationships';
+const MIRO_API_BASE_URL = 'https://api.miro.com/v2';
+
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json()) as EnsureBoardRequest;
+    const relationshipId = body.relationshipId?.trim();
+
+    if (!relationshipId) {
+      return NextResponse.json(
+        { error: 'Missing relationshipId.' },
+        { status: 400 }
+      );
+    }
+
+    const db = getFirebaseAdminDb();
+    const relationshipRef = db
+      .collection(RELATIONSHIPS_COLLECTION)
+      .doc(relationshipId);
+    const relationshipSnapshot = await relationshipRef.get();
+
+    if (!relationshipSnapshot.exists) {
+      return NextResponse.json(
+        { error: 'Relationship not found.' },
+        { status: 404 }
+      );
+    }
+
+    const relationship = relationshipSnapshot.data() as RelationshipDocument;
+
+    if (relationship.miroBoardId && relationship.miroEmbedUrl) {
+      return NextResponse.json({
+        miroBoardId: relationship.miroBoardId,
+        miroBoardUrl: relationship.miroBoardUrl,
+        miroEmbedUrl: relationship.miroEmbedUrl,
+        reusedExistingBoard: true,
+      });
+    }
+
+    const accessToken = await getMiroAccessToken();
+    const createdBoard = await createMiroBoard({
+      accessToken,
+      relationshipId,
+      relationship,
+    });
+    const boardId = requireMiroBoardId(createdBoard);
+    const boardUrl = createdBoard.viewLink || `https://miro.com/app/board/${boardId}/`;
+    const embedUrl = `https://miro.com/app/live-embed/${boardId}/`;
+    const invitedEmails = await shareBoardWithRelationshipEmails({
+      accessToken,
+      boardId,
+      relationship,
+    });
+
+    const now = new Date().toISOString();
+
+    await relationshipRef.set(
+      {
+        miroBoardId: boardId,
+        miroBoardUrl: boardUrl,
+        miroEmbedUrl: embedUrl,
+        miroBoardName: createdBoard.name ?? buildBoardName(relationship),
+        miroInvitedEmails: invitedEmails,
+        miroCreatedAt: now,
+        updatedAt: now,
+      },
+      { merge: true }
+    );
+
+    return NextResponse.json({
+      miroBoardId: boardId,
+      miroBoardUrl: boardUrl,
+      miroEmbedUrl: embedUrl,
+      reusedExistingBoard: false,
+      invitedEmails,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error.';
+
+    return NextResponse.json(
+      { error: message },
+      { status: 500 }
+    );
+  }
+}
+
+async function getMiroAccessToken() {
+  const staticAccessToken = process.env.MIRO_ACCESS_TOKEN;
+
+  if (staticAccessToken) {
+    return staticAccessToken;
+  }
+
+  const refreshToken = process.env.MIRO_REFRESH_TOKEN;
+  const clientId = process.env.MIRO_CLIENT_ID;
+  const clientSecret = process.env.MIRO_CLIENT_SECRET;
+
+  if (!refreshToken || !clientId || !clientSecret) {
+    throw new Error(
+      'Missing Miro credentials. Add MIRO_ACCESS_TOKEN, or add MIRO_CLIENT_ID, MIRO_CLIENT_SECRET, and MIRO_REFRESH_TOKEN.'
+    );
+  }
+
+  const tokenUrl = new URL('https://api.miro.com/v1/oauth/token');
+  tokenUrl.searchParams.set('grant_type', 'refresh_token');
+  tokenUrl.searchParams.set('client_id', clientId);
+  tokenUrl.searchParams.set('client_secret', clientSecret);
+  tokenUrl.searchParams.set('refresh_token', refreshToken);
+
+  const response = await fetch(tokenUrl, { method: 'POST' });
+  const data = (await response.json()) as { access_token?: string; error?: string };
+
+  if (!response.ok || !data.access_token) {
+    throw new Error(data.error || 'Could not refresh Miro access token.');
+  }
+
+  return data.access_token;
+}
+
+async function createMiroBoard({
+  accessToken,
+  relationship,
+}: {
+  accessToken: string;
+  relationshipId: string;
+  relationship: RelationshipDocument;
+}) {
+  const response = await fetch(`${MIRO_API_BASE_URL}/boards`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: buildBoardName(relationship),
+      description: buildBoardDescription(relationship),
+    }),
+  });
+  const data = (await response.json()) as MiroBoardResponse & { message?: string };
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Could not create Miro board.');
+  }
+
+  return data;
+}
+
+async function shareBoardWithRelationshipEmails({
+  accessToken,
+  boardId,
+  relationship,
+}: {
+  accessToken: string;
+  boardId: string;
+  relationship: RelationshipDocument;
+}) {
+  const emails = [relationship.studentEmail, relationship.tutorEmail]
+    .map((email) => email?.trim())
+    .filter((email): email is string => Boolean(email));
+
+  if (emails.length === 0) {
+    return [];
+  }
+
+  const response = await fetch(`${MIRO_API_BASE_URL}/boards/${boardId}/members`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      emails,
+      role: 'editor',
+      message:
+        'You have been added to the shared LogicGate lesson whiteboard for this student-tutor relationship.',
+    }),
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return emails;
+}
+
+function requireMiroBoardId(board: MiroBoardResponse) {
+  const boardId = board.id?.trim();
+
+  if (!boardId) {
+    throw new Error('Miro created a board but did not return a board id.');
+  }
+
+  return boardId;
+}
+
+function buildBoardName(relationship: RelationshipDocument) {
+  const studentName = relationship.studentName || 'Student';
+  const tutorName = relationship.tutorName || 'Tutor';
+  const subject = relationship.subject || 'Lesson';
+  const rawName = `LogicGate - ${studentName} x ${tutorName} - ${subject}`;
+
+  return rawName.slice(0, 60);
+}
+
+function buildBoardDescription(relationship: RelationshipDocument) {
+  const level = relationship.level ? `${relationship.level} ` : '';
+  const subject = relationship.subject || 'lesson';
+
+  return `Persistent ${level}${subject} whiteboard for this LogicGate student-tutor relationship.`;
+}
