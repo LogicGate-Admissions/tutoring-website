@@ -29,6 +29,11 @@ type MiroBoardResponse = {
   viewLink?: string;
 };
 
+type MiroSharingResult = {
+  isPublicEditEnabled: boolean;
+  error?: string;
+};
+
 const RELATIONSHIPS_COLLECTION = 'studentTutorRelationships';
 const MIRO_API_BASE_URL = 'https://api.miro.com/v2';
 
@@ -59,16 +64,34 @@ export async function POST(request: Request) {
 
     const relationship = relationshipSnapshot.data() as RelationshipDocument;
 
+    const accessToken = await getMiroAccessToken();
+
     if (relationship.miroBoardId && relationship.miroEmbedUrl) {
+      const sharingResult = await makeBoardPublicEditable({
+        accessToken,
+        boardId: relationship.miroBoardId,
+      });
+
+      const now = new Date().toISOString();
+      await relationshipRef.set(
+        {
+          miroPublicEditEnabled: sharingResult.isPublicEditEnabled,
+          miroSharingError: sharingResult.error ?? null,
+          updatedAt: now,
+        },
+        { merge: true }
+      );
+
       return NextResponse.json({
         miroBoardId: relationship.miroBoardId,
         miroBoardUrl: relationship.miroBoardUrl,
-        miroEmbedUrl: relationship.miroEmbedUrl,
+        miroEmbedUrl: ensureAutoplayEmbedUrl(relationship.miroEmbedUrl),
         reusedExistingBoard: true,
+        miroPublicEditEnabled: sharingResult.isPublicEditEnabled,
+        miroSharingError: sharingResult.error,
       });
     }
 
-    const accessToken = await getMiroAccessToken();
     const createdBoard = await createMiroBoard({
       accessToken,
       relationshipId,
@@ -76,7 +99,8 @@ export async function POST(request: Request) {
     });
     const boardId = requireMiroBoardId(createdBoard);
     const boardUrl = createdBoard.viewLink || `https://miro.com/app/board/${boardId}/`;
-    const embedUrl = `https://miro.com/app/live-embed/${boardId}/?autoplay=true`;
+    const embedUrl = ensureAutoplayEmbedUrl(`https://miro.com/app/live-embed/${boardId}/`);
+    const sharingResult = await makeBoardPublicEditable({ accessToken, boardId });
     const invitedEmails = await shareBoardWithRelationshipEmails({
       accessToken,
       boardId,
@@ -92,6 +116,8 @@ export async function POST(request: Request) {
         miroEmbedUrl: embedUrl,
         miroBoardName: createdBoard.name ?? buildBoardName(relationship),
         miroInvitedEmails: invitedEmails,
+        miroPublicEditEnabled: sharingResult.isPublicEditEnabled,
+        miroSharingError: sharingResult.error ?? null,
         miroCreatedAt: now,
         updatedAt: now,
       },
@@ -104,6 +130,8 @@ export async function POST(request: Request) {
       miroEmbedUrl: embedUrl,
       reusedExistingBoard: false,
       invitedEmails,
+      miroPublicEditEnabled: sharingResult.isPublicEditEnabled,
+      miroSharingError: sharingResult.error,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error.';
@@ -158,6 +186,62 @@ function normaliseMiroToken(token: string | undefined) {
   return trimmedToken.replace(/^Bearer\s+/i, '').trim();
 }
 
+function buildPublicEditableBoardPolicy() {
+  return {
+    permissionsPolicy: {
+      collaborationToolsStartAccess: 'all_editors',
+      copyAccess: 'anyone',
+      sharingAccess: 'team_members_with_editing_rights',
+    },
+    sharingPolicy: {
+      access: 'edit',
+      inviteToAccountAndBoardLinkAccess: 'editor',
+      organizationAccess: 'private',
+      teamAccess: 'edit',
+    },
+  };
+}
+
+async function makeBoardPublicEditable({
+  accessToken,
+  boardId,
+}: {
+  accessToken: string;
+  boardId: string;
+}): Promise<MiroSharingResult> {
+  const response = await fetch(`${MIRO_API_BASE_URL}/boards/${encodeURIComponent(boardId)}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      policy: buildPublicEditableBoardPolicy(),
+    }),
+  });
+
+  if (response.ok) {
+    return { isPublicEditEnabled: true };
+  }
+
+  const data = (await response.json().catch(() => ({}))) as {
+    message?: string;
+    error?: string;
+  };
+
+  return {
+    isPublicEditEnabled: false,
+    error: data.message || data.error || `Miro sharing update failed (${response.status}).`,
+  };
+}
+
+function ensureAutoplayEmbedUrl(rawUrl: string) {
+  const url = new URL(rawUrl);
+  url.searchParams.set('autoplay', 'true');
+  return url.toString();
+}
+
 async function createMiroBoard({
   accessToken,
   relationship,
@@ -176,6 +260,7 @@ async function createMiroBoard({
     body: JSON.stringify({
       name: buildBoardName(relationship),
       description: buildBoardDescription(relationship),
+      policy: buildPublicEditableBoardPolicy(),
     }),
   });
   const data = (await response.json()) as MiroBoardResponse & {

@@ -8,7 +8,7 @@
  * WhatsApp-style replies, and owner-controlled message edits/deletes.
  */
 
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, ClipboardEvent, FormEvent, useEffect, useRef, useState } from "react";
 import {
   MathKeyboard,
   MATH_PLACEHOLDER,
@@ -46,6 +46,7 @@ import type {
 import { Button } from "@/shared/components/Button";
 import { Card } from "@/shared/components/Card";
 import { cn } from "@/shared/utils/cn";
+import { getFilesFromClipboard } from "@/shared/utils/clipboardFiles";
 import { DragToBookCalendar } from "@/domains/booking/components/DragToBookCalendar";
 import { useRelationshipBookings } from "@/domains/booking/hooks/useRelationshipBookings";
 import type { BookingRequest } from "@/domains/booking/types/booking";
@@ -514,9 +515,34 @@ export function MessageThread({
     }
   }
 
+  function addSelectedFiles(files: File[]) {
+    if (files.length === 0) return;
+
+    setSelectedFiles((currentFiles) => {
+      const availableSlots = Math.max(0, 5 - currentFiles.length);
+      const nextFiles = files.slice(0, availableSlots);
+
+      if (files.length > availableSlots) {
+        setError("You can attach up to 5 files per message.");
+      }
+
+      return [...currentFiles, ...nextFiles];
+    });
+  }
+
   function handleFilesSelected(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
-    setSelectedFiles((currentFiles) => [...currentFiles, ...files]);
+    event.target.value = "";
+    addSelectedFiles(files);
+  }
+
+  function handleMessagePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    const files = getFilesFromClipboard(event.clipboardData);
+    if (files.length === 0) return;
+
+    event.preventDefault();
+    addSelectedFiles(files);
+    textareaRef.current?.focus();
   }
 
   function removeSelectedFile(fileIndex: number) {
@@ -739,6 +765,7 @@ export function MessageThread({
             id="support-message"
             value={draftMessage}
             onChange={(event) => setDraftMessage(event.target.value)}
+            onPaste={handleMessagePaste}
             onKeyDown={(event) => {
               // Tab remains an optional shortcut for moving between maths slots.
               if (event.key === "Tab") {
@@ -828,7 +855,7 @@ export function MessageThread({
 
                 {!isEmbedded ? (
                   <p className="text-xs text-slate-500">
-                    Images, PDFs, and documents up to 10MB each.
+                    Images, PDFs, documents, and pasted screenshots up to 10MB each.
                   </p>
                 ) : null}
               </div>

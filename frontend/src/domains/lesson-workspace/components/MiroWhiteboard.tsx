@@ -219,14 +219,9 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
   return (
     <Card className="min-w-0">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Whiteboard
-          </p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
-            Persistent Miro board
-          </h2>
-        </div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+          Whiteboard
+        </p>
 
         {boardState.status === 'ready' ? (
           <a

@@ -7,7 +7,7 @@
  * Firebase Storage and a small metadata document is saved on the relationship.
  */
 
-import { ChangeEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, ClipboardEvent, useEffect, useRef, useState } from 'react';
 import { uploadAttachments } from '@/domains/attachments/services/attachmentUploadService';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import { useRelationshipResources } from '@/domains/async-support/hooks/useRelationshipResources';
@@ -22,6 +22,7 @@ import type {
 import type { AuthUser } from '@/domains/auth/types/auth';
 import { Button } from '@/shared/components/Button';
 import { cn } from '@/shared/utils/cn';
+import { getFilesFromClipboard } from '@/shared/utils/clipboardFiles';
 
 const RESOURCE_DRAG_MIME_TYPE = 'application/x-logicgate-resource';
 const RESOURCE_DRAG_START_EVENT = 'logicgate-resource-drag-start';
@@ -52,10 +53,7 @@ export function ResourcesPanel({
 
   useEffect(() => subscribeToCurrentUser(setCurrentUser), []);
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = '';
-
+  async function uploadResourceFiles(files: File[]) {
     if (!currentUser || files.length === 0) return;
 
     try {
@@ -93,6 +91,19 @@ export function ResourcesPanel({
     }
   }
 
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    uploadResourceFiles(files);
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
+    const files = getFilesFromClipboard(event.clipboardData);
+    if (files.length === 0) return;
+
+    event.preventDefault();
+    uploadResourceFiles(files);
+  }
 
   async function handleDeleteResource(resource: SharedResource) {
     const shouldDelete = window.confirm(
@@ -117,7 +128,11 @@ export function ResourcesPanel({
   }
 
   return (
-    <div className={cn('grid min-w-0', isEmbedded ? 'gap-3' : 'gap-4')}>
+    <div
+      className={cn('grid min-w-0 outline-none', isEmbedded ? 'gap-3' : 'gap-4')}
+      tabIndex={0}
+      onPaste={handlePaste}
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -143,7 +158,7 @@ export function ResourcesPanel({
                 isEmbedded ? 'text-xs' : 'text-sm'
               )}
             >
-              Upload files for this student-tutor pair.
+              Upload files for this student-tutor pair. You can also paste screenshots here.
             </p>
           </div>
         </div>
