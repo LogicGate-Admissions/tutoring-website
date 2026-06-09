@@ -1545,18 +1545,19 @@ function AttachmentItem({
   );
 
   const metaLine = (
-    <p
+    <div
       className={cn(
-        "px-3 py-2 text-xs",
+        "min-w-0 overflow-hidden px-3 py-2 text-xs",
         isMine ? "text-slate-300" : "text-slate-500",
       )}
     >
-      <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>
-      {" · "}
-      <span className="break-words [overflow-wrap:anywhere]">{attachment.name}</span>
-      {" · "}
-      {formatFileSize(attachment.sizeBytes)}
-    </p>
+      <p className="min-w-0 truncate" title={attachment.name}>
+        <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>
+        {" · "}
+        <span>{attachment.name}</span>
+      </p>
+      <p className="mt-0.5">{formatFileSize(attachment.sizeBytes)}</p>
+    </div>
   );
 
   if (attachment.url && attachment.kind === "image") {
@@ -1586,36 +1587,40 @@ function AttachmentItem({
         rel="noreferrer"
         className={cn(baseClassName, "px-3 py-2")}
       >
-        <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
-        <span className="break-words [overflow-wrap:anywhere]">
-          {attachment.name}
-        </span>
-        <span
-          className={cn(
-            "ml-2 text-xs",
-            isMine ? "text-slate-300" : "text-slate-500",
-          )}
-        >
-          {formatFileSize(attachment.sizeBytes)}
-        </span>
+        <div className="min-w-0 overflow-hidden">
+          <p className="truncate" title={attachment.name}>
+            <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
+            <span>{attachment.name}</span>
+          </p>
+          <p
+            className={cn(
+              "mt-0.5 text-xs",
+              isMine ? "text-slate-300" : "text-slate-500",
+            )}
+          >
+            {formatFileSize(attachment.sizeBytes)}
+          </p>
+        </div>
       </a>
     );
   }
 
   return (
     <div className={cn(baseClassName, "px-3 py-2 opacity-70")}>
-      <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
-      <span className="break-words [overflow-wrap:anywhere]">
-        {attachment.name}
-      </span>
-      <span
-        className={cn(
-          "ml-2 text-xs",
-          isMine ? "text-slate-300" : "text-slate-500",
-        )}
-      >
-        {formatFileSize(attachment.sizeBytes)}
-      </span>
+      <div className="min-w-0 overflow-hidden">
+        <p className="truncate" title={attachment.name}>
+          <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
+          <span>{attachment.name}</span>
+        </p>
+        <p
+          className={cn(
+            "mt-0.5 text-xs",
+            isMine ? "text-slate-300" : "text-slate-500",
+          )}
+        >
+          {formatFileSize(attachment.sizeBytes)}
+        </p>
+      </div>
       <span
         className={cn(
           "mt-1 block text-xs",
@@ -1636,22 +1641,24 @@ function SelectedAttachmentList({
   onRemove: (fileIndex: number) => void;
 }) {
   return (
-    <div className="grid gap-2 rounded-2xl bg-slate-50 p-3">
+    <div className="grid min-w-0 max-w-full gap-2 overflow-hidden rounded-2xl bg-slate-50 p-3">
       {files.map((file, index) => (
         <div
           key={`${file.name}-${file.size}-${index}`}
-          className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm text-slate-700"
+          className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl bg-white px-3 py-2 text-sm text-slate-700"
         >
-          <span className="min-w-0 truncate">
-            {file.name}{" "}
-            <span className="text-xs text-slate-500">
+          <div className="min-w-0 overflow-hidden">
+            <p className="truncate font-medium" title={file.name}>
+              {file.name}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
               {formatFileSize(file.size)}
-            </span>
-          </span>
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => onRemove(index)}
-            className="shrink-0 text-xs font-semibold text-slate-500 hover:text-slate-950"
+            className="shrink-0 rounded-full px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-950"
           >
             Remove
           </button>
