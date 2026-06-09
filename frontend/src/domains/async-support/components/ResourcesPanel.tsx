@@ -235,8 +235,6 @@ function ResourceCard({
                   title: resource.title,
                 })
               );
-              event.dataTransfer.setData('text/uri-list', url);
-              event.dataTransfer.setData('text/plain', url);
               event.dataTransfer.effectAllowed = 'copy';
               window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_START_EVENT));
             }}

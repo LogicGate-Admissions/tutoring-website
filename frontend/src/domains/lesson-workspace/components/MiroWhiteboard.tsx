@@ -60,7 +60,6 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
     useState(false);
   const [isAddingResource, setIsAddingResource] = useState(false);
   const [dropMessage, setDropMessage] = useState<string | null>(null);
-  const [iframeVersion, setIframeVersion] = useState(0);
 
   useEffect(() => {
     function handleResourceDragStart() {
@@ -135,6 +134,7 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
 
   async function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
+    event.stopPropagation();
     setIsResourceDragActive(false);
     setIsDraggingResourceOverBoard(false);
 
@@ -174,7 +174,6 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
       }
 
       setDropMessage(`${payload.title} was added to the board.`);
-      setIframeVersion((version) => version + 1);
     } catch (dropFailure) {
       setDropMessage(
         dropFailure instanceof Error
@@ -192,12 +191,14 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
 
     if (hasDraggedResource(event)) {
       event.preventDefault();
+      event.stopPropagation();
       event.dataTransfer.dropEffect = 'copy';
       setIsDraggingResourceOverBoard(true);
     }
   }
 
   function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    event.stopPropagation();
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
       setIsDraggingResourceOverBoard(false);
     }
@@ -274,7 +275,6 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
 
         {boardState.status === 'ready' ? (
           <iframe
-            key={`${boardState.miroEmbedUrl}-${iframeVersion}`}
             title="Lesson Miro whiteboard"
             src={boardState.miroEmbedUrl}
             className="h-full w-full border-0"
