@@ -8,6 +8,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDocs,
   onSnapshot,
@@ -15,7 +16,8 @@ import {
   query,
   updateDoc,
 } from 'firebase/firestore';
-import { db } from '@/shared/lib/firebase';
+import { deleteObject, ref } from 'firebase/storage';
+import { db, storage } from '@/shared/lib/firebase';
 import type {
   AsyncSupportRole,
   SharedResource,
@@ -97,6 +99,32 @@ export async function createRelationshipResource(
     id: resourceRef.id,
     ...resourceData,
   };
+}
+
+
+/** Deletes a relationship resource and its Firebase Storage file when present. */
+export async function deleteRelationshipResource(resource: SharedResource) {
+  const storagePath = resource.attachment?.storagePath;
+
+  if (storagePath) {
+    try {
+      await deleteObject(ref(storage, storagePath));
+    } catch {
+      // The Firestore record should still be removed if the file was already gone.
+    }
+  }
+
+  await deleteDoc(
+    doc(
+      db,
+      RELATIONSHIPS_COLLECTION,
+      resource.relationshipId,
+      RESOURCES_SUBCOLLECTION,
+      resource.id
+    )
+  );
+
+  await updateResourceCount(resource.relationshipId);
 }
 
 async function updateResourceCount(relationshipId: string) {

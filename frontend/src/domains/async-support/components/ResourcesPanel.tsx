@@ -11,7 +11,10 @@ import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { uploadAttachments } from '@/domains/attachments/services/attachmentUploadService';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import { useRelationshipResources } from '@/domains/async-support/hooks/useRelationshipResources';
-import { createRelationshipResource } from '@/domains/async-support/services/resourcesService';
+import {
+  createRelationshipResource,
+  deleteRelationshipResource,
+} from '@/domains/async-support/services/resourcesService';
 import type {
   AsyncSupportRole,
   SharedResource,
@@ -30,6 +33,7 @@ export function ResourcesPanel({ relationshipId, viewerRole }: ResourcesPanelPro
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [deletingResourceId, setDeletingResourceId] = useState<string | null>(null);
   const { resources, loading, error } = useRelationshipResources(relationshipId);
 
   useEffect(() => subscribeToCurrentUser(setCurrentUser), []);
@@ -72,6 +76,29 @@ export function ResourcesPanel({ relationshipId, viewerRole }: ResourcesPanelPro
       );
     } finally {
       setIsUploading(false);
+    }
+  }
+
+
+  async function handleDeleteResource(resource: SharedResource) {
+    const shouldDelete = window.confirm(
+      `Delete "${resource.title}" from shared resources?`
+    );
+
+    if (!shouldDelete) return;
+
+    try {
+      setDeletingResourceId(resource.id);
+      setUploadError(null);
+      await deleteRelationshipResource(resource);
+    } catch (deleteFailure) {
+      setUploadError(
+        deleteFailure instanceof Error
+          ? deleteFailure.message
+          : 'Could not delete this resource.'
+      );
+    } finally {
+      setDeletingResourceId(null);
     }
   }
 
@@ -128,66 +155,91 @@ export function ResourcesPanel({ relationshipId, viewerRole }: ResourcesPanelPro
 
       <div className="grid gap-3">
         {resources.map((resource) => (
-          <ResourceCard key={resource.id} resource={resource} />
+          <ResourceCard
+            key={resource.id}
+            resource={resource}
+            isDeleting={deletingResourceId === resource.id}
+            onDelete={handleDeleteResource}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function ResourceCard({ resource }: { resource: SharedResource }) {
+function ResourceCard({
+  resource,
+  isDeleting,
+  onDelete,
+}: {
+  resource: SharedResource;
+  isDeleting: boolean;
+  onDelete: (resource: SharedResource) => void;
+}) {
   const attachment = resource.attachment;
   const url = attachment?.url ?? resource.url;
   const sizeLabel = attachment ? formatFileSize(attachment.sizeBytes) : null;
+  const content = (
+    <>
+      <div
+        className={cn(
+          'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xs font-bold uppercase',
+          attachment?.kind === 'pdf'
+            ? 'bg-rose-50 text-rose-700'
+            : attachment?.kind === 'image'
+              ? 'bg-blue-50 text-blue-700'
+              : 'bg-slate-100 text-slate-700'
+        )}
+      >
+        {getResourceKindLabel(attachment?.kind)}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-sm font-semibold text-slate-950">
+          {resource.title}
+        </h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Uploaded by {resource.createdByName} · {formatResourceTime(resource.createdAt)}
+        </p>
+        {sizeLabel ? (
+          <p className="mt-1 text-xs text-slate-400">{sizeLabel}</p>
+        ) : null}
+      </div>
+    </>
+  );
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
       <div className="flex items-start gap-3">
-        <div
-          className={cn(
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xs font-bold uppercase',
-            attachment?.kind === 'pdf'
-              ? 'bg-rose-50 text-rose-700'
-              : attachment?.kind === 'image'
-                ? 'bg-blue-50 text-blue-700'
-                : 'bg-slate-100 text-slate-700'
-          )}
-        >
-          {getResourceKindLabel(attachment?.kind)}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold text-slate-950">
-            {resource.title}
-          </h3>
-          <p className="mt-1 text-xs text-slate-500">
-            Uploaded by {resource.createdByName} · {formatResourceTime(resource.createdAt)}
-          </p>
-          {sizeLabel ? (
-            <p className="mt-1 text-xs text-slate-400">{sizeLabel}</p>
-          ) : null}
-        </div>
-      </div>
-
-      {url ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        {url ? (
           <a
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+            draggable
+            onDragStart={(event) => {
+              event.dataTransfer.setData('text/uri-list', url);
+              event.dataTransfer.setData('text/plain', url);
+              event.dataTransfer.effectAllowed = 'copy';
+            }}
+            className="flex min-w-0 flex-1 items-start gap-3 rounded-2xl transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            title="Open resource"
           >
-            Open
+            {content}
           </a>
-          <a
-            href={url}
-            download={resource.title}
-            className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            Download
-          </a>
-        </div>
-      ) : null}
+        ) : (
+          <div className="flex min-w-0 flex-1 items-start gap-3">{content}</div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => onDelete(resource)}
+          disabled={isDeleting}
+          className="shrink-0 rounded-full border border-rose-100 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isDeleting ? 'Deleting...' : 'Delete'}
+        </button>
+      </div>
     </article>
   );
 }
