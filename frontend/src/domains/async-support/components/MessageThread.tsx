@@ -387,6 +387,9 @@ export function MessageThread({
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -739,6 +742,11 @@ export function MessageThread({
             id="support-message"
             value={draftMessage}
             onChange={(event) => setDraftMessage(event.target.value)}
+            onInput={(event) => {
+              const el = event.currentTarget;
+              el.style.height = "auto";
+              el.style.height = `${el.scrollHeight}px`;
+            }}
             onKeyDown={(event) => {
               // Tab remains an optional shortcut for moving between maths slots.
               if (event.key === "Tab") {
@@ -750,9 +758,10 @@ export function MessageThread({
               }
             }}
             placeholder="Write a message..."
-            rows={isEmbedded ? 3 : 4}
+            rows={1}
             maxLength={2000}
-            className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
+            style={{ maxHeight: "10rem" }}
+            className="w-full resize-none overflow-y-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
           />
 
           {/* Live rendered preview – shown whenever the draft contains $...$ math */}
