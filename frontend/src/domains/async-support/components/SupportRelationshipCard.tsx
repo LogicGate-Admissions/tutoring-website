@@ -22,6 +22,9 @@ import type {
 import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
 import { getTutorProfile } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
+import { StudentProfileModal } from '@/domains/students/learning-profile/components/StudentProfileModal';
+import { getStudentLearningProfileById } from '@/domains/students/learning-profile/services/learningProfileStorage';
+import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
 
 type SupportRelationshipAction = {
   label: string;
@@ -45,36 +48,61 @@ export function SupportRelationshipCard({
 }: SupportRelationshipCardProps) {
   const [showBooking, setShowBooking] = useState(false);
   const [profileForModal, setProfileForModal] = useState<Tutor | null>(null);
+  const [studentProfileForModal, setStudentProfileForModal] = useState<{
+    studentName: string;
+    profile: StudentLearningProfile;
+  } | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [isLoadingStudentProfile, setIsLoadingStudentProfile] = useState(false);
 
   async function handleTutorNameClick() {
     if (isLoadingProfile) return;
+
     setIsLoadingProfile(true);
+
     try {
       const profile = await getTutorProfile(relationship.tutorId);
-      setProfileForModal(profile);
+      if (profile) setProfileForModal(profile);
     } finally {
       setIsLoadingProfile(false);
     }
   }
+
+  async function handleStudentNameClick() {
+    if (isLoadingStudentProfile) return;
+
+    setIsLoadingStudentProfile(true);
+
+    try {
+      const profile = await getStudentLearningProfileById(relationship.studentId);
+      setStudentProfileForModal({
+        studentName: relationship.studentName,
+        profile,
+      });
+    } finally {
+      setIsLoadingStudentProfile(false);
+    }
+  }
+
   const { upcomingSession } = useRelationshipBookings(
     relationship.tutorId,
-    relationship.studentId
+    relationship.studentId,
   );
 
   const otherPersonName =
     viewerRole === 'tutor' ? relationship.studentName : relationship.tutorName;
-
   const otherPersonLabel = viewerRole === 'tutor' ? 'Student' : 'Tutor';
 
   const actionsWithBooking = useMemo(() => {
-    const withoutBookSession = actions.filter((action) => action.label !== 'Book session');
+    const withoutBookSession = actions.filter(
+      (action) => action.label !== 'Book session',
+    );
     const bookSessionAction: SupportRelationshipAction = {
       label: 'Book session',
       onClick: () => setShowBooking(true),
     };
     const workspaceIndex = withoutBookSession.findIndex(
-      (action) => action.label === 'Workspace'
+      (action) => action.label === 'Workspace',
     );
 
     if (workspaceIndex >= 0) {
@@ -98,22 +126,21 @@ export function SupportRelationshipCard({
             </p>
 
             {viewerRole === 'student' ? (
-              <button
-                type="button"
-                onClick={() => void handleTutorNameClick()}
+              <ProfileNameButton
+                label={isLoadingProfile ? 'Loading...' : otherPersonName || 'Unnamed'}
                 disabled={isLoadingProfile}
-                className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-950 transition hover:border-slate-300 hover:bg-slate-100 disabled:opacity-60"
-              >
-                {isLoadingProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
-                <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="8" cy="5" r="3" />
-                  <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
-                </svg>
-              </button>
+                onClick={() => void handleTutorNameClick()}
+              />
             ) : (
-              <h2 className="mt-1 text-lg font-semibold text-slate-950">
-                {otherPersonName || 'Unnamed relationship'}
-              </h2>
+              <ProfileNameButton
+                label={
+                  isLoadingStudentProfile
+                    ? 'Loading...'
+                    : otherPersonName || 'Unnamed relationship'
+                }
+                disabled={isLoadingStudentProfile}
+                onClick={() => void handleStudentNameClick()}
+              />
             )}
 
             <p className="mt-1 text-sm text-slate-600">
@@ -127,7 +154,11 @@ export function SupportRelationshipCard({
           <div className="flex flex-wrap gap-2 sm:justify-end">
             {relationship.hasUnreadMessageActivity ? (
               <MetricBadge
-                label={relationship.latestMessageUrgency === 'urgent' ? 'Urgent' : 'New message'}
+                label={
+                  relationship.latestMessageUrgency === 'urgent'
+                    ? 'Urgent'
+                    : 'New message'
+                }
                 value={relationship.unreadMessageCount}
                 active
                 urgent={relationship.latestMessageUrgency === 'urgent'}
@@ -165,7 +196,55 @@ export function SupportRelationshipCard({
           onClose={() => setProfileForModal(null)}
         />
       ) : null}
+
+      {studentProfileForModal ? (
+        <StudentProfileModal
+          studentName={studentProfileForModal.studentName}
+          profile={studentProfileForModal.profile}
+          onClose={() => setStudentProfileForModal(null)}
+        />
+      ) : null}
     </>
+  );
+}
+
+function ProfileNameButton({
+  label,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-950 transition hover:border-slate-300 hover:bg-slate-100 disabled:opacity-60"
+    >
+      {label}
+      <ProfileIcon />
+    </button>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      className="h-3.5 w-3.5 text-slate-400"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="8" cy="5" r="3" />
+      <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+    </svg>
   );
 }
 
@@ -280,15 +359,11 @@ function MetricBadge({
 }
 
 function formatCardTime(value?: string) {
-  if (!value) {
-    return '';
-  }
+  if (!value) return '';
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
+  if (Number.isNaN(date.getTime())) return '';
 
   return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',

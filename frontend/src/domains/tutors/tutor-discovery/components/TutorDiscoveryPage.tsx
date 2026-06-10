@@ -106,6 +106,23 @@ export function TutorDiscoveryPage() {
 
         if (isMounted) {
           setTutors(profiles);
+          const loadedDynamicMaxPrice = getDynamicMaxTutorPrice(profiles);
+          setFilters((currentFilters) => {
+            const isStillAtDefaultMax =
+              currentFilters.maxPricePerHour === DEFAULT_TUTOR_FILTERS.maxPricePerHour;
+
+            if (
+              !isStillAtDefaultMax ||
+              loadedDynamicMaxPrice <= DEFAULT_TUTOR_FILTERS.maxPricePerHour
+            ) {
+              return currentFilters;
+            }
+
+            return {
+              ...currentFilters,
+              maxPricePerHour: loadedDynamicMaxPrice,
+            };
+          });
         }
       } finally {
         if (isMounted) {
@@ -139,26 +156,6 @@ export function TutorDiscoveryPage() {
     () => getDynamicMaxTutorPrice(tutors),
     [tutors]
   );
-
-  useEffect(() => {
-    setFilters((currentFilters) => {
-      const isStillAtDefaultMax =
-        currentFilters.maxPricePerHour === DEFAULT_TUTOR_FILTERS.maxPricePerHour;
-
-      if (!isStillAtDefaultMax) {
-        return currentFilters;
-      }
-
-      if (dynamicMaxTutorPrice <= DEFAULT_TUTOR_FILTERS.maxPricePerHour) {
-        return currentFilters;
-      }
-
-      return {
-        ...currentFilters,
-        maxPricePerHour: dynamicMaxTutorPrice,
-      };
-    });
-  }, [dynamicMaxTutorPrice]);
 
   const selectedTutorRequest = selectedTutor
     ? findExistingRequest(selectedTutor.id)

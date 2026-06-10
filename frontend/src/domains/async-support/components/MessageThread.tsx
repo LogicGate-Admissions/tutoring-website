@@ -66,6 +66,7 @@ import {
 import {
   getStoredLearningProfile,
   getStudentAvailabilityById,
+  getStudentLearningProfileById,
   updateStoredLearningProfile,
 } from "@/domains/students/learning-profile/services/learningProfileStorage";
 import {
@@ -74,10 +75,12 @@ import {
   saveTutorProfileFromOnboarding,
 } from "@/domains/tutors/tutor-discovery/services/tutorProfileService";
 import { TutorProfileModal } from "@/domains/tutors/tutor-discovery/components/TutorProfileModal";
+import { StudentProfileModal } from "@/domains/students/learning-profile/components/StudentProfileModal";
 import type { Tutor } from "@/domains/tutors/tutor-discovery/types/tutor";
 import type { AuthUser } from "@/domains/auth/types/auth";
 import type {
   Day,
+  StudentLearningProfile,
   TimeBlock,
 } from "@/domains/students/learning-profile/types/learningProfile";
 import type { TutorProfileDraft } from "@/domains/tutors/tutor-discovery/services/tutorProfileService";
@@ -144,16 +147,37 @@ export function MessageThread({
     TimeBlock[]
   >([]);
   const [tutorProfileModal, setTutorProfileModal] = useState<Tutor | null>(null);
+  const [studentProfileModal, setStudentProfileModal] = useState<{
+    studentName: string;
+    profile: StudentLearningProfile;
+  } | null>(null);
   const [isLoadingTutorProfile, setIsLoadingTutorProfile] = useState(false);
+  const [isLoadingStudentProfile, setIsLoadingStudentProfile] = useState(false);
 
   async function handleTutorNameClick() {
     if (!relationship?.tutorId || isLoadingTutorProfile) return;
     setIsLoadingTutorProfile(true);
     try {
       const profile = await getTutorProfile(relationship.tutorId);
-      setTutorProfileModal(profile);
+      if (profile) setTutorProfileModal(profile);
     } finally {
       setIsLoadingTutorProfile(false);
+    }
+  }
+
+  async function handleStudentNameClick() {
+    if (!relationship?.studentId || isLoadingStudentProfile) return;
+
+    setIsLoadingStudentProfile(true);
+
+    try {
+      const profile = await getStudentLearningProfileById(relationship.studentId);
+      setStudentProfileModal({
+        studentName: relationship.studentName,
+        profile,
+      });
+    } finally {
+      setIsLoadingStudentProfile(false);
     }
   }
 
@@ -694,7 +718,14 @@ export function MessageThread({
                     {isLoadingTutorProfile ? "Loading..." : relationship.tutorName}
                   </button>
                 ) : (
-                  relationship.studentName
+                  <button
+                    type="button"
+                    onClick={() => void handleStudentNameClick()}
+                    disabled={isLoadingStudentProfile}
+                    className="font-medium underline-offset-2 hover:underline disabled:opacity-60"
+                  >
+                    {isLoadingStudentProfile ? "Loading..." : relationship.studentName}
+                  </button>
                 )}
               </p>
               <p className="mt-1">
@@ -760,6 +791,11 @@ export function MessageThread({
                     canChangeUrgency={canChangeUrgency}
                     onRegisterElement={registerMessageElement}
                     onJumpToMessage={jumpToMessage}
+                    onSenderNameClick={
+                      message.senderRole === "tutor"
+                        ? () => void handleTutorNameClick()
+                        : () => void handleStudentNameClick()
+                    }
                     onReply={() => startReplyTo(message)}
                     onStartEdit={() => startEditingMessage(message)}
                     onEditDraftChange={setEditDraft}
@@ -964,6 +1000,14 @@ export function MessageThread({
         />
       ) : null}
 
+      {studentProfileModal ? (
+        <StudentProfileModal
+          studentName={studentProfileModal.studentName}
+          profile={studentProfileModal.profile}
+          onClose={() => setStudentProfileModal(null)}
+        />
+      ) : null}
+
       {isScheduleOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -1152,6 +1196,7 @@ function MessageBubble({
   onSetUrgency,
   onRegisterElement,
   onJumpToMessage,
+  onSenderNameClick,
 }: {
   relationshipId: string;
   message: SupportMessage;
@@ -1174,6 +1219,7 @@ function MessageBubble({
     element: HTMLDivElement | null,
   ) => void;
   onJumpToMessage: (messageId: string) => void;
+  onSenderNameClick: () => void;
 }) {
   const isDeleted = message.isDeleted === true;
 
@@ -1190,14 +1236,16 @@ function MessageBubble({
         )}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span
+          <button
+            type="button"
+            onClick={onSenderNameClick}
             className={cn(
-              "text-xs font-semibold",
+              "text-xs font-semibold underline-offset-2 hover:underline",
               isMine ? "text-slate-200" : "text-slate-600",
             )}
           >
             {isMine ? "You" : message.senderName || "Unknown user"}
-          </span>
+          </button>
 
           {!isDeleted && message.urgency === "urgent" ? (
             <span

@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { MIN_TUTOR_PRICE_PER_HOUR } from "@/domains/tutors/tutor-discovery/constants/tutorProfiles";
-import type { Tutor } from "@/domains/tutors/tutor-discovery/types/tutor";
-import { cn } from "@/shared/utils/cn";
+import { useRef, useState } from 'react';
+import { MIN_TUTOR_PRICE_PER_HOUR } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
+import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
+import { cn } from '@/shared/utils/cn';
 
 const BUCKET_COUNT = 14;
 const PRICE_STEP = 5;
 
-type ActiveHandle = "min" | "max";
+type ActiveHandle = 'min' | 'max';
+type EditingField = 'min' | 'max' | null;
 
 function roundUpToStep(value: number, step = PRICE_STEP) {
   return Math.ceil(value / step) * step;
@@ -58,17 +59,14 @@ function clampPrice(value: number, maxPrice: number) {
 }
 
 function cleanPriceInput(rawValue: string) {
-  const onlyNumbersAndDot = rawValue.replace(/[^\d.]/g, "");
-  const [rawWhole = "", ...rest] = onlyNumbersAndDot.split(".");
-  const hasDot = onlyNumbersAndDot.includes(".");
-  const rawDecimal = rest.join("");
-
-  const wholeWithoutLeadingZeros = rawWhole.replace(/^0+(?=\d)/, "") || "0";
+  const onlyNumbersAndDot = rawValue.replace(/[^\d.]/g, '');
+  const [rawWhole = '', ...rest] = onlyNumbersAndDot.split('.');
+  const hasDot = onlyNumbersAndDot.includes('.');
+  const rawDecimal = rest.join('');
+  const wholeWithoutLeadingZeros = rawWhole.replace(/^0+(?=\d)/, '') || '0';
   const decimal = rawDecimal.slice(0, 2);
 
-  if (hasDot) {
-    return `${wholeWithoutLeadingZeros}.${decimal}`;
-  }
+  if (hasDot) return `${wholeWithoutLeadingZeros}.${decimal}`;
 
   return wholeWithoutLeadingZeros;
 }
@@ -76,6 +74,10 @@ function cleanPriceInput(rawValue: string) {
 function priceInputToNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatPriceDraft(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 }
 
 export function PriceRangeControls({
@@ -97,13 +99,12 @@ export function PriceRangeControls({
     startX: number;
     handle: ActiveHandle | null;
   } | null>(null);
-
   const [activeHandle, setActiveHandle] = useState<ActiveHandle | null>(null);
-  const [minDraft, setMinDraft] = useState(String(minPrice));
-  const [maxDraft, setMaxDraft] = useState(String(maxPrice));
+  const [editingField, setEditingField] = useState<EditingField>(null);
+  const [minDraft, setMinDraft] = useState(formatPriceDraft(minPrice));
+  const [maxDraft, setMaxDraft] = useState(formatPriceDraft(maxPrice));
 
   const dynamicMaxPrice = getDynamicMaxPrice(allTutors);
-
   const { counts, bucketWidth } =
     allTutors && allTutors.length > 0
       ? buildBuckets(allTutors, dynamicMaxPrice)
@@ -112,18 +113,9 @@ export function PriceRangeControls({
   const safeMinPrice = clampPrice(minPrice, dynamicMaxPrice);
   const safeMaxPrice = clampPrice(maxPrice, dynamicMaxPrice);
   const maxCount = Math.max(...counts, 1);
-
   const selectedLeft = priceToPercent(safeMinPrice, dynamicMaxPrice);
   const selectedRight = 100 - priceToPercent(safeMaxPrice, dynamicMaxPrice);
   const handlesOverlap = safeMinPrice === safeMaxPrice;
-
-  useEffect(() => {
-    setMinDraft(String(safeMinPrice));
-  }, [safeMinPrice]);
-
-  useEffect(() => {
-    setMaxDraft(String(safeMaxPrice));
-  }, [safeMaxPrice]);
 
   function updateMin(value: number) {
     const nextValue = clampPrice(value, dynamicMaxPrice);
@@ -153,7 +145,7 @@ export function PriceRangeControls({
     const minDistance = Math.abs(pointerPrice - safeMinPrice);
     const maxDistance = Math.abs(pointerPrice - safeMaxPrice);
 
-    return minDistance <= maxDistance ? "min" : "max";
+    return minDistance <= maxDistance ? 'min' : 'max';
   }
 
   function startDrag(event: React.PointerEvent<HTMLDivElement>) {
@@ -175,10 +167,8 @@ export function PriceRangeControls({
 
     if (!drag.handle && handlesOverlap) {
       const deltaX = event.clientX - drag.startX;
-
       if (Math.abs(deltaX) < 2) return;
-
-      drag.handle = deltaX > 0 ? "max" : "min";
+      drag.handle = deltaX > 0 ? 'max' : 'min';
       setActiveHandle(drag.handle);
     }
 
@@ -186,11 +176,8 @@ export function PriceRangeControls({
 
     const nextPrice = priceFromPointer(event.clientX);
 
-    if (drag.handle === "min") {
-      updateMin(nextPrice);
-    } else {
-      updateMax(nextPrice);
-    }
+    if (drag.handle === 'min') updateMin(nextPrice);
+    else updateMax(nextPrice);
   }
 
   function stopDrag(event: React.PointerEvent<HTMLDivElement>) {
@@ -234,7 +221,7 @@ export function PriceRangeControls({
     const numericValue = priceInputToNumber(minDraft);
 
     if (numericValue === null) {
-      setMinDraft(String(safeMinPrice));
+      setEditingField(null);
       return;
     }
 
@@ -244,14 +231,15 @@ export function PriceRangeControls({
     );
 
     onMinPriceChange(nextValue);
-    setMinDraft(String(nextValue));
+    setMinDraft(formatPriceDraft(nextValue));
+    setEditingField(null);
   }
 
   function normaliseMaxInput() {
     const numericValue = priceInputToNumber(maxDraft);
 
     if (numericValue === null) {
-      setMaxDraft(String(safeMaxPrice));
+      setEditingField(null);
       return;
     }
 
@@ -261,7 +249,8 @@ export function PriceRangeControls({
     );
 
     onMaxPriceChange(nextValue);
-    setMaxDraft(String(nextValue));
+    setMaxDraft(formatPriceDraft(nextValue));
+    setEditingField(null);
   }
 
   return (
@@ -285,8 +274,8 @@ export function PriceRangeControls({
               <div key={index} className="flex h-full flex-1 items-end">
                 <div
                   className={cn(
-                    "w-full rounded-t-sm",
-                    isSelected ? "bg-slate-950" : "bg-slate-200",
+                    'w-full rounded-t-sm',
+                    isSelected ? 'bg-slate-950' : 'bg-slate-200',
                   )}
                   style={{
                     height: `${Math.max(
@@ -296,7 +285,7 @@ export function PriceRangeControls({
                   }}
                   title={`£${Math.round(bucketMin)} - £${Math.round(
                     bucketMax,
-                  )}: ${count} tutor${count === 1 ? "" : "s"}`}
+                  )}: ${count} tutor${count === 1 ? '' : 's'}`}
                 />
               </div>
             );
@@ -309,6 +298,7 @@ export function PriceRangeControls({
           aria-label="Hourly rate range"
           aria-valuemin={MIN_TUTOR_PRICE_PER_HOUR}
           aria-valuemax={dynamicMaxPrice}
+          aria-valuenow={safeMaxPrice}
           aria-valuetext={`£${safeMinPrice} to £${safeMaxPrice}`}
           tabIndex={0}
           onPointerDown={startDrag}
@@ -322,7 +312,6 @@ export function PriceRangeControls({
           className="relative mt-2 h-6 cursor-pointer touch-none select-none"
         >
           <div className="absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
-
           <div
             className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-950"
             style={{ left: `${selectedLeft}%`, right: `${selectedRight}%` }}
@@ -330,31 +319,31 @@ export function PriceRangeControls({
 
           <div
             className={cn(
-              "pointer-events-none absolute z-20 h-5 w-5 rounded-full border-2 border-white bg-slate-950 shadow transition-transform",
-              activeHandle === "min" && "scale-110",
+              'pointer-events-none absolute z-20 h-5 w-5 rounded-full border-2 border-white bg-slate-950 shadow transition-transform',
+              activeHandle === 'min' && 'scale-110',
             )}
             style={{
               left: `${selectedLeft}%`,
-              top: "50%",
+              top: '50%',
               transform:
-                handlesOverlap && activeHandle !== "max"
-                  ? "translate(-70%, -50%)"
-                  : "translate(-50%, -50%)",
+                handlesOverlap && activeHandle !== 'max'
+                  ? 'translate(-70%, -50%)'
+                  : 'translate(-50%, -50%)',
             }}
           />
 
           <div
             className={cn(
-              "pointer-events-none absolute z-30 h-5 w-5 rounded-full border-2 border-white bg-slate-950 shadow transition-transform",
-              activeHandle === "max" && "scale-110",
+              'pointer-events-none absolute z-30 h-5 w-5 rounded-full border-2 border-white bg-slate-950 shadow transition-transform',
+              activeHandle === 'max' && 'scale-110',
             )}
             style={{
               left: `${100 - selectedRight}%`,
-              top: "50%",
+              top: '50%',
               transform:
-                handlesOverlap && activeHandle !== "min"
-                  ? "translate(-30%, -50%)"
-                  : "translate(-50%, -50%)",
+                handlesOverlap && activeHandle !== 'min'
+                  ? 'translate(-30%, -50%)'
+                  : 'translate(-50%, -50%)',
             }}
           />
         </div>
@@ -368,15 +357,23 @@ export function PriceRangeControls({
       <div className="grid grid-cols-2 gap-2">
         <PriceNumberField
           label="Min"
-          value={minDraft}
+          value={editingField === 'min' ? minDraft : formatPriceDraft(safeMinPrice)}
           maxPrice={dynamicMaxPrice}
+          onFocus={() => {
+            setEditingField('min');
+            setMinDraft(formatPriceDraft(safeMinPrice));
+          }}
           onChange={handleMinInputChange}
           onBlur={normaliseMinInput}
         />
         <PriceNumberField
           label="Max"
-          value={maxDraft}
+          value={editingField === 'max' ? maxDraft : formatPriceDraft(safeMaxPrice)}
           maxPrice={dynamicMaxPrice}
+          onFocus={() => {
+            setEditingField('max');
+            setMaxDraft(formatPriceDraft(safeMaxPrice));
+          }}
           onChange={handleMaxInputChange}
           onBlur={normaliseMaxInput}
         />
@@ -389,12 +386,14 @@ function PriceNumberField({
   label,
   value,
   maxPrice,
+  onFocus,
   onChange,
   onBlur,
 }: {
   label: string;
   value: string;
   maxPrice: number;
+  onFocus: () => void;
   onChange: (value: string) => void;
   onBlur: () => void;
 }) {
@@ -407,6 +406,7 @@ function PriceNumberField({
         min={MIN_TUTOR_PRICE_PER_HOUR}
         max={maxPrice}
         value={value}
+        onFocus={onFocus}
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
