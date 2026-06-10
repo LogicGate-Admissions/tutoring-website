@@ -19,8 +19,6 @@ export function StudentProfileModal({
   profile,
   onClose,
 }: StudentProfileModalProps) {
-  const tutoringNeeds = flattenSelections(profile.subjectSelections);
-  const studiedSubjects = flattenSelections(profile.studiedSubjectSelections);
   const availabilitySummary = profile.availability.length > 0
     ? 'Student availability shown below.'
     : 'Availability not added yet';
@@ -60,12 +58,6 @@ export function StudentProfileModal({
           >
             Close
           </button>
-        </div>
-
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <ProfileStat label="tutoring needs" value={String(tutoringNeeds.length)} />
-          <ProfileStat label="studied subjects" value={String(studiedSubjects.length)} />
-          <ProfileStat label="learning styles" value={String(profile.learningStyles.length)} />
         </div>
 
         <div className="mt-6 grid gap-6">
@@ -114,16 +106,6 @@ export function StudentProfileModal({
     </div>
   );
 }
-
-function ProfileStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
-      <p className="text-xl font-semibold text-slate-950">{value}</p>
-      <p className="mt-1 text-xs font-medium text-slate-500">{label}</p>
-    </div>
-  );
-}
-
 function ProfileSection({
   title,
   children,
@@ -182,10 +164,6 @@ function BadgeList({ values }: { values: string[] }) {
 
 function EmptyText({ children }: { children: string }) {
   return <p className="text-sm leading-6 text-slate-700">{children}</p>;
-}
-
-function flattenSelections(selections: QualificationSubjectSelection[]) {
-  return selections.flatMap((selection) => selection.subjects);
 }
 
 function studentInitials(name: string) {

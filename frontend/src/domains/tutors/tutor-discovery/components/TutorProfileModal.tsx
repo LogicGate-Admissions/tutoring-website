@@ -129,9 +129,7 @@ export function TutorProfileModal({
 
           <div className="grid gap-5 md:grid-cols-2">
             <ProfileSection title="Learning styles">
-              <p className="text-sm leading-6 text-slate-700">
-                {tutor.learningStyles.join(', ')}
-              </p>
+              <BadgeList values={tutor.learningStyles} />
             </ProfileSection>
 
             <ProfileSection title="Availability">
