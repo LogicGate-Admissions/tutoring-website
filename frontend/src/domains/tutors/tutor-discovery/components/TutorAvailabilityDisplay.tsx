@@ -3,13 +3,13 @@ import { timeToMinutes } from '@/domains/students/learning-profile/utils/timeBlo
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
-// 2-hour slots from 6am to 10pm
+// 2-hour slots from 6am to midnight
 const SLOT_START = 6;
-const SLOT_END = 22;
+const SLOT_END = 24;
 const SLOT_STEP = 2;
 
 function slotLabel(hour: number) {
-  if (hour === 0) return '12am';
+  if (hour === 0 || hour === 24) return '12am';
   if (hour < 12) return `${hour}am`;
   if (hour === 12) return '12pm';
   return `${hour - 12}pm`;
