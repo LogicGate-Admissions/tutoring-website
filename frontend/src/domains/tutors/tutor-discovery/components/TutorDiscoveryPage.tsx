@@ -254,6 +254,7 @@ export function TutorDiscoveryPage() {
         <div className="lg:sticky lg:top-8">
           <TutorFiltersPanel
             filters={filters}
+            allTutors={tutors}
             onChange={setFilters}
             onClear={clearFilters}
             onResetToOnboarding={resetToOnboardingFilters}
