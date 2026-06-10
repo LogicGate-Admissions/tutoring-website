@@ -3,7 +3,7 @@
  * Shared TypeScript types for asynchronous support.
  *
  * A support relationship is the shared space between one student and one tutor.
- * Messages, flagged questions, resources, and future notification indicators all
+ * Messages, resources, and future notification indicators all
  * attach to this relationship so context stays in one place.
  */
 
@@ -82,6 +82,13 @@ export type StudentTutorRelationship = {
   level: string;
 
   status: StudentTutorRelationshipStatus;
+
+  /** Persistent Miro board created for this student-tutor pair. */
+  miroBoardId?: string;
+  miroBoardUrl?: string;
+  miroEmbedUrl?: string;
+  miroBoardName?: string;
+  miroCreatedAt?: string;
 
   createdAt: string;
   updatedAt: string;
@@ -174,6 +181,9 @@ export type SharedResource = {
   type: SharedResourceType;
 
   url?: string;
+
+  /** Uploaded file metadata when this resource is a Firebase Storage file. */
+  attachment?: SupportAttachment;
 
   createdAt: string;
   updatedAt: string;

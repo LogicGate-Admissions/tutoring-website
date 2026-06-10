@@ -165,7 +165,7 @@ function AvailabilityBlockButton({
       )}
 
       <span className="pointer-events-none block pt-1">
-        {block.from}–{block.to}
+        {block.from}-{block.to}
       </span>
 
       {canResize && (

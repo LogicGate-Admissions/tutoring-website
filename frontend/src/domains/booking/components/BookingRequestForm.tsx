@@ -218,7 +218,7 @@ export function BookingRequestForm({
         notes: form.notes.trim() || undefined,
       });
 
-      setToast('Request sent — waiting for confirmation');
+      setToast('Request sent - waiting for confirmation');
       setTimeout(() => {
         setToast(null);
         onSuccess();
@@ -331,7 +331,7 @@ export function BookingRequestForm({
           ) : null}
         </div>
 
-        {/* Start time — only shown once a valid date is selected */}
+        {/* Start time - only shown once a valid date is selected */}
         {form.date && !isTutorUnavailableOnDay ? (
           <div>
             <label

@@ -89,7 +89,7 @@ export function StudentDashboard() {
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
           Students start from a tutor relationship, then choose whether to
-          message, view resources, or flag questions for that tutor.
+          message, view resources, book sessions, or open the live workspace for that tutor.
         </p>
       </Card>
 
@@ -177,7 +177,7 @@ function RelationshipContent({
         error={error}
         isEmpty={relationships.length === 0}
         emptyTitle="No tutors yet"
-        emptyDescription="When you become connected with a tutor, they will appear here with message, resource, and flagged-question actions."
+        emptyDescription="When you become connected with a tutor, they will appear here with message, resource, session, and workspace actions."
       />
     );
   }
@@ -273,12 +273,8 @@ function getStudentRelationshipActions(relationshipId: string) {
       href: `${baseHref}/messages`,
     },
     {
-      label: 'Resources',
+      label: 'Shared resources',
       href: `${baseHref}/resources`,
-    },
-    {
-      label: 'Flagged questions',
-      href: `${baseHref}/questions`,
     },
     {
       label: 'Workspace',

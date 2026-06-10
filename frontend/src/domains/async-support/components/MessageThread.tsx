@@ -8,7 +8,7 @@
  * WhatsApp-style replies, and owner-controlled message edits/deletes.
  */
 
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, ClipboardEvent, FormEvent, useEffect, useRef, useState } from "react";
 import {
   MathKeyboard,
   MATH_PLACEHOLDER,
@@ -46,6 +46,7 @@ import type {
 import { Button } from "@/shared/components/Button";
 import { Card } from "@/shared/components/Card";
 import { cn } from "@/shared/utils/cn";
+import { getFilesFromClipboard } from "@/shared/utils/clipboardFiles";
 import { DragToBookCalendar } from "@/domains/booking/components/DragToBookCalendar";
 import { useRelationshipBookings } from "@/domains/booking/hooks/useRelationshipBookings";
 import type { BookingRequest } from "@/domains/booking/types/booking";
@@ -533,9 +534,34 @@ export function MessageThread({
     }
   }
 
+  function addSelectedFiles(files: File[]) {
+    if (files.length === 0) return;
+
+    setSelectedFiles((currentFiles) => {
+      const availableSlots = Math.max(0, 5 - currentFiles.length);
+      const nextFiles = files.slice(0, availableSlots);
+
+      if (files.length > availableSlots) {
+        setError("You can attach up to 5 files per message.");
+      }
+
+      return [...currentFiles, ...nextFiles];
+    });
+  }
+
   function handleFilesSelected(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
-    setSelectedFiles((currentFiles) => [...currentFiles, ...files]);
+    event.target.value = "";
+    addSelectedFiles(files);
+  }
+
+  function handleMessagePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    const files = getFilesFromClipboard(event.clipboardData);
+    if (files.length === 0) return;
+
+    event.preventDefault();
+    addSelectedFiles(files);
+    textareaRef.current?.focus();
   }
 
   function removeSelectedFile(fileIndex: number) {
@@ -761,7 +787,7 @@ export function MessageThread({
               onCancel={() => setReplyingTo(null)}
             />
           ) : null}
-
+          
           <textarea
             ref={textareaRef}
             id="support-message"
@@ -772,6 +798,7 @@ export function MessageThread({
               el.style.height = "auto";
               el.style.height = `${el.scrollHeight}px`;
             }}
+            onPaste={handleMessagePaste}
             onKeyDown={(event) => {
               // Tab remains an optional shortcut for moving between maths slots.
               if (event.key === "Tab") {
@@ -789,7 +816,7 @@ export function MessageThread({
             className="w-full resize-none overflow-y-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
           />
 
-          {/* Live rendered preview – shown whenever the draft contains $...$ math */}
+          {/* Live rendered preview - shown whenever the draft contains $...$ math */}
           {draftMessage.includes("$") ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
@@ -862,7 +889,7 @@ export function MessageThread({
 
                 {!isEmbedded ? (
                   <p className="text-xs text-slate-500">
-                    Images, PDFs, and documents up to 10MB each.
+                    Images, PDFs, documents, and pasted screenshots up to 10MB each.
                   </p>
                 ) : null}
               </div>
@@ -1560,18 +1587,19 @@ function AttachmentItem({
   );
 
   const metaLine = (
-    <p
+    <div
       className={cn(
-        "px-3 py-2 text-xs",
+        "min-w-0 overflow-hidden px-3 py-2 text-xs",
         isMine ? "text-slate-300" : "text-slate-500",
       )}
     >
-      <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>
-      {" · "}
-      <span className="break-words [overflow-wrap:anywhere]">{attachment.name}</span>
-      {" · "}
-      {formatFileSize(attachment.sizeBytes)}
-    </p>
+      <p className="min-w-0 truncate" title={attachment.name}>
+        <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>
+        {" · "}
+        <span>{attachment.name}</span>
+      </p>
+      <p className="mt-0.5">{formatFileSize(attachment.sizeBytes)}</p>
+    </div>
   );
 
   if (attachment.url && attachment.kind === "image") {
@@ -1601,43 +1629,47 @@ function AttachmentItem({
         rel="noreferrer"
         className={cn(baseClassName, "px-3 py-2")}
       >
-        <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
-        <span className="break-words [overflow-wrap:anywhere]">
-          {attachment.name}
-        </span>
-        <span
-          className={cn(
-            "ml-2 text-xs",
-            isMine ? "text-slate-300" : "text-slate-500",
-          )}
-        >
-          {formatFileSize(attachment.sizeBytes)}
-        </span>
+        <div className="min-w-0 overflow-hidden">
+          <p className="truncate" title={attachment.name}>
+            <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
+            <span>{attachment.name}</span>
+          </p>
+          <p
+            className={cn(
+              "mt-0.5 text-xs",
+              isMine ? "text-slate-300" : "text-slate-500",
+            )}
+          >
+            {formatFileSize(attachment.sizeBytes)}
+          </p>
+        </div>
       </a>
     );
   }
 
   return (
     <div className={cn(baseClassName, "px-3 py-2 opacity-70")}>
-      <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
-      <span className="break-words [overflow-wrap:anywhere]">
-        {attachment.name}
-      </span>
-      <span
-        className={cn(
-          "ml-2 text-xs",
-          isMine ? "text-slate-300" : "text-slate-500",
-        )}
-      >
-        {formatFileSize(attachment.sizeBytes)}
-      </span>
+      <div className="min-w-0 overflow-hidden">
+        <p className="truncate" title={attachment.name}>
+          <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
+          <span>{attachment.name}</span>
+        </p>
+        <p
+          className={cn(
+            "mt-0.5 text-xs",
+            isMine ? "text-slate-300" : "text-slate-500",
+          )}
+        >
+          {formatFileSize(attachment.sizeBytes)}
+        </p>
+      </div>
       <span
         className={cn(
           "mt-1 block text-xs",
           isMine ? "text-slate-300" : "text-slate-500",
         )}
       >
-        File unavailable — it may have been uploaded before storage was enabled.
+        File unavailable - it may have been uploaded before storage was enabled.
       </span>
     </div>
   );
@@ -1651,22 +1683,24 @@ function SelectedAttachmentList({
   onRemove: (fileIndex: number) => void;
 }) {
   return (
-    <div className="grid gap-2 rounded-2xl bg-slate-50 p-3">
+    <div className="grid min-w-0 max-w-full gap-2 overflow-hidden rounded-2xl bg-slate-50 p-3">
       {files.map((file, index) => (
         <div
           key={`${file.name}-${file.size}-${index}`}
-          className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm text-slate-700"
+          className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl bg-white px-3 py-2 text-sm text-slate-700"
         >
-          <span className="min-w-0 truncate">
-            {file.name}{" "}
-            <span className="text-xs text-slate-500">
+          <div className="min-w-0 overflow-hidden">
+            <p className="truncate font-medium" title={file.name}>
+              {file.name}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
               {formatFileSize(file.size)}
-            </span>
-          </span>
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => onRemove(index)}
-            className="shrink-0 text-xs font-semibold text-slate-500 hover:text-slate-950"
+            className="shrink-0 rounded-full px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-950"
           >
             Remove
           </button>

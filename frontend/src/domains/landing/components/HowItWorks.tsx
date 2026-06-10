@@ -49,7 +49,7 @@ export default function HowItWorks() {
         </div>
 
         <div className="relative mt-16">
-          {/* Connector line — desktop only */}
+          {/* Connector line - desktop only */}
           <div
             className="absolute top-6 left-[calc(16.66%+1.5rem)] right-[calc(16.66%+1.5rem)] hidden h-px bg-slate-200 lg:block"
             aria-hidden="true"

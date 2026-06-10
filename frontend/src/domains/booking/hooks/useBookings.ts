@@ -93,7 +93,7 @@ export function useBookings(
     }
 
     const field = role === 'tutor' ? 'tutorId' : 'studentId';
-    // No orderBy here — combining where() on one field with orderBy() on
+    // No orderBy here - combining where() on one field with orderBy() on
     // another requires a composite Firestore index. Sort client-side instead.
     const q = query(
       collection(db, FIRESTORE_COLLECTIONS.bookingRequests),

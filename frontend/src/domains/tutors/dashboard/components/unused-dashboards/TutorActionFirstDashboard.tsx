@@ -32,7 +32,7 @@ const tabs: Array<{ id: Section; label: string; description: string }> = [
   },
   {
     id: 'resources',
-    label: 'Resources',
+    label: 'Shared resources',
     description: 'Choose student',
   },
   {
@@ -131,7 +131,7 @@ function InboxContent({
       buttonLabel: 'Open messages',
     },
     resources: {
-      title: 'Resources',
+      title: 'Shared resources',
       description: 'Choose a student to open shared resources.',
       buttonLabel: 'Open resources',
     },
