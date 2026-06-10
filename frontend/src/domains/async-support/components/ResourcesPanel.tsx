@@ -7,7 +7,14 @@
  * Firebase Storage and a small metadata document is saved on the relationship.
  */
 
-import { ChangeEvent, ClipboardEvent, useEffect, useRef, useState } from 'react';
+import {
+  ChangeEvent,
+  ClipboardEvent,
+  DragEvent as ReactDragEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { uploadAttachments } from '@/domains/attachments/services/attachmentUploadService';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import { useRelationshipResources } from '@/domains/async-support/hooks/useRelationshipResources';
@@ -233,8 +240,36 @@ function ResourceCard({
       ? 'Click or drag to board'
       : 'Click to open'
     : 'No file link';
-  const content = (
-    <>
+
+  function handleResourceDragStart(event: ReactDragEvent<HTMLAnchorElement>) {
+    if (!enableBoardDrag) return;
+
+    event.dataTransfer.setData(
+      RESOURCE_DRAG_MIME_TYPE,
+      JSON.stringify({
+        relationshipId: resource.relationshipId,
+        resourceId: resource.id,
+        title: resource.title,
+      })
+    );
+    event.dataTransfer.effectAllowed = 'copy';
+    window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_START_EVENT));
+  }
+
+  function handleResourceDragEnd() {
+    if (!enableBoardDrag) return;
+
+    window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_END_EVENT));
+  }
+
+  const resourceDetails = (
+    <div
+      className={cn(
+        'flex min-w-0 items-start rounded-xl transition',
+        url && 'hover:bg-slate-50',
+        isEmbedded ? 'gap-2 p-1' : 'gap-3 p-2'
+      )}
+    >
       <div
         className={cn(
           'flex shrink-0 items-center justify-center rounded-xl font-bold uppercase',
@@ -275,6 +310,20 @@ function ResourceCard({
           {sizeLabel ? `${sizeLabel} - ` : ''}{helperText}
         </p>
       </div>
+    </div>
+  );
+
+  const cardContent = (
+    <>
+      {url && attachment ? (
+        <ResourcePreview
+          attachmentName={attachment.name}
+          attachmentKind={attachment.kind}
+          url={url}
+          isEmbedded={isEmbedded}
+        />
+      ) : null}
+      {resourceDetails}
     </>
   );
 
@@ -292,42 +341,15 @@ function ResourceCard({
             target="_blank"
             rel="noreferrer"
             draggable={enableBoardDrag}
-            onDragStart={(event) => {
-              if (!enableBoardDrag) return;
-
-              event.dataTransfer.setData(
-                RESOURCE_DRAG_MIME_TYPE,
-                JSON.stringify({
-                  relationshipId: resource.relationshipId,
-                  resourceId: resource.id,
-                  title: resource.title,
-                })
-              );
-              event.dataTransfer.effectAllowed = 'copy';
-              window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_START_EVENT));
-            }}
-            onDragEnd={() => {
-              if (!enableBoardDrag) return;
-
-              window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_END_EVENT));
-            }}
-            className={cn(
-              'flex min-w-0 items-start rounded-xl transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300',
-              isEmbedded ? 'gap-2 p-1' : 'gap-3 p-2'
-            )}
+            onDragStart={handleResourceDragStart}
+            onDragEnd={handleResourceDragEnd}
+            className="block min-w-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300"
             title="Open resource"
           >
-            {content}
+            {cardContent}
           </a>
         ) : (
-          <div
-            className={cn(
-              'flex min-w-0 items-start rounded-xl',
-              isEmbedded ? 'gap-2 p-1' : 'gap-3 p-2'
-            )}
-          >
-            {content}
-          </div>
+          <div className="block min-w-0 rounded-xl">{cardContent}</div>
         )}
 
         <button
@@ -344,6 +366,53 @@ function ResourceCard({
       </div>
     </article>
   );
+}
+
+function ResourcePreview({
+  attachmentName,
+  attachmentKind,
+  url,
+  isEmbedded,
+}: {
+  attachmentName: string;
+  attachmentKind: string;
+  url: string;
+  isEmbedded: boolean;
+}) {
+  if (attachmentKind === 'image') {
+    return (
+      <div className="mb-2 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={attachmentName}
+          className={cn(
+            'w-full object-contain',
+            isEmbedded ? 'max-h-40' : 'max-h-72'
+          )}
+        />
+      </div>
+    );
+  }
+
+  if (attachmentKind === 'pdf') {
+    return (
+      <div
+        className={cn(
+          'mb-2 overflow-hidden rounded-xl border border-slate-100 bg-slate-100',
+          isEmbedded ? 'h-40' : 'h-72'
+        )}
+      >
+        <iframe
+          title={`Preview of ${attachmentName}`}
+          src={url}
+          className="pointer-events-none h-full w-full border-0"
+        />
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function getResourceKindLabel(kind?: string) {

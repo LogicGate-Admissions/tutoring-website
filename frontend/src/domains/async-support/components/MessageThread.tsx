@@ -1711,6 +1711,29 @@ function AttachmentItem({
     );
   }
 
+  if (attachment.url && attachment.kind === "pdf") {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        draggable
+        onDragStart={handleAttachmentDragStart}
+        onDragEnd={handleAttachmentDragEnd}
+        className={cn(baseClassName, "overflow-hidden p-0")}
+      >
+        <div className="h-64 w-full overflow-hidden bg-slate-100">
+          <iframe
+            title={`Preview of ${attachment.name}`}
+            src={attachment.url}
+            className="pointer-events-none h-full w-full border-0"
+          />
+        </div>
+        {metaLine}
+      </a>
+    );
+  }
+
   if (attachment.url) {
     return (
       <a
