@@ -19,6 +19,9 @@ import type {
   AsyncSupportRole,
   RelationshipSupportSummary,
 } from '@/domains/async-support/types/asyncSupport';
+import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
+import { getTutorProfile } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
+import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 
 type SupportRelationshipAction = {
   label: string;
@@ -41,6 +44,19 @@ export function SupportRelationshipCard({
   actions,
 }: SupportRelationshipCardProps) {
   const [showBooking, setShowBooking] = useState(false);
+  const [profileForModal, setProfileForModal] = useState<Tutor | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+
+  async function handleTutorNameClick() {
+    if (isLoadingProfile) return;
+    setIsLoadingProfile(true);
+    try {
+      const profile = await getTutorProfile(relationship.tutorId);
+      setProfileForModal(profile);
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  }
   const { upcomingSession } = useRelationshipBookings(
     relationship.tutorId,
     relationship.studentId
@@ -81,9 +97,24 @@ export function SupportRelationshipCard({
               {otherPersonLabel}
             </p>
 
-            <h2 className="mt-1 text-lg font-semibold text-slate-950">
-              {otherPersonName || 'Unnamed relationship'}
-            </h2>
+            {viewerRole === 'student' ? (
+              <button
+                type="button"
+                onClick={() => void handleTutorNameClick()}
+                disabled={isLoadingProfile}
+                className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-950 transition hover:border-slate-300 hover:bg-slate-100 disabled:opacity-60"
+              >
+                {isLoadingProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
+                <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="8" cy="5" r="3" />
+                  <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+                </svg>
+              </button>
+            ) : (
+              <h2 className="mt-1 text-lg font-semibold text-slate-950">
+                {otherPersonName || 'Unnamed relationship'}
+              </h2>
+            )}
 
             <p className="mt-1 text-sm text-slate-600">
               {relationship.level} {relationship.subject}
@@ -125,6 +156,14 @@ export function SupportRelationshipCard({
           counterpartyName={otherPersonName}
           initiatedBy={viewerRole}
           currentUserId={currentUserId}
+        />
+      ) : null}
+
+      {profileForModal ? (
+        <TutorProfileModal
+          tutor={profileForModal}
+          readOnly
+          onClose={() => setProfileForModal(null)}
         />
       ) : null}
     </>

@@ -15,6 +15,9 @@ import {
   declineBookingRequest,
 } from '@/domains/booking/services/bookingService';
 import { BookSessionModal } from '@/domains/booking/components/BookSessionModal';
+import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
+import { getTutorProfile } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
+import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { cn } from '@/shared/utils/cn';
 
@@ -64,6 +67,19 @@ export function BookingRequestCard({
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<ConfirmingAction>(null);
   const [showReschedule, setShowReschedule] = useState(false);
+  const [tutorProfileModal, setTutorProfileModal] = useState<Tutor | null>(null);
+  const [isLoadingTutorProfile, setIsLoadingTutorProfile] = useState(false);
+
+  async function handleTutorNameClick() {
+    if (isLoadingTutorProfile) return;
+    setIsLoadingTutorProfile(true);
+    try {
+      const profile = await getTutorProfile(booking.tutorId);
+      setTutorProfileModal(profile);
+    } finally {
+      setIsLoadingTutorProfile(false);
+    }
+  }
 
   const viewerIsInitiator = booking.initiatedBy === viewerRole;
   const viewerIsReceiver = !viewerIsInitiator;
@@ -139,8 +155,24 @@ export function BookingRequestCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-slate-950">{booking.subject}</p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            with {otherPartyName}
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+            with{' '}
+            {viewerRole === 'student' ? (
+              <button
+                type="button"
+                onClick={() => void handleTutorNameClick()}
+                disabled={isLoadingTutorProfile}
+                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-950 transition hover:border-slate-300 hover:bg-slate-100 disabled:opacity-60"
+              >
+                {isLoadingTutorProfile ? 'Loading...' : otherPartyName}
+                <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3 w-3 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="8" cy="5" r="3" />
+                  <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+                </svg>
+              </button>
+            ) : (
+              <span>{otherPartyName}</span>
+            )}
           </p>
         </div>
         <span
@@ -225,6 +257,14 @@ export function BookingRequestCard({
             subject: booking.subject,
             durationMinutes: booking.durationMinutes,
           }}
+        />
+      ) : null}
+
+      {tutorProfileModal ? (
+        <TutorProfileModal
+          tutor={tutorProfileModal}
+          readOnly
+          onClose={() => setTutorProfileModal(null)}
         />
       ) : null}
     </div>

@@ -60,9 +60,12 @@ import {
   updateStoredLearningProfile,
 } from "@/domains/students/learning-profile/services/learningProfileStorage";
 import {
+  getTutorProfile,
   getTutorProfileDraft,
   saveTutorProfileFromOnboarding,
 } from "@/domains/tutors/tutor-discovery/services/tutorProfileService";
+import { TutorProfileModal } from "@/domains/tutors/tutor-discovery/components/TutorProfileModal";
+import type { Tutor } from "@/domains/tutors/tutor-discovery/types/tutor";
 import type { AuthUser } from "@/domains/auth/types/auth";
 import type {
   Day,
@@ -127,6 +130,19 @@ export function MessageThread({
   const [counterpartyStudentBlocks, setCounterpartyStudentBlocks] = useState<
     TimeBlock[]
   >([]);
+  const [tutorProfileModal, setTutorProfileModal] = useState<Tutor | null>(null);
+  const [isLoadingTutorProfile, setIsLoadingTutorProfile] = useState(false);
+
+  async function handleTutorNameClick() {
+    if (!relationship?.tutorId || isLoadingTutorProfile) return;
+    setIsLoadingTutorProfile(true);
+    try {
+      const profile = await getTutorProfile(relationship.tutorId);
+      setTutorProfileModal(profile);
+    } finally {
+      setIsLoadingTutorProfile(false);
+    }
+  }
 
   useEffect(() => {
     const unsubscribe = subscribeToCurrentUser((user) => {
@@ -630,9 +646,18 @@ export function MessageThread({
             <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
               <p>
                 <span className="font-semibold">Conversation with:</span>{" "}
-                {viewerRole === "student"
-                  ? relationship.tutorName
-                  : relationship.studentName}
+                {viewerRole === "student" ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleTutorNameClick()}
+                    disabled={isLoadingTutorProfile}
+                    className="font-medium underline-offset-2 hover:underline disabled:opacity-60"
+                  >
+                    {isLoadingTutorProfile ? "Loading..." : relationship.tutorName}
+                  </button>
+                ) : (
+                  relationship.studentName
+                )}
               </p>
               <p className="mt-1">
                 <span className="font-semibold">Subject:</span>{" "}
@@ -890,6 +915,14 @@ export function MessageThread({
           </div>
         </form>
       </Card>
+
+      {tutorProfileModal ? (
+        <TutorProfileModal
+          tutor={tutorProfileModal}
+          readOnly
+          onClose={() => setTutorProfileModal(null)}
+        />
+      ) : null}
 
       {isScheduleOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
