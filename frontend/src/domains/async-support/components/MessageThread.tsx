@@ -53,6 +53,7 @@ import type {
 } from "@/domains/async-support/types/asyncSupport";
 import { Button } from "@/shared/components/Button";
 import { Card } from "@/shared/components/Card";
+import { PdfFirstPagePreview } from "@/domains/async-support/components/PdfFirstPagePreview";
 import { cn } from "@/shared/utils/cn";
 import { getFilesFromClipboard } from "@/shared/utils/clipboardFiles";
 import { DragToBookCalendar } from "@/domains/booking/components/DragToBookCalendar";
@@ -1722,11 +1723,11 @@ function AttachmentItem({
         onDragEnd={handleAttachmentDragEnd}
         className={cn(baseClassName, "overflow-hidden p-0")}
       >
-        <div className="h-64 w-full overflow-hidden bg-slate-100">
-          <iframe
+        <div className="flex w-full justify-center overflow-hidden bg-slate-100 p-2">
+          <PdfFirstPagePreview
+            url={attachment.url}
             title={`First page preview of ${attachment.name}`}
-            src={getPdfPreviewUrl(attachment.url)}
-            className="pointer-events-none h-full w-full border-0"
+            className="w-full max-w-52"
           />
         </div>
         {metaLine}
@@ -1942,10 +1943,6 @@ function attachmentLabel(kind: SupportAttachment["kind"]) {
   }
 
   return "File";
-}
-
-function getPdfPreviewUrl(url: string) {
-  return `${url}#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
 }
 
 function formatFileSize(sizeBytes: number) {

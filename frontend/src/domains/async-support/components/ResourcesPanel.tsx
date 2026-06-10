@@ -28,6 +28,7 @@ import type {
 } from '@/domains/async-support/types/asyncSupport';
 import type { AuthUser } from '@/domains/auth/types/auth';
 import { Button } from '@/shared/components/Button';
+import { PdfFirstPagePreview } from '@/domains/async-support/components/PdfFirstPagePreview';
 import { cn } from '@/shared/utils/cn';
 import { getFilesFromClipboard } from '@/shared/utils/clipboardFiles';
 
@@ -397,26 +398,17 @@ function ResourcePreview({
 
   if (attachmentKind === 'pdf') {
     return (
-      <div
-        className={cn(
-          'mb-2 overflow-hidden rounded-xl border border-slate-100 bg-slate-100',
-          isEmbedded ? 'h-40' : 'h-72'
-        )}
-      >
-        <iframe
+      <div className="mb-2 flex w-full justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-100 p-2">
+        <PdfFirstPagePreview
+          url={url}
           title={`First page preview of ${attachmentName}`}
-          src={getPdfPreviewUrl(url)}
-          className="pointer-events-none h-full w-full border-0"
+          className={cn('w-full', isEmbedded ? 'max-w-40' : 'max-w-56')}
         />
       </div>
     );
   }
 
   return null;
-}
-
-function getPdfPreviewUrl(url: string) {
-  return `${url}#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
 }
 
 function getResourceKindLabel(kind?: string) {
