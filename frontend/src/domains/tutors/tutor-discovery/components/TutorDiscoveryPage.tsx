@@ -129,8 +129,8 @@ export function TutorDiscoveryPage() {
   }, [currentStudent]);
 
   const filteredTutors = useMemo(
-    () => filterTutors(tutors, filters),
-    [filters, tutors]
+    () => filterTutors(tutors, filters, studentProfile?.availability),
+    [filters, tutors, studentProfile]
   );
 
   const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;

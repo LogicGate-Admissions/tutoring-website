@@ -13,6 +13,7 @@ export const TUTOR_SORT_OPTIONS: TutorSortOption[] = [
   'Highest rated',
   'Lowest price',
   'Highest price',
+  'Most hours in common',
 ];
 
 export const UNIVERSITY_FILTER_OPTIONS = [
