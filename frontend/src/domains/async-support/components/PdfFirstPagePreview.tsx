@@ -104,7 +104,7 @@ export function PdfFirstPagePreview({
 
   useEffect(() => {
     let isCancelled = false;
-    let renderTask: { cancel: () => void } | null = null;
+    let renderTask: { promise: Promise<void>; cancel: () => void } | null = null;
     let loadedDocument: { destroy: () => Promise<void> } | null = null;
 
     async function renderFirstPage() {
