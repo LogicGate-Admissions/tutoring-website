@@ -140,11 +140,6 @@ export function TutorProfileModal({
             </ProfileSection>
           </div>
 
-          <ProfileSection title="Personality">
-            <p className="text-sm leading-6 text-slate-700">
-              {tutor.personality.join(', ')}
-            </p>
-          </ProfileSection>
         </div>
 
         {/* Phase 4: actions - hidden in read-only mode (e.g. already matched). */}

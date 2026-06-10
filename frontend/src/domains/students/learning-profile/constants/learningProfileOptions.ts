@@ -33,10 +33,6 @@ export const LEARNING_STYLE_OPTIONS = [
     description: 'Short timed tasks that build speed and confidence under exam conditions.',
   },
   {
-    label: 'Interactive coding',
-    description: 'Learning by building, debugging, and improving code together.',
-  },
-  {
     label: 'Essay planning',
     description: 'Structuring arguments, plans, paragraphs, and exam responses clearly.',
   },
@@ -130,6 +126,7 @@ export const DEFAULT_LEARNING_PROFILE = {
   subjectSelections: [],
   learningStyles: [],
   preferredUniversities: [],
+  bio: '',
   availability: [],
 } satisfies import('@/domains/students/learning-profile/types/learningProfile').StudentLearningProfile;
 

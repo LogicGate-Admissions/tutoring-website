@@ -298,7 +298,7 @@ export async function saveTutorProfileFromOnboarding(
     availabilityBlocks: profile.availability,
     bio: profile.bio.trim() || 'This tutor has not added a full bio yet.',
     hobbies: [],
-    personality: learningStyles,
+    personality: [],
     tags: uniqueNonEmptyValues([...levels, ...subjects, ...learningStyles]),
     ownerId: tutor.id,
     updatedAt: serverTimestamp(),

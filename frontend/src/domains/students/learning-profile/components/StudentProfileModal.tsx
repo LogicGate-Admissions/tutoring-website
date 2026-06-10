@@ -61,6 +61,14 @@ export function StudentProfileModal({
         </div>
 
         <div className="mt-6 grid gap-6">
+          <ProfileSection title="About">
+            {profile.bio.trim() ? (
+              <p className="text-sm leading-6 text-slate-700">{profile.bio}</p>
+            ) : (
+              <EmptyText>No learning note added yet.</EmptyText>
+            )}
+          </ProfileSection>
+
           <div className="grid gap-5 md:grid-cols-2">
             <ProfileSection title="Tutoring needs">
               <SelectionList selections={profile.subjectSelections} />
