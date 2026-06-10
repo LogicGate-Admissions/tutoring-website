@@ -137,10 +137,6 @@ export function LessonWorkspacePage({
   const lessonState = getLessonJoinState(currentLesson, now);
   const lessonIsLive = (currentLesson?.lessonStatus ?? "scheduled") === "live";
   const lessonCompleted = currentLesson?.lessonStatus === "completed";
-  const showLiveWorkspace = Boolean(
-    currentLesson && (lessonIsLive || hasJoinedLocally || hasOpenedCallThisLesson),
-  );
-
   const otherPersonName =
     viewerRole === "student"
       ? relationship?.tutorName
@@ -308,20 +304,12 @@ export function LessonWorkspacePage({
           />
 
           <main className="grid min-w-0 gap-4">
-            {showLiveWorkspace && currentLesson ? (
-              <LiveLessonStage
-                lesson={currentLesson}
-                relationshipId={relationshipId}
-                showCall={hasJoinedLocally}
-                onCallLeft={handleCallLeft}
-              />
-            ) : (
-              <WaitingWorkspaceCard
-                lessonState={lessonState}
-                lessonIsLive={lessonIsLive}
-                lessonCompleted={lessonCompleted}
-              />
-            )}
+            <LiveLessonStage
+              lesson={currentLesson}
+              relationshipId={relationshipId}
+              showCall={Boolean(currentLesson && hasJoinedLocally)}
+              onCallLeft={handleCallLeft}
+            />
           </main>
         </div>
       </Container>
@@ -418,7 +406,7 @@ function LiveLessonStage({
   showCall,
   onCallLeft,
 }: {
-  lesson: BookingRequest;
+  lesson: BookingRequest | null;
   relationshipId: string;
   showCall: boolean;
   onCallLeft: () => void;
@@ -426,7 +414,7 @@ function LiveLessonStage({
   return (
     <div className="relative min-w-0">
       <MiroWhiteboard relationshipId={relationshipId} />
-      {showCall ? (
+      {showCall && lesson ? (
         <FloatingJitsiCall
           lesson={lesson}
           relationshipId={relationshipId}
@@ -723,34 +711,6 @@ function JitsiCallSurface({
         />
       </div>
     </div>
-  );
-}
-
-function WaitingWorkspaceCard({
-  lessonState,
-  lessonIsLive,
-  lessonCompleted,
-}: {
-  lessonState: LessonJoinState;
-  lessonIsLive: boolean;
-  lessonCompleted: boolean;
-}) {
-  return (
-    <Card>
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-        Lesson room
-      </p>
-      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-        {lessonCompleted
-          ? "This lesson has ended"
-          : lessonIsLive
-            ? "This lesson is live"
-            : "Prepare for the next lesson"}
-      </h2>
-      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-        {lessonState.helperText}
-      </p>
-    </Card>
   );
 }
 

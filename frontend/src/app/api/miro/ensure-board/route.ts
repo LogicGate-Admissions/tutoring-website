@@ -17,8 +17,6 @@ type RelationshipMiroFields = {
 type RelationshipDocument = RelationshipMiroFields & {
   studentName?: string;
   tutorName?: string;
-  studentEmail?: string;
-  tutorEmail?: string;
   subject?: string;
   level?: string;
 };
@@ -27,11 +25,6 @@ type MiroBoardResponse = {
   id?: string;
   name?: string;
   viewLink?: string;
-};
-
-type MiroSharingResult = {
-  isPublicEditEnabled: boolean;
-  error?: string;
 };
 
 const RELATIONSHIPS_COLLECTION = 'studentTutorRelationships';
@@ -45,7 +38,7 @@ export async function POST(request: Request) {
     if (!relationshipId) {
       return NextResponse.json(
         { error: 'Missing relationshipId.' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -58,55 +51,26 @@ export async function POST(request: Request) {
     if (!relationshipSnapshot.exists) {
       return NextResponse.json(
         { error: 'Relationship not found.' },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     const relationship = relationshipSnapshot.data() as RelationshipDocument;
 
-    const accessToken = await getMiroAccessToken();
-
     if (relationship.miroBoardId && relationship.miroEmbedUrl) {
-      const sharingResult = await makeBoardPublicEditable({
-        accessToken,
-        boardId: relationship.miroBoardId,
-      });
-
-      const now = new Date().toISOString();
-      await relationshipRef.set(
-        {
-          miroPublicEditEnabled: sharingResult.isPublicEditEnabled,
-          miroSharingError: sharingResult.error ?? null,
-          updatedAt: now,
-        },
-        { merge: true }
-      );
-
       return NextResponse.json({
         miroBoardId: relationship.miroBoardId,
         miroBoardUrl: relationship.miroBoardUrl,
         miroEmbedUrl: ensureAutoplayEmbedUrl(relationship.miroEmbedUrl),
         reusedExistingBoard: true,
-        miroPublicEditEnabled: sharingResult.isPublicEditEnabled,
-        miroSharingError: sharingResult.error,
       });
     }
 
-    const createdBoard = await createMiroBoard({
-      accessToken,
-      relationshipId,
-      relationship,
-    });
+    const accessToken = await getMiroAccessToken();
+    const createdBoard = await createMiroBoard({ accessToken, relationship });
     const boardId = requireMiroBoardId(createdBoard);
     const boardUrl = createdBoard.viewLink || `https://miro.com/app/board/${boardId}/`;
     const embedUrl = ensureAutoplayEmbedUrl(`https://miro.com/app/live-embed/${boardId}/`);
-    const sharingResult = await makeBoardPublicEditable({ accessToken, boardId });
-    const invitedEmails = await shareBoardWithRelationshipEmails({
-      accessToken,
-      boardId,
-      relationship,
-    });
-
     const now = new Date().toISOString();
 
     await relationshipRef.set(
@@ -115,13 +79,10 @@ export async function POST(request: Request) {
         miroBoardUrl: boardUrl,
         miroEmbedUrl: embedUrl,
         miroBoardName: createdBoard.name ?? buildBoardName(relationship),
-        miroInvitedEmails: invitedEmails,
-        miroPublicEditEnabled: sharingResult.isPublicEditEnabled,
-        miroSharingError: sharingResult.error ?? null,
         miroCreatedAt: now,
         updatedAt: now,
       },
-      { merge: true }
+      { merge: true },
     );
 
     return NextResponse.json({
@@ -129,17 +90,11 @@ export async function POST(request: Request) {
       miroBoardUrl: boardUrl,
       miroEmbedUrl: embedUrl,
       reusedExistingBoard: false,
-      invitedEmails,
-      miroPublicEditEnabled: sharingResult.isPublicEditEnabled,
-      miroSharingError: sharingResult.error,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error.';
 
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -156,7 +111,7 @@ async function getMiroAccessToken() {
 
   if (!refreshToken || !clientId || !clientSecret) {
     throw new Error(
-      'Missing Miro credentials. Add MIRO_ACCESS_TOKEN, or add MIRO_CLIENT_ID, MIRO_CLIENT_SECRET, and MIRO_REFRESH_TOKEN.'
+      'Missing Miro credentials. Add MIRO_ACCESS_TOKEN, or add MIRO_CLIENT_ID, MIRO_CLIENT_SECRET, and MIRO_REFRESH_TOKEN.',
     );
   }
 
@@ -186,56 +141,6 @@ function normaliseMiroToken(token: string | undefined) {
   return trimmedToken.replace(/^Bearer\s+/i, '').trim();
 }
 
-function buildPublicEditableBoardPolicy() {
-  return {
-    permissionsPolicy: {
-      collaborationToolsStartAccess: 'all_editors',
-      copyAccess: 'anyone',
-      sharingAccess: 'team_members_with_editing_rights',
-    },
-    sharingPolicy: {
-      access: 'edit',
-      inviteToAccountAndBoardLinkAccess: 'editor',
-      organizationAccess: 'private',
-      teamAccess: 'edit',
-    },
-  };
-}
-
-async function makeBoardPublicEditable({
-  accessToken,
-  boardId,
-}: {
-  accessToken: string;
-  boardId: string;
-}): Promise<MiroSharingResult> {
-  const response = await fetch(`${MIRO_API_BASE_URL}/boards/${encodeURIComponent(boardId)}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      policy: buildPublicEditableBoardPolicy(),
-    }),
-  });
-
-  if (response.ok) {
-    return { isPublicEditEnabled: true };
-  }
-
-  const data = (await response.json().catch(() => ({}))) as {
-    message?: string;
-    error?: string;
-  };
-
-  return {
-    isPublicEditEnabled: false,
-    error: data.message || data.error || `Miro sharing update failed (${response.status}).`,
-  };
-}
-
 function ensureAutoplayEmbedUrl(rawUrl: string) {
   const url = new URL(rawUrl);
   url.searchParams.set('autoplay', 'true');
@@ -247,7 +152,6 @@ async function createMiroBoard({
   relationship,
 }: {
   accessToken: string;
-  relationshipId: string;
   relationship: RelationshipDocument;
 }) {
   const response = await fetch(`${MIRO_API_BASE_URL}/boards`, {
@@ -260,9 +164,9 @@ async function createMiroBoard({
     body: JSON.stringify({
       name: buildBoardName(relationship),
       description: buildBoardDescription(relationship),
-      policy: buildPublicEditableBoardPolicy(),
     }),
   });
+
   const data = (await response.json()) as MiroBoardResponse & {
     message?: string;
     error?: string;
@@ -271,50 +175,11 @@ async function createMiroBoard({
   if (!response.ok) {
     const miroMessage = data.message || data.error || 'Could not create Miro board.';
     throw new Error(
-      `Miro board creation failed (${response.status}): ${miroMessage}. Check that MIRO_ACCESS_TOKEN is the OAuth access_token from /api/miro/oauth/start and restart npm run dev after editing .env.local.`
+      `Miro board creation failed (${response.status}): ${miroMessage}. Check that MIRO_ACCESS_TOKEN is the OAuth access_token from /api/miro/oauth/start and restart npm run dev after editing .env.local.`,
     );
   }
 
   return data;
-}
-
-async function shareBoardWithRelationshipEmails({
-  accessToken,
-  boardId,
-  relationship,
-}: {
-  accessToken: string;
-  boardId: string;
-  relationship: RelationshipDocument;
-}) {
-  const emails = [relationship.studentEmail, relationship.tutorEmail]
-    .map((email) => email?.trim())
-    .filter((email): email is string => Boolean(email));
-
-  if (emails.length === 0) {
-    return [];
-  }
-
-  const response = await fetch(`${MIRO_API_BASE_URL}/boards/${boardId}/members`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      emails,
-      role: 'editor',
-      message:
-        'You have been added to the shared LogicGate lesson whiteboard for this student-tutor relationship.',
-    }),
-  });
-
-  if (!response.ok) {
-    return [];
-  }
-
-  return emails;
 }
 
 function requireMiroBoardId(board: MiroBoardResponse) {

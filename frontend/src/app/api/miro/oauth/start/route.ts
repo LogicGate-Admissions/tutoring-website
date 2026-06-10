@@ -17,6 +17,7 @@ export async function GET() {
   authorizeUrl.searchParams.set('response_type', 'code');
   authorizeUrl.searchParams.set('client_id', clientId);
   authorizeUrl.searchParams.set('redirect_uri', redirectUri);
+  authorizeUrl.searchParams.set('scope', 'boards:read boards:write');
 
   return NextResponse.redirect(authorizeUrl);
 }
