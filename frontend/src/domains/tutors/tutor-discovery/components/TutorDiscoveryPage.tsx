@@ -147,9 +147,36 @@ export function TutorDiscoveryPage() {
     return filters;
   }, [dynamicMaxTutorPrice, filters]);
 
+  const tutorsMatchingNonPriceFilters = useMemo(() => {
+    /**
+     * The price histogram should respond to the currently selected subject,
+     * level, university, learning-style and availability filters, but not to
+     * the price range itself. Otherwise the bars disappear while the student
+     * is dragging the hourly-rate handles.
+     */
+    return filterTutors(
+      tutors,
+      {
+        ...effectiveFilters,
+        minPricePerHour: DEFAULT_TUTOR_FILTERS.minPricePerHour,
+        maxPricePerHour: dynamicMaxTutorPrice,
+      },
+      studentProfile?.availability
+    );
+  }, [dynamicMaxTutorPrice, effectiveFilters, tutors, studentProfile]);
+
   const filteredTutors = useMemo(
-    () => filterTutors(tutors, effectiveFilters, studentProfile?.availability),
-    [effectiveFilters, tutors, studentProfile]
+    () =>
+      tutorsMatchingNonPriceFilters.filter(
+        (tutor) =>
+          tutor.pricePerHour >= effectiveFilters.minPricePerHour &&
+          tutor.pricePerHour <= effectiveFilters.maxPricePerHour
+      ),
+    [
+      effectiveFilters.minPricePerHour,
+      effectiveFilters.maxPricePerHour,
+      tutorsMatchingNonPriceFilters,
+    ]
   );
 
   const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
@@ -276,7 +303,7 @@ export function TutorDiscoveryPage() {
         <div className="lg:sticky lg:top-8">
           <TutorFiltersPanel
             filters={effectiveFilters}
-            allTutors={tutors}
+            allTutors={tutorsMatchingNonPriceFilters}
             onChange={setFilters}
             onClear={clearFilters}
             onResetToOnboarding={resetToOnboardingFilters}
