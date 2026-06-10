@@ -8,6 +8,7 @@ import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/T
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 import { tutorInitials } from '@/domains/tutors/tutor-discovery/utils/tutorDisplay';
+import { TutorAvailabilityDisplay } from '@/domains/tutors/tutor-discovery/components/TutorAvailabilityDisplay';
 
 type TutorProfileModalProps = {
   tutor: Tutor;
@@ -134,9 +135,10 @@ export function TutorProfileModal({
             </ProfileSection>
 
             <ProfileSection title="Availability">
-              <p className="text-sm leading-6 text-slate-700">
-                {tutor.availability}
-              </p>
+              <TutorAvailabilityDisplay
+                availabilityBlocks={tutor.availabilityBlocks ?? []}
+                fallbackText={tutor.availability}
+              />
             </ProfileSection>
           </div>
 
