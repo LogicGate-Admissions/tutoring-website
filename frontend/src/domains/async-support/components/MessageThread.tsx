@@ -61,9 +61,12 @@ import {
   updateStoredLearningProfile,
 } from "@/domains/students/learning-profile/services/learningProfileStorage";
 import {
+  getTutorProfile,
   getTutorProfileDraft,
   saveTutorProfileFromOnboarding,
 } from "@/domains/tutors/tutor-discovery/services/tutorProfileService";
+import { TutorProfileModal } from "@/domains/tutors/tutor-discovery/components/TutorProfileModal";
+import type { Tutor } from "@/domains/tutors/tutor-discovery/types/tutor";
 import type { AuthUser } from "@/domains/auth/types/auth";
 import type {
   Day,
@@ -128,6 +131,19 @@ export function MessageThread({
   const [counterpartyStudentBlocks, setCounterpartyStudentBlocks] = useState<
     TimeBlock[]
   >([]);
+  const [tutorProfileModal, setTutorProfileModal] = useState<Tutor | null>(null);
+  const [isLoadingTutorProfile, setIsLoadingTutorProfile] = useState(false);
+
+  async function handleTutorNameClick() {
+    if (!relationship?.tutorId || isLoadingTutorProfile) return;
+    setIsLoadingTutorProfile(true);
+    try {
+      const profile = await getTutorProfile(relationship.tutorId);
+      setTutorProfileModal(profile);
+    } finally {
+      setIsLoadingTutorProfile(false);
+    }
+  }
 
   useEffect(() => {
     const unsubscribe = subscribeToCurrentUser((user) => {
@@ -387,6 +403,9 @@ export function MessageThread({
       setIsUrgent(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
+      }
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
       }
     } catch (caughtError) {
       setError(
@@ -653,9 +672,18 @@ export function MessageThread({
             <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
               <p>
                 <span className="font-semibold">Conversation with:</span>{" "}
-                {viewerRole === "student"
-                  ? relationship.tutorName
-                  : relationship.studentName}
+                {viewerRole === "student" ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleTutorNameClick()}
+                    disabled={isLoadingTutorProfile}
+                    className="font-medium underline-offset-2 hover:underline disabled:opacity-60"
+                  >
+                    {isLoadingTutorProfile ? "Loading..." : relationship.tutorName}
+                  </button>
+                ) : (
+                  relationship.studentName
+                )}
               </p>
               <p className="mt-1">
                 <span className="font-semibold">Subject:</span>{" "}
@@ -759,12 +787,17 @@ export function MessageThread({
               onCancel={() => setReplyingTo(null)}
             />
           ) : null}
-
+          
           <textarea
             ref={textareaRef}
             id="support-message"
             value={draftMessage}
             onChange={(event) => setDraftMessage(event.target.value)}
+            onInput={(event) => {
+              const el = event.currentTarget;
+              el.style.height = "auto";
+              el.style.height = `${el.scrollHeight}px`;
+            }}
             onPaste={handleMessagePaste}
             onKeyDown={(event) => {
               // Tab remains an optional shortcut for moving between maths slots.
@@ -777,9 +810,10 @@ export function MessageThread({
               }
             }}
             placeholder="Write a message..."
-            rows={isEmbedded ? 3 : 4}
+            rows={1}
             maxLength={2000}
-            className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
+            style={{ maxHeight: "10rem" }}
+            className="w-full resize-none overflow-y-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
           />
 
           {/* Live rendered preview - shown whenever the draft contains $...$ math */}
@@ -908,6 +942,14 @@ export function MessageThread({
           </div>
         </form>
       </Card>
+
+      {tutorProfileModal ? (
+        <TutorProfileModal
+          tutor={tutorProfileModal}
+          readOnly
+          onClose={() => setTutorProfileModal(null)}
+        />
+      ) : null}
 
       {isScheduleOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

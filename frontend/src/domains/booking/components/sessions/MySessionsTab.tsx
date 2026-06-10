@@ -37,6 +37,7 @@ type MySessionsTabProps = {
   role: 'tutor' | 'student';
   counterparties: Counterparty[];
   getOtherPartyName: (booking: BookingRequest) => string;
+  getWorkspaceHref?: (booking: BookingRequest) => string | undefined;
 };
 
 type ModalSection = 'pending' | 'sent' | 'upcoming' | 'past' | null;
@@ -45,6 +46,7 @@ export function MySessionsTab({
   userId,
   role,
   getOtherPartyName,
+  getWorkspaceHref,
 }: MySessionsTabProps) {
   const { pendingRequests, sentRequests, upcomingSessions, pastSessions, allSessions, loading, error } =
     useBookings(userId, role);
@@ -214,6 +216,7 @@ export function MySessionsTab({
           otherPartyName={getOtherPartyName(selectedBooking)}
           viewerRole={role}
           viewerId={userId}
+          workspaceHref={getWorkspaceHref?.(selectedBooking)}
           onClose={() => setSelectedBooking(null)}
         />
       ) : null}

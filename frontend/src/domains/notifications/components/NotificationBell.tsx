@@ -21,8 +21,9 @@ type NotificationBellProps = {
 };
 
 export function NotificationBell({ userType }: NotificationBellProps) {
-  const { notifications, isLoading, error } = useNotifications(userType);
+  const { notifications, isLoading, error, clearAll } = useNotifications(userType);
   const [isOpen, setIsOpen] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,7 +64,25 @@ export function NotificationBell({ userType }: NotificationBellProps) {
       {isOpen ? (
         <div className="absolute right-0 z-50 mt-3 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
           <div className="border-b border-slate-200 px-4 py-3">
-            <p className="text-sm font-semibold text-slate-950">Notifications</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-950">Notifications</p>
+              {notifications.length > 0 && (
+                <button
+                  type="button"
+                  disabled={isClearing}
+                  onClick={() => {
+                    setIsClearing(true);
+                    void clearAll().finally(() => {
+                      setIsClearing(false);
+                      setIsOpen(false);
+                    });
+                  }}
+                  className="text-xs font-medium text-slate-500 transition hover:text-slate-950 disabled:opacity-50"
+                >
+                  {isClearing ? 'Clearing…' : 'Clear all'}
+                </button>
+              )}
+            </div>
             <p className="mt-0.5 text-xs text-slate-500">
               Messages, match requests, and support activity.
             </p>

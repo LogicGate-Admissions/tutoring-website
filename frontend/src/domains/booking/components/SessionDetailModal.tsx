@@ -7,6 +7,9 @@ import {
 } from '@/domains/booking/services/bookingService';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { BookSessionModal } from '@/domains/booking/components/BookSessionModal';
+import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
+import { getTutorProfile } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
+import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 import { cn } from '@/shared/utils/cn';
 
 type SessionDetailModalProps = {
@@ -14,6 +17,7 @@ type SessionDetailModalProps = {
   otherPartyName: string;
   viewerRole: 'tutor' | 'student';
   viewerId: string;
+  workspaceHref?: string;
   onClose: () => void;
 };
 
@@ -22,12 +26,26 @@ export function SessionDetailModal({
   otherPartyName,
   viewerRole,
   viewerId,
+  workspaceHref,
   onClose,
 }: SessionDetailModalProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
+  const [tutorProfileModal, setTutorProfileModal] = useState<Tutor | null>(null);
+  const [isLoadingTutorProfile, setIsLoadingTutorProfile] = useState(false);
+
+  async function handleTutorNameClick() {
+    if (isLoadingTutorProfile) return;
+    setIsLoadingTutorProfile(true);
+    try {
+      const profile = await getTutorProfile(booking.tutorId);
+      setTutorProfileModal(profile);
+    } finally {
+      setIsLoadingTutorProfile(false);
+    }
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -115,7 +133,25 @@ export function SessionDetailModal({
 
           <div className="p-6">
             <p className="text-lg font-semibold text-slate-950">{booking.subject}</p>
-            <p className="mt-0.5 text-sm text-slate-500">with {otherPartyName}</p>
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-500">
+              with{' '}
+              {viewerRole === 'student' ? (
+                <button
+                  type="button"
+                  onClick={() => void handleTutorNameClick()}
+                  disabled={isLoadingTutorProfile}
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-950 transition hover:border-slate-300 hover:bg-slate-100 disabled:opacity-60"
+                >
+                  {isLoadingTutorProfile ? 'Loading...' : otherPartyName}
+                  <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3 w-3 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="8" cy="5" r="3" />
+                    <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+                  </svg>
+                </button>
+              ) : (
+                <span className="font-medium text-slate-700">{otherPartyName}</span>
+              )}
+            </p>
 
             <span className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
               {statusLabel}
@@ -136,8 +172,22 @@ export function SessionDetailModal({
               <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</p>
             ) : null}
 
+            {workspaceHref && booking.status === 'confirmed' ? (
+              <div className="mt-5">
+                <a
+                  href={workspaceHref}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Go to workspace
+                  <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 3l5 5-5 5" />
+                  </svg>
+                </a>
+              </div>
+            ) : null}
+
             {(canReschedule || canCancel) && !confirmingCancel ? (
-              <div className="mt-5 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {canReschedule ? (
                   <ModalButton onClick={() => setShowReschedule(true)} variant="primary">
                     Reschedule
@@ -186,6 +236,14 @@ export function SessionDetailModal({
             subject: booking.subject,
             durationMinutes: booking.durationMinutes,
           }}
+        />
+      ) : null}
+
+      {tutorProfileModal ? (
+        <TutorProfileModal
+          tutor={tutorProfileModal}
+          readOnly
+          onClose={() => setTutorProfileModal(null)}
         />
       ) : null}
     </>

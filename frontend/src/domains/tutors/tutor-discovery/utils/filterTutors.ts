@@ -7,6 +7,21 @@ import type {
   TutorFilters,
   TutorSubjectFilter,
 } from '@/domains/tutors/tutor-discovery/types/tutor';
+import type { TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
+import { timeToMinutes } from '@/domains/students/learning-profile/utils/timeBlocks';
+
+function overlapMinutes(studentBlocks: TimeBlock[], tutorBlocks: TimeBlock[]): number {
+  let total = 0;
+  for (const s of studentBlocks) {
+    for (const t of tutorBlocks) {
+      if (s.day !== t.day) continue;
+      const start = Math.max(timeToMinutes(s.from), timeToMinutes(t.from));
+      const end = Math.min(timeToMinutes(s.to), timeToMinutes(t.to));
+      if (end > start) total += end - start;
+    }
+  }
+  return total;
+}
 
 function normalise(value: string) {
   return value.trim().toLowerCase();
@@ -104,7 +119,11 @@ function scoreTutor(tutor: Tutor, filters: TutorFilters) {
  *
  * Empty filter arrays mean "any".
  */
-export function filterTutors(tutors: Tutor[], filters: TutorFilters) {
+export function filterTutors(
+  tutors: Tutor[],
+  filters: TutorFilters,
+  studentAvailabilityBlocks?: TimeBlock[]
+) {
   const filteredTutors = tutors.filter((tutor) => {
     return (
       matchesLevelOrSubjectFilters(tutor, filters) &&
@@ -126,6 +145,14 @@ export function filterTutors(tutors: Tutor[], filters: TutorFilters) {
 
     if (filters.sortBy === 'Highest price') {
       return b.pricePerHour - a.pricePerHour;
+    }
+
+    if (filters.sortBy === 'Most hours in common') {
+      const student = studentAvailabilityBlocks ?? [];
+      return (
+        overlapMinutes(student, b.availabilityBlocks ?? []) -
+        overlapMinutes(student, a.availabilityBlocks ?? [])
+      );
     }
 
     return scoreTutor(b, filters) - scoreTutor(a, filters);

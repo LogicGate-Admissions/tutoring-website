@@ -222,6 +222,13 @@ function tutorToDraft(
   } satisfies TutorProfileDraft;
 }
 
+/** Load a single tutor's public profile by their uid. */
+export async function getTutorProfile(tutorId: string): Promise<Tutor | null> {
+  const snapshot = await getDoc(tutorProfileDocumentRef(tutorId));
+  if (!snapshot.exists()) return null;
+  return mapTutorDocument(snapshot);
+}
+
 /** Load all public tutor profiles from Firestore for student discovery. */
 export async function getTutorProfiles() {
   const tutorProfilesQuery = query(

@@ -8,15 +8,17 @@ import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/T
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 import { tutorInitials } from '@/domains/tutors/tutor-discovery/utils/tutorDisplay';
+import { TutorAvailabilityDisplay } from '@/domains/tutors/tutor-discovery/components/TutorAvailabilityDisplay';
 
 type TutorProfileModalProps = {
   tutor: Tutor;
+  readOnly?: boolean;
   existingRequest?: TrialSessionRequest;
-  isShortlisted: boolean;
+  isShortlisted?: boolean;
   onClose: () => void;
-  onChat: (tutor: Tutor) => void;
-  onToggleShortlist: (tutor: Tutor) => void;
-  onRequestTrial: (tutor: Tutor) => void;
+  onChat?: (tutor: Tutor) => void;
+  onToggleShortlist?: (tutor: Tutor) => void;
+  onRequestTrial?: (tutor: Tutor) => void;
 };
 
 /**
@@ -27,8 +29,9 @@ type TutorProfileModalProps = {
  */
 export function TutorProfileModal({
   tutor,
+  readOnly = false,
   existingRequest,
-  isShortlisted,
+  isShortlisted = false,
   onClose,
   onChat,
   onToggleShortlist,
@@ -132,9 +135,10 @@ export function TutorProfileModal({
             </ProfileSection>
 
             <ProfileSection title="Availability">
-              <p className="text-sm leading-6 text-slate-700">
-                {tutor.availability}
-              </p>
+              <TutorAvailabilityDisplay
+                availabilityBlocks={tutor.availabilityBlocks ?? []}
+                fallbackText={tutor.availability}
+              />
             </ProfileSection>
           </div>
 
@@ -145,31 +149,33 @@ export function TutorProfileModal({
           </ProfileSection>
         </div>
 
-        {/* Phase 4: actions live here, not on the compact tutor card. */}
-        <div className="mt-6 border-t border-slate-200 pt-5">
-          {existingRequest && (
-            <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-medium text-slate-700">
-                Match request
-              </p>
-              <TrialStatusBadge status={existingRequest.status} />
+        {/* Phase 4: actions — hidden in read-only mode (e.g. already matched). */}
+        {!readOnly && (
+          <div className="mt-6 border-t border-slate-200 pt-5">
+            {existingRequest && (
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-medium text-slate-700">
+                  Match request
+                </p>
+                <TrialStatusBadge status={existingRequest.status} />
+              </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Button variant="secondary" onClick={() => onChat?.(tutor)}>
+                Chat
+              </Button>
+
+              <Button variant="secondary" onClick={() => onToggleShortlist?.(tutor)}>
+                {isShortlisted ? 'Shortlisted' : 'Shortlist'}
+              </Button>
+
+              <Button disabled={hasExistingRequest} onClick={() => onRequestTrial?.(tutor)}>
+                {hasExistingRequest ? 'Request sent' : 'Request match'}
+              </Button>
             </div>
-          )}
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Button variant="secondary" onClick={() => onChat(tutor)}>
-              Chat
-            </Button>
-
-            <Button variant="secondary" onClick={() => onToggleShortlist(tutor)}>
-              {isShortlisted ? 'Shortlisted' : 'Shortlist'}
-            </Button>
-
-            <Button disabled={hasExistingRequest} onClick={() => onRequestTrial(tutor)}>
-              {hasExistingRequest ? 'Request sent' : 'Request match'}
-            </Button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
