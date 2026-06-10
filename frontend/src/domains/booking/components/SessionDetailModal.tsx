@@ -17,6 +17,7 @@ type SessionDetailModalProps = {
   otherPartyName: string;
   viewerRole: 'tutor' | 'student';
   viewerId: string;
+  workspaceHref?: string;
   onClose: () => void;
 };
 
@@ -25,6 +26,7 @@ export function SessionDetailModal({
   otherPartyName,
   viewerRole,
   viewerId,
+  workspaceHref,
   onClose,
 }: SessionDetailModalProps) {
   const [busy, setBusy] = useState(false);
@@ -170,8 +172,22 @@ export function SessionDetailModal({
               <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</p>
             ) : null}
 
+            {workspaceHref && booking.status === 'confirmed' ? (
+              <div className="mt-5">
+                <a
+                  href={workspaceHref}
+                  className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Go to workspace
+                  <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 3l5 5-5 5" />
+                  </svg>
+                </a>
+              </div>
+            ) : null}
+
             {(canReschedule || canCancel) && !confirmingCancel ? (
-              <div className="mt-5 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {canReschedule ? (
                   <ModalButton onClick={() => setShowReschedule(true)} variant="primary">
                     Reschedule

@@ -113,6 +113,12 @@ export function StudentDashboard() {
                 const rel = relationships.find((r) => r.tutorId === b.tutorId);
                 return rel?.tutorName ?? 'Tutor';
               }}
+              getWorkspaceHref={(b: BookingRequest) => {
+                const rel = relationships.find(
+                  (r) => r.tutorId === b.tutorId && r.studentId === b.studentId
+                );
+                return rel ? `/student/dashboard/support/${rel.id}/workspace` : undefined;
+              }}
             />
           ) : (
             <RelationshipContent
