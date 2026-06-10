@@ -48,31 +48,28 @@ export function SupportRelationshipCard({
 }: SupportRelationshipCardProps) {
   const [showBooking, setShowBooking] = useState(false);
   const [profileForModal, setProfileForModal] = useState<Tutor | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [studentProfileForModal, setStudentProfileForModal] = useState<{
     studentName: string;
     profile: StudentLearningProfile;
   } | null>(null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingStudentProfile, setIsLoadingStudentProfile] = useState(false);
 
   async function handleTutorNameClick() {
     if (isLoadingProfile) return;
-
     setIsLoadingProfile(true);
-
     try {
       const profile = await getTutorProfile(relationship.tutorId);
-      if (profile) setProfileForModal(profile);
+      setProfileForModal(profile);
     } finally {
       setIsLoadingProfile(false);
     }
   }
 
+
   async function handleStudentNameClick() {
     if (isLoadingStudentProfile) return;
-
     setIsLoadingStudentProfile(true);
-
     try {
       const profile = await getStudentLearningProfileById(relationship.studentId);
       setStudentProfileForModal({
@@ -83,26 +80,24 @@ export function SupportRelationshipCard({
       setIsLoadingStudentProfile(false);
     }
   }
-
   const { upcomingSession } = useRelationshipBookings(
     relationship.tutorId,
-    relationship.studentId,
+    relationship.studentId
   );
 
   const otherPersonName =
     viewerRole === 'tutor' ? relationship.studentName : relationship.tutorName;
+
   const otherPersonLabel = viewerRole === 'tutor' ? 'Student' : 'Tutor';
 
   const actionsWithBooking = useMemo(() => {
-    const withoutBookSession = actions.filter(
-      (action) => action.label !== 'Book session',
-    );
+    const withoutBookSession = actions.filter((action) => action.label !== 'Book session');
     const bookSessionAction: SupportRelationshipAction = {
       label: 'Book session',
       onClick: () => setShowBooking(true),
     };
     const workspaceIndex = withoutBookSession.findIndex(
-      (action) => action.label === 'Workspace',
+      (action) => action.label === 'Workspace'
     );
 
     if (workspaceIndex >= 0) {
@@ -127,17 +122,13 @@ export function SupportRelationshipCard({
 
             {viewerRole === 'student' ? (
               <ProfileNameButton
-                label={isLoadingProfile ? 'Loading...' : otherPersonName || 'Unnamed'}
+                label={isLoadingProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
                 disabled={isLoadingProfile}
                 onClick={() => void handleTutorNameClick()}
               />
             ) : (
               <ProfileNameButton
-                label={
-                  isLoadingStudentProfile
-                    ? 'Loading...'
-                    : otherPersonName || 'Unnamed relationship'
-                }
+                label={isLoadingStudentProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
                 disabled={isLoadingStudentProfile}
                 onClick={() => void handleStudentNameClick()}
               />
@@ -154,11 +145,7 @@ export function SupportRelationshipCard({
           <div className="flex flex-wrap gap-2 sm:justify-end">
             {relationship.hasUnreadMessageActivity ? (
               <MetricBadge
-                label={
-                  relationship.latestMessageUrgency === 'urgent'
-                    ? 'Urgent'
-                    : 'New message'
-                }
+                label={relationship.latestMessageUrgency === 'urgent' ? 'Urgent' : 'New message'}
                 value={relationship.unreadMessageCount}
                 active
                 urgent={relationship.latestMessageUrgency === 'urgent'}
@@ -359,11 +346,15 @@ function MetricBadge({
 }
 
 function formatCardTime(value?: string) {
-  if (!value) return '';
+  if (!value) {
+    return '';
+  }
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return '';
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
 
   return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',

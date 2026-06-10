@@ -96,9 +96,10 @@ export async function updateStoredLearningProfile(update: Partial<StudentLearnin
   return nextProfile;
 }
 
+
 /** Load any student's learning profile by ID. Used by tutors viewing student context. */
 export async function getStudentLearningProfileById(
-  studentId: string
+  studentId: string,
 ): Promise<StudentLearningProfile> {
   const snapshot = await getDoc(studentProfileDocumentRef(studentId));
 

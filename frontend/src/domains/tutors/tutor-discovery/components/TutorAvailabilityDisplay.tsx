@@ -93,7 +93,7 @@ export function TutorAvailabilityDisplay({
                         }`}
                         title={
                           active
-                            ? `${day} ${slotLabel(hour)}–${slotLabel(hour + SLOT_STEP)}`
+                            ? `${day} ${slotLabel(hour)}-${slotLabel(hour + SLOT_STEP)}`
                             : undefined
                         }
                       />
@@ -115,7 +115,7 @@ export function TutorAvailabilityDisplay({
               <div key={day} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
                 <span className="w-7 font-semibold text-slate-700">{day}</span>
                 <span className="text-slate-500">
-                  {blocks.map((b) => `${formatTime(b.from)} – ${formatTime(b.to)}`).join(', ')}
+                  {blocks.map((b) => `${formatTime(b.from)} - ${formatTime(b.to)}`).join(', ')}
                 </span>
               </div>
             );

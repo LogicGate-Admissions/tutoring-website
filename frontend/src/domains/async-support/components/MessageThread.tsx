@@ -89,6 +89,7 @@ type MessageThreadProps = {
   relationshipId: string;
   viewerRole: AsyncSupportRole;
   density?: "default" | "embedded";
+  showHeader?: boolean;
 };
 
 type CurrentThreadUser = AuthUser | null;
@@ -101,6 +102,7 @@ export function MessageThread({
   relationshipId,
   viewerRole,
   density = "default",
+  showHeader = true,
 }: MessageThreadProps) {
   const isEmbedded = density === "embedded";
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -147,11 +149,11 @@ export function MessageThread({
     TimeBlock[]
   >([]);
   const [tutorProfileModal, setTutorProfileModal] = useState<Tutor | null>(null);
+  const [isLoadingTutorProfile, setIsLoadingTutorProfile] = useState(false);
   const [studentProfileModal, setStudentProfileModal] = useState<{
     studentName: string;
     profile: StudentLearningProfile;
   } | null>(null);
-  const [isLoadingTutorProfile, setIsLoadingTutorProfile] = useState(false);
   const [isLoadingStudentProfile, setIsLoadingStudentProfile] = useState(false);
 
   async function handleTutorNameClick() {
@@ -159,7 +161,7 @@ export function MessageThread({
     setIsLoadingTutorProfile(true);
     try {
       const profile = await getTutorProfile(relationship.tutorId);
-      if (profile) setTutorProfileModal(profile);
+      setTutorProfileModal(profile);
     } finally {
       setIsLoadingTutorProfile(false);
     }
@@ -167,9 +169,7 @@ export function MessageThread({
 
   async function handleStudentNameClick() {
     if (!relationship?.studentId || isLoadingStudentProfile) return;
-
     setIsLoadingStudentProfile(true);
-
     try {
       const profile = await getStudentLearningProfileById(relationship.studentId);
       setStudentProfileModal({
@@ -693,13 +693,13 @@ export function MessageThread({
     <div
       className={cn("grid min-w-0 gap-4", isEmbedded && "gap-3 text-[13px]")}
     >
-      {!isEmbedded ? (
+      {!isEmbedded && showHeader ? (
         <Card>
           <h2 className="text-xl font-semibold tracking-tight text-slate-950">
             Message thread
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Use this space for async support between sessions. New messages
+            Use this space for support between sessions. New messages
             appear automatically, and unread messages are marked when you open
             the thread.
           </p>
@@ -718,14 +718,7 @@ export function MessageThread({
                     {isLoadingTutorProfile ? "Loading..." : relationship.tutorName}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => void handleStudentNameClick()}
-                    disabled={isLoadingStudentProfile}
-                    className="font-medium underline-offset-2 hover:underline disabled:opacity-60"
-                  >
-                    {isLoadingStudentProfile ? "Loading..." : relationship.studentName}
-                  </button>
+                  relationship.studentName
                 )}
               </p>
               <p className="mt-1">
@@ -755,8 +748,7 @@ export function MessageThread({
               No messages yet
             </h3>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Send a message or attach a file to start this async support
-              thread.
+              Send a message or attach a file to start this conversation.
             </p>
           </div>
         ) : (
@@ -782,6 +774,11 @@ export function MessageThread({
                   <MessageBubble
                     relationshipId={relationshipId}
                     message={message}
+                    onSenderNameClick={
+                      message.senderRole === "tutor"
+                        ? () => void handleTutorNameClick()
+                        : () => void handleStudentNameClick()
+                    }
                     isMine={isMine}
                     isEditing={editingMessageId === message.id}
                     isHighlighted={highlightedMessageId === message.id}
@@ -791,11 +788,6 @@ export function MessageThread({
                     canChangeUrgency={canChangeUrgency}
                     onRegisterElement={registerMessageElement}
                     onJumpToMessage={jumpToMessage}
-                    onSenderNameClick={
-                      message.senderRole === "tutor"
-                        ? () => void handleTutorNameClick()
-                        : () => void handleStudentNameClick()
-                    }
                     onReply={() => startReplyTo(message)}
                     onStartEdit={() => startEditingMessage(message)}
                     onEditDraftChange={setEditDraft}
@@ -1200,6 +1192,7 @@ function MessageBubble({
 }: {
   relationshipId: string;
   message: SupportMessage;
+  onSenderNameClick?: () => void;
   isMine: boolean;
   isEditing: boolean;
   isHighlighted: boolean;
@@ -1219,7 +1212,6 @@ function MessageBubble({
     element: HTMLDivElement | null,
   ) => void;
   onJumpToMessage: (messageId: string) => void;
-  onSenderNameClick: () => void;
 }) {
   const isDeleted = message.isDeleted === true;
 
@@ -1239,8 +1231,9 @@ function MessageBubble({
           <button
             type="button"
             onClick={onSenderNameClick}
+            disabled={!onSenderNameClick}
             className={cn(
-              "text-xs font-semibold underline-offset-2 hover:underline",
+              "text-xs font-semibold underline-offset-2 hover:underline disabled:pointer-events-none disabled:no-underline",
               isMine ? "text-slate-200" : "text-slate-600",
             )}
           >

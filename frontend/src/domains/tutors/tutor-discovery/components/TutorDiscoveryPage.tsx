@@ -106,23 +106,6 @@ export function TutorDiscoveryPage() {
 
         if (isMounted) {
           setTutors(profiles);
-          const loadedDynamicMaxPrice = getDynamicMaxTutorPrice(profiles);
-          setFilters((currentFilters) => {
-            const isStillAtDefaultMax =
-              currentFilters.maxPricePerHour === DEFAULT_TUTOR_FILTERS.maxPricePerHour;
-
-            if (
-              !isStillAtDefaultMax ||
-              loadedDynamicMaxPrice <= DEFAULT_TUTOR_FILTERS.maxPricePerHour
-            ) {
-              return currentFilters;
-            }
-
-            return {
-              ...currentFilters,
-              maxPricePerHour: loadedDynamicMaxPrice,
-            };
-          });
         }
       } finally {
         if (isMounted) {
@@ -145,17 +128,31 @@ export function TutorDiscoveryPage() {
     return subscribeToStudentTrialSessions(currentStudent.id, setStudentRequests);
   }, [currentStudent]);
 
-  const filteredTutors = useMemo(
-    () => filterTutors(tutors, filters, studentProfile?.availability),
-    [filters, tutors, studentProfile]
-  );
-
-  const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
-
   const dynamicMaxTutorPrice = useMemo(
     () => getDynamicMaxTutorPrice(tutors),
     [tutors]
   );
+
+  const effectiveFilters = useMemo(() => {
+    if (
+      filters.maxPricePerHour === DEFAULT_TUTOR_FILTERS.maxPricePerHour &&
+      dynamicMaxTutorPrice > DEFAULT_TUTOR_FILTERS.maxPricePerHour
+    ) {
+      return {
+        ...filters,
+        maxPricePerHour: dynamicMaxTutorPrice,
+      };
+    }
+
+    return filters;
+  }, [dynamicMaxTutorPrice, filters]);
+
+  const filteredTutors = useMemo(
+    () => filterTutors(tutors, effectiveFilters, studentProfile?.availability),
+    [effectiveFilters, tutors, studentProfile]
+  );
+
+  const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
 
   const selectedTutorRequest = selectedTutor
     ? findExistingRequest(selectedTutor.id)
@@ -278,7 +275,7 @@ export function TutorDiscoveryPage() {
       <Container className="grid items-start gap-8 py-10 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-8">
           <TutorFiltersPanel
-            filters={filters}
+            filters={effectiveFilters}
             allTutors={tutors}
             onChange={setFilters}
             onClear={clearFilters}

@@ -149,7 +149,7 @@ export function TutorProfileModal({
           </ProfileSection>
         </div>
 
-        {/* Phase 4: actions — hidden in read-only mode (e.g. already matched). */}
+        {/* Phase 4: actions - hidden in read-only mode (e.g. already matched). */}
         {!readOnly && (
           <div className="mt-6 border-t border-slate-200 pt-5">
             {existingRequest && (
