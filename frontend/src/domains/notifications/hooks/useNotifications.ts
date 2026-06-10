@@ -8,9 +8,12 @@
  * questions, resources, homework, or calendar notifications.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
-import { subscribeToRelationshipSummaries } from '@/domains/async-support/services/relationshipsService';
+import {
+  markRelationshipMessagesSeen,
+  subscribeToRelationshipSummaries,
+} from '@/domains/async-support/services/relationshipsService';
 import type { AsyncSupportRole } from '@/domains/async-support/types/asyncSupport';
 import {
   markTrialSessionStatusSeen,
@@ -25,6 +28,7 @@ type UseNotificationsResult = {
   notifications: AppNotification[];
   isLoading: boolean;
   error: string | null;
+  clearAll: () => Promise<void>;
 };
 
 export function useNotifications(
@@ -37,6 +41,7 @@ export function useNotifications(
   const [trialNotifications, setTrialNotifications] = useState<
     AppNotification[]
   >([]);
+  const unreadRelationshipIdsRef = useRef<string[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isLoadingTrials, setIsLoadingTrials] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,25 +81,25 @@ export function useNotifications(
         viewerId: user.id,
         viewerRole,
         onChange: (relationships) => {
+          const unread = relationships.filter((r) => r.hasUnreadMessageActivity);
+          unreadRelationshipIdsRef.current = unread.map((r) => r.id);
           setMessageNotifications(
-            relationships
-              .filter((relationship) => relationship.hasUnreadMessageActivity)
-              .map((relationship) =>
-                buildMessageNotification({
-                  relationshipId: relationship.id,
-                  viewerRole,
-                  senderName:
-                    relationship.latestMessageSenderName ||
-                    (viewerRole === 'student'
-                      ? relationship.tutorName
-                      : relationship.studentName),
-                  messagePreview: relationship.latestMessagePreview || '',
-                  subject: relationship.subject,
-                  level: relationship.level,
-                  createdAt: relationship.latestMessageAt || relationship.updatedAt,
-                  isUrgent: relationship.latestMessageUrgency === 'urgent',
-                })
-              )
+            unread.map((relationship) =>
+              buildMessageNotification({
+                relationshipId: relationship.id,
+                viewerRole,
+                senderName:
+                  relationship.latestMessageSenderName ||
+                  (viewerRole === 'student'
+                    ? relationship.tutorName
+                    : relationship.studentName),
+                messagePreview: relationship.latestMessagePreview || '',
+                subject: relationship.subject,
+                level: relationship.level,
+                createdAt: relationship.latestMessageAt || relationship.updatedAt,
+                isUrgent: relationship.latestMessageUrgency === 'urgent',
+              })
+            )
           );
           setIsLoadingMessages(false);
         },
@@ -130,10 +135,22 @@ export function useNotifications(
     ...bookingNotifications,
   ].sort((first, second) => second.createdAt.localeCompare(first.createdAt));
 
+  async function clearAll() {
+    await Promise.all([
+      ...unreadRelationshipIdsRef.current.map((relationshipId) =>
+        markRelationshipMessagesSeen({ relationshipId, viewerRole })
+      ),
+      ...trialNotifications
+        .filter((n) => typeof n.onOpen === 'function')
+        .map((n) => n.onOpen!()),
+    ]);
+  }
+
   return {
     notifications,
     isLoading: isLoadingMessages || isLoadingTrials,
     error,
+    clearAll,
   };
 }
 
