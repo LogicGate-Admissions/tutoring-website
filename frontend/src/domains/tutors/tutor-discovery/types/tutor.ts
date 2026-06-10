@@ -47,7 +47,6 @@ export type Tutor = {
 };
 
 export type TutorSortOption =
-  | 'Best match'
   | 'Highest rated'
   | 'Lowest price'
   | 'Highest price'

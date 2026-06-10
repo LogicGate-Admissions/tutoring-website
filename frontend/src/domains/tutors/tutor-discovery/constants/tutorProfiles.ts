@@ -9,7 +9,6 @@
 import type { TutorSortOption } from '@/domains/tutors/tutor-discovery/types/tutor';
 
 export const TUTOR_SORT_OPTIONS: TutorSortOption[] = [
-  'Best match',
   'Highest rated',
   'Lowest price',
   'Highest price',

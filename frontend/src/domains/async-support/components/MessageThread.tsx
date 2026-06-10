@@ -8,7 +8,15 @@
  * WhatsApp-style replies, and owner-controlled message edits/deletes.
  */
 
-import { ChangeEvent, ClipboardEvent, FormEvent, useEffect, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  ClipboardEvent,
+  DragEvent as ReactDragEvent,
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   MathKeyboard,
   MATH_PLACEHOLDER,
@@ -81,6 +89,10 @@ type MessageThreadProps = {
 };
 
 type CurrentThreadUser = AuthUser | null;
+
+const RESOURCE_DRAG_MIME_TYPE = 'application/x-logicgate-resource';
+const RESOURCE_DRAG_START_EVENT = 'logicgate-resource-drag-start';
+const RESOURCE_DRAG_END_EVENT = 'logicgate-resource-drag-end';
 
 export function MessageThread({
   relationshipId,
@@ -737,6 +749,7 @@ export function MessageThread({
                     <UnreadDivider />
                   ) : null}
                   <MessageBubble
+                    relationshipId={relationshipId}
                     message={message}
                     isMine={isMine}
                     isEditing={editingMessageId === message.id}
@@ -963,10 +976,13 @@ export function MessageThread({
             {/* Header */}
             <div className="flex items-start justify-between">
               <h2 className="text-lg font-semibold text-slate-950">
-                Schedule a session with{" "}
-                {viewerRole === "student"
-                  ? relationship?.tutorName
-                  : relationship?.studentName}
+                {scheduleTab === "availability"
+                  ? "Change availability"
+                  : `Book a session with ${
+                      viewerRole === "student"
+                        ? relationship?.tutorName
+                        : relationship?.studentName
+                    }`}
               </h2>
               <button
                 type="button"
@@ -1118,6 +1134,7 @@ function openUrgentEmailDraftOrShowFallback({
 }
 
 function MessageBubble({
+  relationshipId,
   message,
   isMine,
   isEditing,
@@ -1136,6 +1153,7 @@ function MessageBubble({
   onRegisterElement,
   onJumpToMessage,
 }: {
+  relationshipId: string;
   message: SupportMessage;
   isMine: boolean;
   isEditing: boolean;
@@ -1249,6 +1267,7 @@ function MessageBubble({
 
             {message.attachments.length > 0 ? (
               <AttachmentList
+                relationshipId={relationshipId}
                 attachments={message.attachments}
                 isMine={isMine}
               />
@@ -1553,9 +1572,11 @@ function QuotedReplyCard({
 }
 
 function AttachmentList({
+  relationshipId,
   attachments,
   isMine,
 }: {
+  relationshipId: string;
   attachments: SupportAttachment[];
   isMine: boolean;
 }) {
@@ -1564,6 +1585,7 @@ function AttachmentList({
       {attachments.map((attachment) => (
         <AttachmentItem
           key={attachment.id}
+          relationshipId={relationshipId}
           attachment={attachment}
           isMine={isMine}
         />
@@ -1573,9 +1595,11 @@ function AttachmentList({
 }
 
 function AttachmentItem({
+  relationshipId,
   attachment,
   isMine,
 }: {
+  relationshipId: string;
   attachment: SupportAttachment;
   isMine: boolean;
 }) {
@@ -1585,6 +1609,28 @@ function AttachmentItem({
       ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
       : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
   );
+
+  function handleAttachmentDragStart(event: ReactDragEvent<HTMLAnchorElement>) {
+    if (!attachment.url) return;
+
+    event.dataTransfer.setData(
+      RESOURCE_DRAG_MIME_TYPE,
+      JSON.stringify({
+        relationshipId,
+        title: attachment.name,
+        url: attachment.url,
+        contentType: attachment.contentType,
+        kind: attachment.kind,
+        sizeBytes: attachment.sizeBytes,
+      }),
+    );
+    event.dataTransfer.effectAllowed = "copy";
+    window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_START_EVENT));
+  }
+
+  function handleAttachmentDragEnd() {
+    window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_END_EVENT));
+  }
 
   const metaLine = (
     <div
@@ -1608,6 +1654,9 @@ function AttachmentItem({
         href={attachment.url}
         target="_blank"
         rel="noreferrer"
+        draggable
+        onDragStart={handleAttachmentDragStart}
+        onDragEnd={handleAttachmentDragEnd}
         className={cn(baseClassName, "overflow-hidden p-0")}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1627,6 +1676,9 @@ function AttachmentItem({
         href={attachment.url}
         target="_blank"
         rel="noreferrer"
+        draggable
+        onDragStart={handleAttachmentDragStart}
+        onDragEnd={handleAttachmentDragEnd}
         className={cn(baseClassName, "px-3 py-2")}
       >
         <div className="min-w-0 overflow-hidden">

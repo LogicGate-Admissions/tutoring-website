@@ -7,6 +7,13 @@ export const dynamic = 'force-dynamic';
 type AddResourceToBoardRequest = {
   relationshipId?: string;
   resourceId?: string;
+  attachment?: {
+    title?: string;
+    url?: string;
+    contentType?: string;
+    kind?: string;
+    sizeBytes?: number;
+  };
   position?: {
     x?: number;
     y?: number;
@@ -24,6 +31,7 @@ type ResourceDocument = {
   url?: string;
   attachment?: {
     name?: string;
+    title?: string;
     url?: string;
     contentType?: string;
     kind?: string;
@@ -44,10 +52,11 @@ export async function POST(request: Request) {
     const body = (await request.json()) as AddResourceToBoardRequest;
     const relationshipId = body.relationshipId?.trim();
     const resourceId = body.resourceId?.trim();
+    const attachment = normaliseDirectAttachment(body.attachment);
 
-    if (!relationshipId || !resourceId) {
+    if (!relationshipId || (!resourceId && !attachment)) {
       return NextResponse.json(
-        { error: 'Missing relationshipId or resourceId.' },
+        { error: 'Missing relationshipId and resource details.' },
         { status: 400 }
       );
     }
@@ -75,19 +84,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const resourceSnapshot = await relationshipRef
-      .collection('resources')
-      .doc(resourceId)
-      .get();
+    const resourceSnapshot = resourceId
+      ? await relationshipRef.collection('resources').doc(resourceId).get()
+      : null;
 
-    if (!resourceSnapshot.exists) {
+    if (resourceId && !resourceSnapshot?.exists) {
       return NextResponse.json(
         { error: 'Resource not found.' },
         { status: 404 }
       );
     }
 
-    const resource = resourceSnapshot.data() as ResourceDocument;
+    const resource = attachment
+      ? attachment
+      : (resourceSnapshot?.data() as ResourceDocument);
     const accessToken = await getMiroAccessToken();
     const miroItem = await createMiroItemFromResource({
       accessToken,
@@ -96,14 +106,16 @@ export async function POST(request: Request) {
       position: normaliseDropPosition(body.position),
     });
 
-    await resourceSnapshot.ref.set(
-      {
-        lastAddedToMiroAt: new Date().toISOString(),
-        lastMiroItemId: miroItem.id ?? null,
-        lastMiroItemType: miroItem.type ?? null,
-      },
-      { merge: true }
-    );
+    if (resourceSnapshot?.exists) {
+      await resourceSnapshot.ref.set(
+        {
+          lastAddedToMiroAt: new Date().toISOString(),
+          lastMiroItemId: miroItem.id ?? null,
+          lastMiroItemType: miroItem.type ?? null,
+        },
+        { merge: true }
+      );
+    }
 
     return NextResponse.json({
       miroItemId: miroItem.id,
@@ -116,6 +128,28 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+
+function normaliseDirectAttachment(attachment: AddResourceToBoardRequest['attachment']): ResourceDocument | null {
+  const url = attachment?.url?.trim();
+
+  if (!url) return null;
+
+  const title = attachment?.title?.trim() || 'Message attachment';
+
+  return {
+    title,
+    url,
+    attachment: {
+      name: title,
+      title,
+      url,
+      contentType: attachment?.contentType ?? '',
+      kind: attachment?.kind ?? '',
+      sizeBytes: attachment?.sizeBytes ?? 0,
+    },
+  };
 }
 
 async function getMiroAccessToken() {

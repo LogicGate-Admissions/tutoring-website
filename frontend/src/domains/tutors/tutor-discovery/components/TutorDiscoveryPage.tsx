@@ -135,6 +135,31 @@ export function TutorDiscoveryPage() {
 
   const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
 
+  const dynamicMaxTutorPrice = useMemo(
+    () => getDynamicMaxTutorPrice(tutors),
+    [tutors]
+  );
+
+  useEffect(() => {
+    setFilters((currentFilters) => {
+      const isStillAtDefaultMax =
+        currentFilters.maxPricePerHour === DEFAULT_TUTOR_FILTERS.maxPricePerHour;
+
+      if (!isStillAtDefaultMax) {
+        return currentFilters;
+      }
+
+      if (dynamicMaxTutorPrice <= DEFAULT_TUTOR_FILTERS.maxPricePerHour) {
+        return currentFilters;
+      }
+
+      return {
+        ...currentFilters,
+        maxPricePerHour: dynamicMaxTutorPrice,
+      };
+    });
+  }, [dynamicMaxTutorPrice]);
+
   const selectedTutorRequest = selectedTutor
     ? findExistingRequest(selectedTutor.id)
     : undefined;
@@ -148,7 +173,10 @@ export function TutorDiscoveryPage() {
   }
 
   function clearFilters() {
-    setFilters(DEFAULT_TUTOR_FILTERS);
+    setFilters({
+      ...DEFAULT_TUTOR_FILTERS,
+      maxPricePerHour: dynamicMaxTutorPrice,
+    });
   }
 
   function resetToOnboardingFilters() {
@@ -303,6 +331,19 @@ export function TutorDiscoveryPage() {
       )}
     </main>
   );
+}
+
+function roundUpToStep(value: number, step = 5) {
+  return Math.ceil(value / step) * step;
+}
+
+function getDynamicMaxTutorPrice(tutors: Tutor[]) {
+  const highestTutorPrice = Math.max(
+    DEFAULT_TUTOR_FILTERS.maxPricePerHour,
+    ...tutors.map((tutor) => tutor.pricePerHour)
+  );
+
+  return Math.max(100, roundUpToStep(highestTutorPrice));
 }
 
 function TutorResultsHeader({

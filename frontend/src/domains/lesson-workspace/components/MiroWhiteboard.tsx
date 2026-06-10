@@ -34,8 +34,12 @@ type EnsureBoardResponse = {
 
 type DraggedResourcePayload = {
   relationshipId: string;
-  resourceId: string;
+  resourceId?: string;
   title: string;
+  url?: string;
+  contentType?: string;
+  kind?: string;
+  sizeBytes?: number;
 };
 
 type AddResourceResponse = {
@@ -163,6 +167,15 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
         body: JSON.stringify({
           relationshipId,
           resourceId: payload.resourceId,
+          attachment: payload.resourceId
+            ? undefined
+            : {
+                title: payload.title,
+                url: payload.url,
+                contentType: payload.contentType,
+                kind: payload.kind,
+                sizeBytes: payload.sizeBytes,
+              },
           position: boardPosition,
         }),
       });
@@ -321,7 +334,8 @@ function readDraggedResource(event: DragEvent<HTMLDivElement>) {
   try {
     const payload = JSON.parse(rawPayload) as DraggedResourcePayload;
 
-    if (!payload.relationshipId || !payload.resourceId) return null;
+    if (!payload.relationshipId) return null;
+    if (!payload.resourceId && !payload.url) return null;
 
     return payload;
   } catch {

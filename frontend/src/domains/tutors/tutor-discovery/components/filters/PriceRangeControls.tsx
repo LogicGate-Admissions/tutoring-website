@@ -1,76 +1,83 @@
-import {
-  MAX_TUTOR_PRICE_PER_HOUR,
-  MIN_TUTOR_PRICE_PER_HOUR,
-} from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
-import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
+import { useEffect, useRef, useState } from "react";
+import { MIN_TUTOR_PRICE_PER_HOUR } from "@/domains/tutors/tutor-discovery/constants/tutorProfiles";
+import type { Tutor } from "@/domains/tutors/tutor-discovery/types/tutor";
+import { cn } from "@/shared/utils/cn";
 
-const BUCKET_COUNT = 10;
-const BUCKET_WIDTH = (MAX_TUTOR_PRICE_PER_HOUR - MIN_TUTOR_PRICE_PER_HOUR) / BUCKET_COUNT;
+const BUCKET_COUNT = 14;
+const PRICE_STEP = 5;
 
-function buildBuckets(tutors: Tutor[]) {
-  const counts = Array<number>(BUCKET_COUNT).fill(0);
-  for (const tutor of tutors) {
-    const idx = Math.min(
-      Math.floor((tutor.pricePerHour - MIN_TUTOR_PRICE_PER_HOUR) / BUCKET_WIDTH),
-      BUCKET_COUNT - 1
-    );
-    if (idx >= 0) counts[idx]++;
-  }
-  return counts;
+type ActiveHandle = "min" | "max";
+
+function roundUpToStep(value: number, step = PRICE_STEP) {
+  return Math.ceil(value / step) * step;
 }
 
-function PriceHistogram({
-  allTutors,
-  minPrice,
-  maxPrice,
-}: {
-  allTutors: Tutor[];
-  minPrice: number;
-  maxPrice: number;
-}) {
-  const counts = buildBuckets(allTutors);
-  const maxCount = Math.max(...counts, 1);
+function getDynamicMaxPrice(tutors: Tutor[] | undefined) {
+  const highestTutorPrice = Math.max(
+    MIN_TUTOR_PRICE_PER_HOUR,
+    ...(tutors ?? []).map((tutor) => tutor.pricePerHour),
+  );
 
+  return Math.max(100, roundUpToStep(highestTutorPrice));
+}
+
+function buildBuckets(tutors: Tutor[], maxPrice: number) {
+  const counts = Array<number>(BUCKET_COUNT).fill(0);
+  const bucketWidth = (maxPrice - MIN_TUTOR_PRICE_PER_HOUR) / BUCKET_COUNT;
+
+  for (const tutor of tutors) {
+    const index = Math.min(
+      Math.floor((tutor.pricePerHour - MIN_TUTOR_PRICE_PER_HOUR) / bucketWidth),
+      BUCKET_COUNT - 1,
+    );
+
+    if (index >= 0) counts[index] += 1;
+  }
+
+  return { counts, bucketWidth };
+}
+
+function priceToPercent(value: number, maxPrice: number) {
   return (
-    <div>
-      <div className="flex h-16 items-end gap-0.5">
-        {counts.map((count, i) => {
-          const bucketMin = MIN_TUTOR_PRICE_PER_HOUR + i * BUCKET_WIDTH;
-          const bucketMax = bucketMin + BUCKET_WIDTH;
-          const inRange = bucketMax > minPrice && bucketMin < maxPrice;
-          const heightPct = (count / maxCount) * 100;
-
-          return (
-            <div
-              key={i}
-              className="flex flex-1 items-end"
-              style={{ height: '100%' }}
-            >
-              <div
-                className={`w-full rounded-t-sm transition-colors ${
-                  inRange ? 'bg-slate-950' : 'bg-slate-200'
-                }`}
-                style={{ height: `${Math.max(heightPct, count > 0 ? 6 : 0)}%` }}
-                title={`£${Math.round(bucketMin)}–£${Math.round(bucketMax)}: ${count} tutor${count !== 1 ? 's' : ''}`}
-              />
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-1 flex justify-between text-[0.6rem] text-slate-400">
-        <span>£{MIN_TUTOR_PRICE_PER_HOUR}</span>
-        <span>£{MAX_TUTOR_PRICE_PER_HOUR}</span>
-      </div>
-    </div>
+    ((value - MIN_TUTOR_PRICE_PER_HOUR) /
+      (maxPrice - MIN_TUTOR_PRICE_PER_HOUR)) *
+    100
   );
 }
 
-/**
- * Price controls for the tutor filter panel.
- *
- * When allTutors is provided, renders a histogram above the sliders showing
- * the distribution of tutor prices; bars within the selected range are dark.
- */
+function percentToPrice(percent: number, maxPrice: number) {
+  const rawPrice =
+    MIN_TUTOR_PRICE_PER_HOUR +
+    (percent / 100) * (maxPrice - MIN_TUTOR_PRICE_PER_HOUR);
+
+  return Math.round(rawPrice / PRICE_STEP) * PRICE_STEP;
+}
+
+function clampPrice(value: number, maxPrice: number) {
+  return Math.min(Math.max(value, MIN_TUTOR_PRICE_PER_HOUR), maxPrice);
+}
+
+function cleanPriceInput(rawValue: string) {
+  const onlyNumbersAndDot = rawValue.replace(/[^\d.]/g, "");
+  const [rawWhole = "", ...rest] = onlyNumbersAndDot.split(".");
+  const hasDot = onlyNumbersAndDot.includes(".");
+  const rawDecimal = rest.join("");
+
+  const wholeWithoutLeadingZeros = rawWhole.replace(/^0+(?=\d)/, "") || "0";
+  const decimal = rawDecimal.slice(0, 2);
+
+  if (hasDot) {
+    return `${wholeWithoutLeadingZeros}.${decimal}`;
+  }
+
+  return wholeWithoutLeadingZeros;
+}
+
+function priceInputToNumber(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function PriceRangeControls({
   minPrice,
   maxPrice,
@@ -84,66 +91,326 @@ export function PriceRangeControls({
   onMaxPriceChange: (value: number) => void;
   allTutors?: Tutor[];
 }) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    handle: ActiveHandle | null;
+  } | null>(null);
+
+  const [activeHandle, setActiveHandle] = useState<ActiveHandle | null>(null);
+  const [minDraft, setMinDraft] = useState(String(minPrice));
+  const [maxDraft, setMaxDraft] = useState(String(maxPrice));
+
+  const dynamicMaxPrice = getDynamicMaxPrice(allTutors);
+
+  const { counts, bucketWidth } =
+    allTutors && allTutors.length > 0
+      ? buildBuckets(allTutors, dynamicMaxPrice)
+      : { counts: [], bucketWidth: 0 };
+
+  const safeMinPrice = clampPrice(minPrice, dynamicMaxPrice);
+  const safeMaxPrice = clampPrice(maxPrice, dynamicMaxPrice);
+  const maxCount = Math.max(...counts, 1);
+
+  const selectedLeft = priceToPercent(safeMinPrice, dynamicMaxPrice);
+  const selectedRight = 100 - priceToPercent(safeMaxPrice, dynamicMaxPrice);
+  const handlesOverlap = safeMinPrice === safeMaxPrice;
+
+  useEffect(() => {
+    setMinDraft(String(safeMinPrice));
+  }, [safeMinPrice]);
+
+  useEffect(() => {
+    setMaxDraft(String(safeMaxPrice));
+  }, [safeMaxPrice]);
+
+  function updateMin(value: number) {
+    const nextValue = clampPrice(value, dynamicMaxPrice);
+    onMinPriceChange(Math.min(nextValue, safeMaxPrice));
+  }
+
+  function updateMax(value: number) {
+    const nextValue = clampPrice(value, dynamicMaxPrice);
+    onMaxPriceChange(Math.max(nextValue, safeMinPrice));
+  }
+
+  function priceFromPointer(clientX: number) {
+    const track = trackRef.current;
+    if (!track) return safeMinPrice;
+
+    const rect = track.getBoundingClientRect();
+    const percent = Math.min(
+      Math.max(((clientX - rect.left) / rect.width) * 100, 0),
+      100,
+    );
+
+    return clampPrice(percentToPrice(percent, dynamicMaxPrice), dynamicMaxPrice);
+  }
+
+  function nearestHandle(clientX: number): ActiveHandle {
+    const pointerPrice = priceFromPointer(clientX);
+    const minDistance = Math.abs(pointerPrice - safeMinPrice);
+    const maxDistance = Math.abs(pointerPrice - safeMaxPrice);
+
+    return minDistance <= maxDistance ? "min" : "max";
+  }
+
+  function startDrag(event: React.PointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      handle: handlesOverlap ? null : nearestHandle(event.clientX),
+    };
+
+    setActiveHandle(dragRef.current.handle);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function continueDrag(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    if (!drag.handle && handlesOverlap) {
+      const deltaX = event.clientX - drag.startX;
+
+      if (Math.abs(deltaX) < 2) return;
+
+      drag.handle = deltaX > 0 ? "max" : "min";
+      setActiveHandle(drag.handle);
+    }
+
+    if (!drag.handle) return;
+
+    const nextPrice = priceFromPointer(event.clientX);
+
+    if (drag.handle === "min") {
+      updateMin(nextPrice);
+    } else {
+      updateMax(nextPrice);
+    }
+  }
+
+  function stopDrag(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+
+    if (drag?.pointerId === event.pointerId) {
+      dragRef.current = null;
+      setActiveHandle(null);
+
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    }
+  }
+
+  function handleMinInputChange(rawValue: string) {
+    const cleanedValue = cleanPriceInput(rawValue);
+    setMinDraft(cleanedValue);
+
+    const numericValue = priceInputToNumber(cleanedValue);
+    if (numericValue === null) return;
+
+    onMinPriceChange(
+      Math.min(clampPrice(numericValue, dynamicMaxPrice), safeMaxPrice),
+    );
+  }
+
+  function handleMaxInputChange(rawValue: string) {
+    const cleanedValue = cleanPriceInput(rawValue);
+    setMaxDraft(cleanedValue);
+
+    const numericValue = priceInputToNumber(cleanedValue);
+    if (numericValue === null) return;
+
+    onMaxPriceChange(
+      Math.max(clampPrice(numericValue, dynamicMaxPrice), safeMinPrice),
+    );
+  }
+
+  function normaliseMinInput() {
+    const numericValue = priceInputToNumber(minDraft);
+
+    if (numericValue === null) {
+      setMinDraft(String(safeMinPrice));
+      return;
+    }
+
+    const nextValue = Math.min(
+      clampPrice(Number(numericValue.toFixed(2)), dynamicMaxPrice),
+      safeMaxPrice,
+    );
+
+    onMinPriceChange(nextValue);
+    setMinDraft(String(nextValue));
+  }
+
+  function normaliseMaxInput() {
+    const numericValue = priceInputToNumber(maxDraft);
+
+    if (numericValue === null) {
+      setMaxDraft(String(safeMaxPrice));
+      return;
+    }
+
+    const nextValue = Math.max(
+      clampPrice(Number(numericValue.toFixed(2)), dynamicMaxPrice),
+      safeMinPrice,
+    );
+
+    onMaxPriceChange(nextValue);
+    setMaxDraft(String(nextValue));
+  }
+
   return (
-    <div className="grid gap-2 text-sm font-medium text-slate-700">
-      {allTutors && allTutors.length > 0 && (
-        <PriceHistogram allTutors={allTutors} minPrice={minPrice} maxPrice={maxPrice} />
-      )}
+    <div className="grid gap-3 text-sm font-medium text-slate-700">
+      <div className="flex items-center justify-between gap-3">
+        <span>Hourly rate</span>
+        <span className="font-semibold text-slate-950">
+          £{safeMinPrice} - £{safeMaxPrice}
+        </span>
+      </div>
 
-      <PriceField
-        label="Min hourly rate"
-        value={minPrice}
-        onChange={onMinPriceChange}
-      />
+      <div className="relative pt-1">
+        <div className="flex h-16 items-end gap-0.5 px-1">
+          {counts.map((count, index) => {
+            const bucketMin = MIN_TUTOR_PRICE_PER_HOUR + index * bucketWidth;
+            const bucketMax = bucketMin + bucketWidth;
+            const isSelected =
+              bucketMax > safeMinPrice && bucketMin < safeMaxPrice;
 
-      <PriceField
-        label="Max hourly rate"
-        value={maxPrice}
-        onChange={onMaxPriceChange}
-        className="mt-3"
-      />
+            return (
+              <div key={index} className="flex h-full flex-1 items-end">
+                <div
+                  className={cn(
+                    "w-full rounded-t-sm",
+                    isSelected ? "bg-slate-950" : "bg-slate-200",
+                  )}
+                  style={{
+                    height: `${Math.max(
+                      (count / maxCount) * 100,
+                      count > 0 ? 8 : 3,
+                    )}%`,
+                  }}
+                  title={`£${Math.round(bucketMin)} - £${Math.round(
+                    bucketMax,
+                  )}: ${count} tutor${count === 1 ? "" : "s"}`}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          ref={trackRef}
+          role="slider"
+          aria-label="Hourly rate range"
+          aria-valuemin={MIN_TUTOR_PRICE_PER_HOUR}
+          aria-valuemax={dynamicMaxPrice}
+          aria-valuetext={`£${safeMinPrice} to £${safeMaxPrice}`}
+          tabIndex={0}
+          onPointerDown={startDrag}
+          onPointerMove={continueDrag}
+          onPointerUp={stopDrag}
+          onPointerCancel={stopDrag}
+          onLostPointerCapture={() => {
+            dragRef.current = null;
+            setActiveHandle(null);
+          }}
+          className="relative mt-2 h-6 cursor-pointer touch-none select-none"
+        >
+          <div className="absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
+
+          <div
+            className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-950"
+            style={{ left: `${selectedLeft}%`, right: `${selectedRight}%` }}
+          />
+
+          <div
+            className={cn(
+              "pointer-events-none absolute z-20 h-5 w-5 rounded-full border-2 border-white bg-slate-950 shadow transition-transform",
+              activeHandle === "min" && "scale-110",
+            )}
+            style={{
+              left: `${selectedLeft}%`,
+              top: "50%",
+              transform:
+                handlesOverlap && activeHandle !== "max"
+                  ? "translate(-70%, -50%)"
+                  : "translate(-50%, -50%)",
+            }}
+          />
+
+          <div
+            className={cn(
+              "pointer-events-none absolute z-30 h-5 w-5 rounded-full border-2 border-white bg-slate-950 shadow transition-transform",
+              activeHandle === "max" && "scale-110",
+            )}
+            style={{
+              left: `${100 - selectedRight}%`,
+              top: "50%",
+              transform:
+                handlesOverlap && activeHandle !== "min"
+                  ? "translate(-30%, -50%)"
+                  : "translate(-50%, -50%)",
+            }}
+          />
+        </div>
+
+        <div className="mt-1 flex justify-between text-[0.65rem] text-slate-400">
+          <span>£{MIN_TUTOR_PRICE_PER_HOUR}</span>
+          <span>£{dynamicMaxPrice}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <PriceNumberField
+          label="Min"
+          value={minDraft}
+          maxPrice={dynamicMaxPrice}
+          onChange={handleMinInputChange}
+          onBlur={normaliseMinInput}
+        />
+        <PriceNumberField
+          label="Max"
+          value={maxDraft}
+          maxPrice={dynamicMaxPrice}
+          onChange={handleMaxInputChange}
+          onBlur={normaliseMaxInput}
+        />
+      </div>
     </div>
   );
 }
 
-function PriceField({
+function PriceNumberField({
   label,
   value,
+  maxPrice,
   onChange,
-  className,
+  onBlur,
 }: {
   label: string;
-  value: number;
-  onChange: (value: number) => void;
-  className?: string;
+  value: string;
+  maxPrice: number;
+  onChange: (value: string) => void;
+  onBlur: () => void;
 }) {
   return (
-    <div className={className}>
-      <div className="flex items-center justify-between gap-3">
-        <span>{label}</span>
-        <span className="font-semibold text-slate-950">£{value}</span>
-      </div>
-
+    <label className="grid gap-1 text-xs text-slate-500">
+      <span>{label}</span>
       <input
-        type="range"
+        type="text"
+        inputMode="decimal"
         min={MIN_TUTOR_PRICE_PER_HOUR}
-        max={MAX_TUTOR_PRICE_PER_HOUR}
+        max={maxPrice}
         value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full accent-slate-950"
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
       />
-
-      <input
-        type="number"
-        min={MIN_TUTOR_PRICE_PER_HOUR}
-        max={MAX_TUTOR_PRICE_PER_HOUR}
-        value={value}
-        onChange={(event) => {
-          const typedValue = Number(event.target.value);
-          onChange(Number.isNaN(typedValue) ? value : typedValue);
-        }}
-        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-950 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-      />
-    </div>
+    </label>
   );
 }
