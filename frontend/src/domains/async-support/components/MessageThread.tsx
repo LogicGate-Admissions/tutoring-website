@@ -1724,8 +1724,8 @@ function AttachmentItem({
       >
         <div className="h-64 w-full overflow-hidden bg-slate-100">
           <iframe
-            title={`Preview of ${attachment.name}`}
-            src={attachment.url}
+            title={`First page preview of ${attachment.name}`}
+            src={getPdfPreviewUrl(attachment.url)}
             className="pointer-events-none h-full w-full border-0"
           />
         </div>
@@ -1942,6 +1942,10 @@ function attachmentLabel(kind: SupportAttachment["kind"]) {
   }
 
   return "File";
+}
+
+function getPdfPreviewUrl(url: string) {
+  return `${url}#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
 }
 
 function formatFileSize(sizeBytes: number) {

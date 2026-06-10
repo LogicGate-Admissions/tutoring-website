@@ -404,8 +404,8 @@ function ResourcePreview({
         )}
       >
         <iframe
-          title={`Preview of ${attachmentName}`}
-          src={url}
+          title={`First page preview of ${attachmentName}`}
+          src={getPdfPreviewUrl(url)}
           className="pointer-events-none h-full w-full border-0"
         />
       </div>
@@ -413,6 +413,10 @@ function ResourcePreview({
   }
 
   return null;
+}
+
+function getPdfPreviewUrl(url: string) {
+  return `${url}#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
 }
 
 function getResourceKindLabel(kind?: string) {
