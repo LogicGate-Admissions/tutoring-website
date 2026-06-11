@@ -27,6 +27,10 @@ import {
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import {
+  getTrialRequestDisplayPriority,
+  hasRequestedMatch,
+} from '@/domains/sessions/trial-sessions/utils/trialRequestState';
 import { getStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';
 import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
@@ -311,11 +315,8 @@ function PendingTutorsPanel({
       const existing = items.get(tutor.id) ?? { tutor, reasons: [] };
       const reasons = new Set<PendingFilter>(existing.reasons);
       const storedReasons = request.pendingReasons ?? [];
-      const looksLikeExplicitRequest = request.message
-        .toLowerCase()
-        .includes('request a match');
 
-      if (storedReasons.includes('requested') || looksLikeExplicitRequest) {
+      if (hasRequestedMatch(request)) {
         reasons.add('requested');
       }
 
@@ -327,9 +328,17 @@ function PendingTutorsPanel({
         reasons.add('requested');
       }
 
+      const existingRequest = existing.request;
+      const shouldUseThisRequest =
+        !existingRequest ||
+        getTrialRequestDisplayPriority(request) > getTrialRequestDisplayPriority(existingRequest) ||
+        (getTrialRequestDisplayPriority(request) === getTrialRequestDisplayPriority(existingRequest) &&
+          getRequestUpdatedMillis(request) > getRequestUpdatedMillis(existingRequest));
+      const bestRequest = shouldUseThisRequest ? request : existingRequest;
+
       items.set(tutor.id, {
         tutor,
-        request,
+        request: bestRequest,
         reasons: [...reasons],
       });
     }
@@ -485,9 +494,7 @@ function PendingTutorsPanel({
         return;
       }
 
-      const requestedAlready =
-        (existingRequest.pendingReasons ?? []).includes('requested') ||
-        existingRequest.message.toLowerCase().includes('request a match');
+      const requestedAlready = hasRequestedMatch(existingRequest);
 
       if (requestedAlready) {
         const remainingMessages = (existingRequest.preBookingMessages ?? []).filter(
@@ -682,7 +689,9 @@ function PendingTutorCard({
                 {reason}
               </span>
             ))}
-            {item.request ? <TrialStatusBadge status={item.request.status} /> : null}
+            {item.request && hasRequestedMatch(item.request) ? (
+              <TrialStatusBadge status={item.request.status} />
+            ) : null}
           </div>
 
           <PendingLatestMessageSummary latestMessage={latestMessage} />
@@ -829,7 +838,16 @@ function getLatestRequestForTutor(
 ) {
   return requests
     .filter((request) => request.tutorId === tutorId)
-    .sort((a, b) => getRequestUpdatedMillis(b) - getRequestUpdatedMillis(a))[0];
+    .sort((a, b) => {
+      const priorityDifference =
+        getTrialRequestDisplayPriority(b) - getTrialRequestDisplayPriority(a);
+
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+
+      return getRequestUpdatedMillis(b) - getRequestUpdatedMillis(a);
+    })[0];
 }
 
 function getRequestUpdatedMillis(request: TrialSessionRequest) {

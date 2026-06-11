@@ -30,6 +30,10 @@ import {
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import {
+  getTrialRequestDisplayPriority,
+  hasRequestedMatch,
+} from '@/domains/sessions/trial-sessions/utils/trialRequestState';
 import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
 import { TutorFiltersPanel } from '@/domains/tutors/tutor-discovery/components/TutorFiltersPanel';
 import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
@@ -363,7 +367,19 @@ export function TutorDiscoveryPage() {
         return;
       }
 
-      setNotice(`You have already sent a match request to ${tutor.name}.`);
+      if (hasRequestedMatch(existingRequest)) {
+        setNotice(`You have already sent a match request to ${tutor.name}.`);
+        return;
+      }
+
+      await addMatchRequestToPreBookingConversation({
+        requestId: existingRequest.id,
+        senderId: currentStudent.id,
+        senderName: currentStudent.name,
+        body:
+          'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
+      });
+      setNotice(`Match request sent to ${tutor.name}.`);
       return;
     }
 
@@ -495,7 +511,16 @@ function getLatestRequestForTutor(
 ) {
   return requests
     .filter((request) => request.tutorId === tutorId)
-    .sort((a, b) => getRequestUpdatedMillis(b) - getRequestUpdatedMillis(a))[0];
+    .sort((a, b) => {
+      const priorityDifference =
+        getTrialRequestDisplayPriority(b) - getTrialRequestDisplayPriority(a);
+
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+
+      return getRequestUpdatedMillis(b) - getRequestUpdatedMillis(a);
+    })[0];
 }
 
 function getRequestUpdatedMillis(request: TrialSessionRequest) {

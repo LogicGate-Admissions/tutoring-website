@@ -5,6 +5,11 @@
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
+import {
+  getMatchRequestButtonLabel,
+  hasRequestedMatch,
+  isMatchRequestLocked,
+} from '@/domains/sessions/trial-sessions/utils/trialRequestState';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 import { tutorInitials } from '@/domains/tutors/tutor-discovery/utils/tutorDisplay';
@@ -37,15 +42,9 @@ export function TutorProfileModal({
   onToggleShortlist,
   onRequestTrial,
 }: TutorProfileModalProps) {
-  const hasPendingOrAcceptedRequest =
-    existingRequest?.status === 'pending' || existingRequest?.status === 'accepted';
-  const requestButtonLabel = existingRequest
-    ? {
-        pending: 'Request sent',
-        accepted: 'Accepted',
-        rejected: 'Request again',
-      }[existingRequest.status]
-    : 'Request match';
+  const shouldShowMatchRequestStatus = hasRequestedMatch(existingRequest);
+  const requestButtonLabel = getMatchRequestButtonLabel(existingRequest);
+  const isRequestButtonDisabled = isMatchRequestLocked(existingRequest);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
@@ -153,14 +152,14 @@ export function TutorProfileModal({
         {/* Phase 4: actions - hidden in read-only mode (e.g. already matched). */}
         {!readOnly && (
           <div className="mt-6 border-t border-slate-200 pt-5">
-            {existingRequest && (
+            {existingRequest && shouldShowMatchRequestStatus ? (
               <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-sm font-medium text-slate-700">
                   Match request
                 </p>
                 <TrialStatusBadge status={existingRequest.status} />
               </div>
-            )}
+            ) : null}
 
             <div className="grid gap-3 sm:grid-cols-3">
               <Button variant="secondary" onClick={() => onMessage?.(tutor)}>
@@ -172,7 +171,7 @@ export function TutorProfileModal({
               </Button>
 
               <Button
-                disabled={hasPendingOrAcceptedRequest}
+                disabled={isRequestButtonDisabled}
                 onClick={() => onRequestTrial?.(tutor)}
               >
                 {requestButtonLabel}

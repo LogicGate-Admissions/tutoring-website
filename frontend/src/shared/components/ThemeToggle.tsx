@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * Small client-side theme toggle shared by authenticated app screens.
+ * Small client-side theme toggle shared by public and signed-in screens.
  *
- * The app still follows the user's system theme by default. When they press the
- * button, the preference is stored locally and applied through html[data-theme].
+ * The chosen theme is stored once in localStorage and applied through
+ * html[data-theme], so it stays consistent between pages.
  */
 
 import { useEffect, useState } from 'react';
@@ -28,16 +28,16 @@ function getInitialTheme(): ThemePreference {
     : 'light';
 }
 
+function applyTheme(theme: ThemePreference) {
+  document.documentElement.dataset.theme = theme;
+  window.localStorage.setItem(STORAGE_KEY, theme);
+}
+
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemePreference>('light');
+  const [theme, setTheme] = useState<ThemePreference>(getInitialTheme);
 
   useEffect(() => {
-    setTheme(getInitialTheme());
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem(STORAGE_KEY, theme);
+    applyTheme(theme);
   }, [theme]);
 
   function toggleTheme() {

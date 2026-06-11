@@ -6,6 +6,7 @@ import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
+import { hasRequestedMatch } from '@/domains/sessions/trial-sessions/utils/trialRequestState';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 import { tutorInitials } from '@/domains/tutors/tutor-discovery/utils/tutorDisplay';
@@ -71,12 +72,12 @@ export function TutorCard({
 
       {/* Phase 4: keep the card action simple; booking happens in profile. */}
       <div className="mt-5 border-t border-slate-200 pt-4">
-        {existingRequest && (
+        {existingRequest && hasRequestedMatch(existingRequest) ? (
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-sm font-medium text-slate-700">Match request</p>
             <TrialStatusBadge status={existingRequest.status} />
           </div>
-        )}
+        ) : null}
 
         <Button
           variant="secondary"

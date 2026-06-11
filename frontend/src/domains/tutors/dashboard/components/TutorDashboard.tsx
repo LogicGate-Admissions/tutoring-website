@@ -25,6 +25,7 @@ import {
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import { hasRequestedMatch } from '@/domains/sessions/trial-sessions/utils/trialRequestState';
 import { StudentProfileModal } from '@/domains/students/learning-profile/components/StudentProfileModal';
 import { getStudentLearningProfileById } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
@@ -245,9 +246,7 @@ function PendingStudentsPanel({
       const storedReasons = request.pendingReasons ?? [];
       const isMessaged =
         storedReasons.includes('messaged') || (request.preBookingMessages ?? []).length > 0;
-      const isRequested =
-        storedReasons.includes('requested') ||
-        request.message.toLowerCase().includes('request a match');
+      const isRequested = hasRequestedMatch(request);
 
       return activeFilters.some((filter) => {
         if (filter === 'messaged') return isMessaged;
