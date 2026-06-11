@@ -13,6 +13,7 @@ export function PreBookingMessageModal({
   recipientName,
   request,
   currentUserId,
+  viewerRole = 'student',
   isCreatingRequest = false,
   onClose,
   onSend,
@@ -21,6 +22,7 @@ export function PreBookingMessageModal({
   recipientName?: string;
   request?: TrialSessionRequest;
   currentUserId?: string;
+  viewerRole?: 'student' | 'tutor';
   isCreatingRequest?: boolean;
   onClose: () => void;
   onSend: (body: string) => Promise<void> | void;
@@ -29,6 +31,7 @@ export function PreBookingMessageModal({
   const personName = tutor?.name ?? recipientName ?? 'this person';
   const isAccepted = request?.status === 'accepted';
   const isRejected = request?.status === 'rejected';
+  const copy = getPreBookingCopy(viewerRole, personName);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
@@ -42,8 +45,7 @@ export function PreBookingMessageModal({
               Message {personName}
             </h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-              Ask short clarifying questions before booking. Once the match is
-              accepted, this conversation appears inside My Tutors.
+              {copy.description}
             </p>
           </div>
           <Button type="button" variant="secondary" onClick={onClose}>
@@ -53,7 +55,7 @@ export function PreBookingMessageModal({
 
         {isAccepted ? (
           <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
-            This match has been accepted. Continue the conversation from My Tutors.
+            This match has been accepted. Continue the conversation from My Tutors/My Students.
           </div>
         ) : null}
 
@@ -68,12 +70,38 @@ export function PreBookingMessageModal({
             messages={messages}
             currentUserId={currentUserId}
             disabled={isCreatingRequest || isAccepted || isRejected}
-            placeholder="Ask about teaching style, exam board, timings, or what to prepare..."
-            emptyText="No messages yet. Send the first question to start a simple pre-session conversation."
+            placeholder={copy.placeholder}
+            emptyText={copy.emptyText}
+            helperText={copy.helperText}
             onSend={onSend}
           />
         </div>
       </div>
     </div>
   );
+}
+
+function getPreBookingCopy(viewerRole: 'student' | 'tutor', personName: string) {
+  if (viewerRole === 'tutor') {
+    return {
+      description:
+        'Reply to the student before accepting the match. Once accepted, this conversation appears inside My Students.',
+      placeholder: `Reply to ${personName} about timings, preparation, exam board, or whether you are the right fit...`,
+      emptyText:
+        'No messages yet. Use this space to clarify fit before accepting the student.',
+      helperText:
+        'Text-only replies before the first booked session. Attachments, urgent flags, and maths tools unlock after you accept the student.',
+    };
+  }
+
+  return {
+    description:
+      'Ask short clarifying questions before booking. Once the match is accepted, this conversation appears inside My Tutors.',
+    placeholder:
+      'Ask about teaching style, exam board, timings, or what to prepare...',
+    emptyText:
+      'No messages yet. Send the first question to start a simple pre-session conversation.',
+    helperText:
+      'Text-only questions before the first booked session. Attachments, urgent flags, and maths tools unlock after the tutor accepts.',
+  };
 }

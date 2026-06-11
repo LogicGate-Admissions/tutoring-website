@@ -43,6 +43,26 @@ function mapTrialSessionDocument(document: { id: string; data: () => unknown }) 
   } satisfies TrialSessionRequest;
 }
 
+export async function ensureTutorStudentLink({
+  tutorId,
+  studentId,
+  source = 'pendingRequest',
+}: {
+  tutorId: string;
+  studentId: string;
+  source?: 'pendingRequest' | 'acceptedRelationship' | 'profilePreview';
+}) {
+  await setDoc(
+    doc(db, FIRESTORE_COLLECTIONS.tutorStudentLinks, `${tutorId}_${studentId}`),
+    {
+      tutorId,
+      studentId,
+      source,
+      createdAt: serverTimestamp(),
+    }
+  );
+}
+
 /**
  * Creates a pending trial session request in Firestore.
  */
@@ -59,20 +79,11 @@ export async function createTrialSessionRequest(
     }
   );
 
-  await setDoc(
-    doc(
-      db,
-      FIRESTORE_COLLECTIONS.tutorStudentLinks,
-      `${input.tutorId}_${input.studentId}`
-    ),
-    {
-      tutorId: input.tutorId,
-      studentId: input.studentId,
-      source: 'pendingRequest',
-      createdAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
+  await ensureTutorStudentLink({
+    tutorId: input.tutorId,
+    studentId: input.studentId,
+    source: 'pendingRequest',
+  });
 
   return requestRef.id;
 }
@@ -105,6 +116,24 @@ export async function addPreBookingMessage(input: AddPreBookingMessageInput) {
     pendingReasons: arrayUnion('messaged'),
     message: trimmedBody,
     updatedAt: serverTimestamp(),
+  });
+}
+
+/** Marks text-only pre-booking messages as seen for the current viewer. */
+export async function markPreBookingMessagesSeen(
+  requestId: string,
+  viewerRole: 'student' | 'tutor'
+) {
+  const requestRef = doc(
+    db,
+    FIRESTORE_COLLECTIONS.trialSessionRequests,
+    requestId
+  );
+
+  await updateDoc(requestRef, {
+    [viewerRole === 'student'
+      ? 'studentPreBookingSeenAt'
+      : 'tutorPreBookingSeenAt']: serverTimestamp(),
   });
 }
 
@@ -149,6 +178,19 @@ export async function acceptTrialSessionRequest(request: TrialSessionRequest) {
   });
 
   await updateTrialSessionStatus(request.id, 'accepted');
+}
+
+/** Marks a tutor-facing pending request notification as seen. */
+export async function markTrialSessionRequestSeen(requestId: string) {
+  const requestRef = doc(
+    db,
+    FIRESTORE_COLLECTIONS.trialSessionRequests,
+    requestId
+  );
+
+  await updateDoc(requestRef, {
+    tutorRequestSeenAt: serverTimestamp(),
+  });
 }
 
 /** Marks a student-facing trial status notification as seen. */

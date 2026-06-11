@@ -11,6 +11,7 @@ type PreBookingMessageThreadProps = {
   disabled?: boolean;
   placeholder?: string;
   emptyText?: string;
+  helperText?: string;
   onSend: (body: string) => Promise<void> | void;
 };
 
@@ -27,6 +28,7 @@ export function PreBookingMessageThread({
   disabled = false,
   placeholder = 'Ask a clarifying question...',
   emptyText = 'No messages yet.',
+  helperText = 'Text-only questions before the first booked session. Attachments, urgent flags, and maths tools unlock after the tutor accepts.',
   onSend,
 }: PreBookingMessageThreadProps) {
   const [draft, setDraft] = useState('');
@@ -57,8 +59,7 @@ export function PreBookingMessageThread({
         <div>
           <h3 className="text-sm font-semibold text-slate-950">Messages</h3>
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Text-only questions before the first booked session. Attachments,
-            urgent flags, and maths tools unlock after the tutor accepts.
+            {helperText}
           </p>
         </div>
       </div>

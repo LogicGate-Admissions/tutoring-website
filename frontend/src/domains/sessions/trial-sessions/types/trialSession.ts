@@ -45,6 +45,9 @@ export type TrialSessionRequest = {
   createdAt?: unknown;
   updatedAt?: unknown;
   studentStatusSeenAt?: unknown;
+  studentPreBookingSeenAt?: unknown;
+  tutorPreBookingSeenAt?: unknown;
+  tutorRequestSeenAt?: unknown;
 };
 
 /**

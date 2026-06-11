@@ -19,6 +19,7 @@ import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/T
 import {
   addPreBookingMessage,
   createTrialSessionRequest,
+  markPreBookingMessagesSeen,
   subscribeToStudentTrialSessions,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
@@ -387,6 +388,14 @@ function PendingTutorsPanel({
     });
   }
 
+  async function openPendingTutorMessage(item: PendingTutorItem) {
+    setMessageTutorId(item.tutor.id);
+
+    if (item.request) {
+      await markPreBookingMessagesSeen(item.request.id, 'student');
+    }
+  }
+
   async function sendPreBookingMessage(tutor: Tutor, body: string) {
     if (!currentStudent) {
       setNotice('Please log in again before messaging a tutor.');
@@ -550,7 +559,7 @@ function PendingTutorsPanel({
               item={item}
               isShortlisted={shortlistedTutorIds.includes(item.tutor.id)}
               onViewProfile={() => setSelectedTutorId(item.tutor.id)}
-              onMessage={() => setMessageTutorId(item.tutor.id)}
+              onMessage={() => void openPendingTutorMessage(item)}
               onToggleShortlist={() => toggleShortlist(item.tutor)}
               currentUserId={currentStudent?.id ?? ''}
             />
@@ -564,7 +573,7 @@ function PendingTutorsPanel({
           existingRequest={selectedTutorRequest}
           isShortlisted={shortlistedTutorIds.includes(selectedTutor.id)}
           onClose={() => setSelectedTutorId(null)}
-          onMessage={() => setMessageTutorId(selectedTutor.id)}
+          onMessage={() => void openPendingTutorMessage({ tutor: selectedTutor, request: selectedTutorRequest, reasons: [] })}
           onToggleShortlist={toggleShortlist}
           onRequestTrial={(tutor) => void requestMatch(tutor)}
         />
@@ -575,6 +584,7 @@ function PendingTutorsPanel({
           tutor={messageTutor}
           request={messageTutorRequest}
           currentUserId={currentStudent?.id}
+          viewerRole="student"
           isCreatingRequest={isCreatingRequest}
           onClose={() => setMessageTutorId(null)}
           onSend={(body) => sendPreBookingMessage(messageTutor, body)}
@@ -768,9 +778,29 @@ function getLatestPreBookingMessage(request?: TrialSessionRequest) {
 
 function getUnreadPreBookingCount(request: TrialSessionRequest | undefined, currentUserId: string) {
   if (!request || !currentUserId) return 0;
-  return (request.preBookingMessages ?? []).filter(
-    (message) => message.senderId !== currentUserId
-  ).length;
+
+  const seenAt = normaliseSeenDate(request.studentPreBookingSeenAt);
+
+  return (request.preBookingMessages ?? []).filter((message) => {
+    if (message.senderId === currentUserId) return false;
+    if (!message.createdAt) return true;
+    return !seenAt || message.createdAt > seenAt;
+  }).length;
+}
+
+function normaliseSeenDate(value: unknown) {
+  if (!value) return undefined;
+
+  if (typeof value === 'string') return value;
+
+  if (typeof value === 'object' && value !== null) {
+    const timestampLike = value as { toDate?: () => Date };
+    if (typeof timestampLike.toDate === 'function') {
+      return timestampLike.toDate().toISOString();
+    }
+  }
+
+  return undefined;
 }
 
 function formatPendingCardTime(value?: string) {

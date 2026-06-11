@@ -19,6 +19,8 @@ import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/T
 import {
   acceptTrialSessionRequest,
   addPreBookingMessage,
+  ensureTutorStudentLink,
+  markPreBookingMessagesSeen,
   subscribeToTutorTrialSessions,
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
@@ -26,7 +28,6 @@ import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/type
 import { StudentProfileModal } from '@/domains/students/learning-profile/components/StudentProfileModal';
 import { getStudentLearningProfileById } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
-import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
@@ -269,6 +270,11 @@ function PendingStudentsPanel({
     );
   }
 
+  async function openPendingStudentMessage(request: TrialSessionRequest) {
+    setMessageRequest(request);
+    await markPreBookingMessagesSeen(request.id, 'tutor');
+  }
+
   async function handleTutorPreBookingMessage(request: TrialSessionRequest, body: string) {
     if (!currentTutor) return;
 
@@ -288,7 +294,23 @@ function PendingStudentsPanel({
     setLoadingStudentProfileId(request.studentId);
 
     try {
-      const profile = await getStudentLearningProfileById(request.studentId);
+      let profile: StudentLearningProfile;
+
+      try {
+        profile = await getStudentLearningProfileById(request.studentId);
+      } catch (error) {
+        if (!currentTutor) {
+          throw error;
+        }
+
+        await ensureTutorStudentLink({
+          tutorId: currentTutor.id,
+          studentId: request.studentId,
+          source: 'profilePreview',
+        });
+        profile = await getStudentLearningProfileById(request.studentId);
+      }
+
       setStudentProfileForModal({
         studentName: request.studentName,
         profile,
@@ -355,7 +377,7 @@ function PendingStudentsPanel({
               isLoadingProfile={loadingStudentProfileId === request.studentId}
               disabled={busyRequestId === request.id}
               onViewProfile={() => void handleStudentProfileClick(request)}
-              onMessage={() => setMessageRequest(request)}
+              onMessage={() => void openPendingStudentMessage(request)}
               onAccept={() => void handleAccept(request)}
               onReject={() => void handleReject(request)}
               currentUserId={currentTutor?.id ?? ''}
@@ -369,6 +391,7 @@ function PendingStudentsPanel({
           recipientName={messageRequest.studentName}
           request={messageRequest}
           currentUserId={currentTutor?.id}
+          viewerRole="tutor"
           isCreatingRequest={busyRequestId === messageRequest.id}
           onClose={() => setMessageRequest(null)}
           onSend={(body) => handleTutorPreBookingMessage(messageRequest, body)}
@@ -429,7 +452,6 @@ function PendingStudentCard({
           </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <Badge>{request.learningStyle}</Badge>
             <TrialStatusBadge status={request.status} />
             {hasMessages ? (
               <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
@@ -585,9 +607,29 @@ function getLatestPreBookingMessage(request?: TrialSessionRequest) {
 
 function getUnreadPreBookingCount(request: TrialSessionRequest | undefined, currentUserId: string) {
   if (!request || !currentUserId) return 0;
-  return (request.preBookingMessages ?? []).filter(
-    (message) => message.senderId !== currentUserId
-  ).length;
+
+  const seenAt = normaliseSeenDate(request.tutorPreBookingSeenAt);
+
+  return (request.preBookingMessages ?? []).filter((message) => {
+    if (message.senderId === currentUserId) return false;
+    if (!message.createdAt) return true;
+    return !seenAt || message.createdAt > seenAt;
+  }).length;
+}
+
+function normaliseSeenDate(value: unknown) {
+  if (!value) return undefined;
+
+  if (typeof value === 'string') return value;
+
+  if (typeof value === 'object' && value !== null) {
+    const timestampLike = value as { toDate?: () => Date };
+    if (typeof timestampLike.toDate === 'function') {
+      return timestampLike.toDate().toISOString();
+    }
+  }
+
+  return undefined;
 }
 
 function formatPendingCardTime(value?: string) {
