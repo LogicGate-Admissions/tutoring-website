@@ -17,7 +17,10 @@ import type { BookingRequest } from '@/domains/booking/types/booking';
 import { PreBookingMessageModal } from '@/domains/sessions/trial-sessions/components/PreBookingMessageModal';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import {
+  addMatchRequestToPreBookingConversation,
   addPreBookingMessage,
+  cancelTrialSessionRequest,
+  withdrawMatchRequestFromPreBookingConversation,
   createTrialSessionRequest,
   markPreBookingMessagesSeen,
   subscribeToStudentTrialSessions,
@@ -121,18 +124,6 @@ export function StudentDashboard() {
 
   return (
     <Container className="grid gap-6 py-8">
-      <Card>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Student dashboard
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-          Manage your tutor support
-        </h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Keep confirmed tutors, pending tutor conversations, sessions, and your learning profile in one place.
-        </p>
-      </Card>
-
       <div className="grid items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <SideTabs
           tabs={tabs}
@@ -342,7 +333,12 @@ function PendingTutorsPanel({
       });
     }
 
-    const allItems = [...items.values()];
+    const tutorOrder = new Map(tutors.map((tutor, index) => [tutor.id, index]));
+    const allItems = [...items.values()].sort(
+      (left, right) =>
+        (tutorOrder.get(left.tutor.id) ?? Number.MAX_SAFE_INTEGER) -
+        (tutorOrder.get(right.tutor.id) ?? Number.MAX_SAFE_INTEGER)
+    );
 
     if (activeFilters.length === 0) {
       return [];
@@ -472,15 +468,43 @@ function PendingTutorsPanel({
     }
 
     const existingRequest = requests.find((request) => request.tutorId === tutor.id);
+    const body =
+      'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.';
 
     if (existingRequest) {
-      setNotice(`You have already contacted ${tutor.name}.`);
+      const requestedAlready =
+        (existingRequest.pendingReasons ?? []).includes('requested') ||
+        existingRequest.message.toLowerCase().includes('request a match');
+
+      if (requestedAlready) {
+        const remainingMessages = (existingRequest.preBookingMessages ?? []).filter(
+          (message) => !isAutomaticMatchRequestMessage(message.body)
+        );
+
+        if (remainingMessages.length > 0) {
+          await withdrawMatchRequestFromPreBookingConversation({
+            requestId: existingRequest.id,
+            remainingMessages,
+          });
+        } else {
+          await cancelTrialSessionRequest(existingRequest.id);
+        }
+
+        setNotice(`Match request withdrawn from ${tutor.name}.`);
+        return;
+      }
+
+      await addMatchRequestToPreBookingConversation({
+        requestId: existingRequest.id,
+        senderId: currentStudent.id,
+        senderName: currentStudent.name,
+        body,
+      });
+      setNotice(`Match request sent to ${tutor.name}.`);
       return;
     }
 
     const profile = await getStoredLearningProfile();
-    const body =
-      'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.';
 
     await createTrialSessionRequest({
       tutorId: tutor.id,
@@ -561,6 +585,7 @@ function PendingTutorsPanel({
               onViewProfile={() => setSelectedTutorId(item.tutor.id)}
               onMessage={() => void openPendingTutorMessage(item)}
               onToggleShortlist={() => toggleShortlist(item.tutor)}
+              onRequestMatch={() => void requestMatch(item.tutor)}
               currentUserId={currentStudent?.id ?? ''}
             />
           ))}
@@ -601,6 +626,7 @@ function PendingTutorCard({
   onViewProfile,
   onMessage,
   onToggleShortlist,
+  onRequestMatch,
 }: {
   item: PendingTutorItem;
   isShortlisted: boolean;
@@ -608,9 +634,11 @@ function PendingTutorCard({
   onViewProfile: () => void;
   onMessage: () => void;
   onToggleShortlist: () => void;
+  onRequestMatch: () => void;
 }) {
   const latestMessage = getLatestPreBookingMessage(item.request);
   const unreadCount = getUnreadPreBookingCount(item.request, currentUserId);
+  const hasRequested = item.reasons.includes('requested');
 
   return (
     <Card className="grid gap-4">
@@ -656,6 +684,9 @@ function PendingTutorCard({
         </Button>
         <Button variant="secondary" onClick={onMessage}>
           Message
+        </Button>
+        <Button variant={hasRequested ? 'secondary' : 'primary'} onClick={onRequestMatch}>
+          {hasRequested ? 'Unsend request' : 'Request match'}
         </Button>
       </div>
     </Card>
@@ -769,6 +800,11 @@ function PendingMetricBadge({
       </p>
     </div>
   );
+}
+
+
+function isAutomaticMatchRequestMessage(body: string) {
+  return body.toLowerCase().includes('request a match');
 }
 
 function getLatestPreBookingMessage(request?: TrialSessionRequest) {

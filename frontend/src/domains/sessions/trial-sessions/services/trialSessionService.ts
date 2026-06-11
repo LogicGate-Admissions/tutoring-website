@@ -4,8 +4,10 @@
 
 import {
   addDoc,
+  arrayRemove,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   query,
@@ -86,6 +88,79 @@ export async function createTrialSessionRequest(
   });
 
   return requestRef.id;
+}
+
+
+/** Removes a pending pre-booking request created before a relationship exists. */
+export async function cancelTrialSessionRequest(requestId: string) {
+  await deleteDoc(
+    doc(db, FIRESTORE_COLLECTIONS.trialSessionRequests, requestId)
+  );
+}
+
+
+/** Withdraws the explicit match request but keeps the pre-booking conversation. */
+export async function withdrawMatchRequestFromPreBookingConversation({
+  requestId,
+  remainingMessages,
+}: {
+  requestId: string;
+  remainingMessages: PreBookingMessage[];
+}) {
+  const requestRef = doc(
+    db,
+    FIRESTORE_COLLECTIONS.trialSessionRequests,
+    requestId
+  );
+  const latestMessage = remainingMessages[remainingMessages.length - 1];
+
+  await updateDoc(requestRef, {
+    preBookingMessages: remainingMessages,
+    pendingReasons: arrayRemove('requested'),
+    message: latestMessage?.body ?? '',
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Adds an explicit match request onto an existing pre-booking conversation. */
+export async function addMatchRequestToPreBookingConversation({
+  requestId,
+  senderId,
+  senderName,
+  body,
+}: {
+  requestId: string;
+  senderId: string;
+  senderName: string;
+  body: string;
+}) {
+  const trimmedBody = body.trim();
+
+  if (!trimmedBody) {
+    return;
+  }
+
+  const message: PreBookingMessage = {
+    id: crypto.randomUUID(),
+    senderId,
+    senderRole: 'student',
+    senderName,
+    body: trimmedBody,
+    createdAt: new Date().toISOString(),
+  };
+
+  const requestRef = doc(
+    db,
+    FIRESTORE_COLLECTIONS.trialSessionRequests,
+    requestId
+  );
+
+  await updateDoc(requestRef, {
+    preBookingMessages: arrayUnion(message),
+    pendingReasons: arrayUnion('requested'),
+    message: trimmedBody,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /** Adds a text-only clarifying message to a pending match request. */

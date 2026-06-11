@@ -103,18 +103,6 @@ export function TutorDashboard() {
 
   return (
     <Container className="grid gap-6 py-8">
-      <Card>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Tutor dashboard
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-          Manage your students
-        </h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Keep confirmed students, pending student messages, sessions, and your tutor profile in one place.
-        </p>
-      </Card>
-
       <div className="grid items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <SideTabs
           tabs={tabs}
