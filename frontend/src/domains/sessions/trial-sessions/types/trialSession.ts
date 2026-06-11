@@ -6,6 +6,7 @@
  * Current lifecycle states for a trial session request.
  */
 export type TrialSessionStatus = 'pending' | 'accepted' | 'rejected';
+export type PendingTutorReason = 'messaged' | 'requested';
 
 /**
  * Lightweight message used before a student/tutor relationship has been accepted.
@@ -39,6 +40,7 @@ export type TrialSessionRequest = {
   preferredTime: string;
   message: string;
   preBookingMessages?: PreBookingMessage[];
+  pendingReasons?: PendingTutorReason[];
   status: TrialSessionStatus;
   createdAt?: unknown;
   updatedAt?: unknown;

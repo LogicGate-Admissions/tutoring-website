@@ -296,6 +296,7 @@ export function TutorDiscoveryPage() {
           profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
           tutor.availability,
         message: trimmedBody,
+        pendingReasons: ['messaged'],
         preBookingMessages: [
           {
             id: crypto.randomUUID(),
@@ -380,6 +381,7 @@ export function TutorDiscoveryPage() {
         tutor.availability,
       message:
         'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
+      pendingReasons: ['requested'],
       preBookingMessages: [
         {
           id: crypto.randomUUID(),

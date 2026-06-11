@@ -10,13 +10,15 @@ import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 
 export function PreBookingMessageModal({
   tutor,
+  recipientName,
   request,
   currentUserId,
   isCreatingRequest = false,
   onClose,
   onSend,
 }: {
-  tutor: Tutor;
+  tutor?: Tutor;
+  recipientName?: string;
   request?: TrialSessionRequest;
   currentUserId?: string;
   isCreatingRequest?: boolean;
@@ -24,6 +26,7 @@ export function PreBookingMessageModal({
   onSend: (body: string) => Promise<void> | void;
 }) {
   const messages: PreBookingMessage[] = request?.preBookingMessages ?? [];
+  const personName = tutor?.name ?? recipientName ?? 'this person';
   const isAccepted = request?.status === 'accepted';
   const isRejected = request?.status === 'rejected';
 
@@ -36,7 +39,7 @@ export function PreBookingMessageModal({
               Pre-session messages
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-              Message {tutor.name}
+              Message {personName}
             </h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
               Ask short clarifying questions before booking. Once the match is

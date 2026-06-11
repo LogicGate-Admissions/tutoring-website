@@ -15,7 +15,6 @@ import type { AuthUser } from '@/domains/auth/types/auth';
 import { MySessionsTab } from '@/domains/booking/components/sessions/MySessionsTab';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { PreBookingMessageModal } from '@/domains/sessions/trial-sessions/components/PreBookingMessageModal';
-import { PreBookingMessageThread } from '@/domains/sessions/trial-sessions/components/PreBookingMessageThread';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import {
   addPreBookingMessage,
@@ -252,7 +251,9 @@ function PendingTutorsPanel({
   const [requests, setRequests] = useState<TrialSessionRequest[]>([]);
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [shortlistedTutorIds, setShortlistedTutorIds] = useState<string[]>([]);
-  const [activeFilters, setActiveFilters] = useState<PendingFilter[]>([]);
+  const [activeFilters, setActiveFilters] = useState<PendingFilter[]>(
+    pendingFilters.map((filter) => filter.id)
+  );
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [messageTutorId, setMessageTutorId] = useState<string | null>(null);
   const [isCreatingRequest, setIsCreatingRequest] = useState(false);
@@ -316,10 +317,21 @@ function PendingTutorsPanel({
 
       const existing = items.get(tutor.id) ?? { tutor, reasons: [] };
       const reasons = new Set<PendingFilter>(existing.reasons);
-      reasons.add('requested');
+      const storedReasons = request.pendingReasons ?? [];
+      const looksLikeExplicitRequest = request.message
+        .toLowerCase()
+        .includes('request a match');
 
-      if ((request.preBookingMessages ?? []).length > 0) {
+      if (storedReasons.includes('requested') || looksLikeExplicitRequest) {
+        reasons.add('requested');
+      }
+
+      if (storedReasons.includes('messaged') || (request.preBookingMessages ?? []).length > 0) {
         reasons.add('messaged');
+      }
+
+      if (reasons.size === 0) {
+        reasons.add('requested');
       }
 
       items.set(tutor.id, {
@@ -332,7 +344,7 @@ function PendingTutorsPanel({
     const allItems = [...items.values()];
 
     if (activeFilters.length === 0) {
-      return allItems;
+      return [];
     }
 
     return allItems.filter((item) =>
@@ -424,6 +436,7 @@ function PendingTutorsPanel({
           profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
           tutor.availability,
         message: trimmedBody,
+        pendingReasons: ['messaged'],
         preBookingMessages: [
           {
             id: crypto.randomUUID(),
@@ -476,6 +489,7 @@ function PendingTutorsPanel({
         profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
         tutor.availability,
       message: body,
+      pendingReasons: ['requested'],
       preBookingMessages: [
         {
           id: crypto.randomUUID(),
@@ -546,13 +560,10 @@ function PendingTutorsPanel({
             <PendingTutorCard
               key={item.tutor.id}
               item={item}
-              currentStudentId={currentStudent?.id}
               isShortlisted={shortlistedTutorIds.includes(item.tutor.id)}
-              disabled={!currentStudent || item.request?.status === 'accepted'}
               onViewProfile={() => setSelectedTutorId(item.tutor.id)}
               onMessage={() => setMessageTutorId(item.tutor.id)}
               onToggleShortlist={() => toggleShortlist(item.tutor)}
-              onSendMessage={(body) => sendPreBookingMessage(item.tutor, body)}
             />
           ))}
         </div>
@@ -586,74 +597,95 @@ function PendingTutorsPanel({
 
 function PendingTutorCard({
   item,
-  currentStudentId,
   isShortlisted,
-  disabled,
   onViewProfile,
   onMessage,
   onToggleShortlist,
-  onSendMessage,
 }: {
   item: PendingTutorItem;
-  currentStudentId?: string;
   isShortlisted: boolean;
-  disabled: boolean;
   onViewProfile: () => void;
   onMessage: () => void;
   onToggleShortlist: () => void;
-  onSendMessage: (body: string) => Promise<void> | void;
 }) {
   return (
-    <Card>
-      <div className="grid gap-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-xl font-semibold tracking-tight text-slate-950">
-                {item.tutor.name}
-              </h3>
-              {item.request ? <TrialStatusBadge status={item.request.status} /> : null}
-            </div>
+    <Card className="grid gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Tutor
+          </p>
 
-            <p className="mt-2 text-sm text-slate-600">
-              {item.tutor.university} · {item.tutor.degree}
-            </p>
+          <ProfileNameButton label={item.tutor.name || 'Unnamed'} onClick={onViewProfile} />
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {item.reasons.map((reason) => (
-                <span
-                  key={reason}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold capitalize text-slate-700"
-                >
-                  {reason}
-                </span>
-              ))}
-            </div>
+          <p className="mt-1 text-sm text-slate-600">
+            {item.tutor.levels[0] ?? 'Level not set'} {item.tutor.subjects[0] ?? 'Subject not set'}
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {item.reasons.map((reason) => (
+              <span
+                key={reason}
+                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold capitalize text-slate-700"
+              >
+                {reason}
+              </span>
+            ))}
+            {item.request ? <TrialStatusBadge status={item.request.status} /> : null}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={onViewProfile}>
-              View profile
-            </Button>
-            <Button variant="secondary" onClick={onToggleShortlist}>
-              {isShortlisted ? 'Shortlisted' : 'Shortlist'}
-            </Button>
-            <Button onClick={onMessage}>Message</Button>
-          </div>
+          <p className="mt-3 text-sm text-slate-500">
+            Use Message to continue the pre-booking conversation or ask a clarifying question.
+          </p>
         </div>
 
-        {item.request ? (
-          <PreBookingMessageThread
-            messages={item.request.preBookingMessages ?? []}
-            currentUserId={currentStudentId}
-            disabled={disabled}
-            placeholder="Continue your pre-booking message..."
-            emptyText="No messages yet."
-            onSend={onSendMessage}
-          />
-        ) : null}
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <Button variant="secondary" onClick={onToggleShortlist}>
+            {isShortlisted ? 'Shortlisted' : 'Shortlist'}
+          </Button>
+          <Button variant="secondary" onClick={onMessage}>
+            Message
+          </Button>
+        </div>
       </div>
     </Card>
+  );
+}
+
+function ProfileNameButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-950 transition hover:border-slate-300 hover:bg-slate-100"
+    >
+      {label}
+      <ProfileIcon />
+    </button>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      className="h-3.5 w-3.5 text-slate-400"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="8" cy="5" r="3" />
+      <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+    </svg>
   );
 }
 

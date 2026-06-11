@@ -10,6 +10,7 @@ import {
   onSnapshot,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
 } from 'firebase/firestore';
@@ -58,6 +59,21 @@ export async function createTrialSessionRequest(
     }
   );
 
+  await setDoc(
+    doc(
+      db,
+      FIRESTORE_COLLECTIONS.tutorStudentLinks,
+      `${input.tutorId}_${input.studentId}`
+    ),
+    {
+      tutorId: input.tutorId,
+      studentId: input.studentId,
+      source: 'pendingRequest',
+      createdAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
   return requestRef.id;
 }
 
@@ -86,6 +102,7 @@ export async function addPreBookingMessage(input: AddPreBookingMessageInput) {
 
   await updateDoc(requestRef, {
     preBookingMessages: arrayUnion(message),
+    pendingReasons: arrayUnion('messaged'),
     message: trimmedBody,
     updatedAt: serverTimestamp(),
   });

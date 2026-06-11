@@ -14,7 +14,7 @@ import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import type { AuthUser } from '@/domains/auth/types/auth';
 import { MySessionsTab } from '@/domains/booking/components/sessions/MySessionsTab';
 import type { BookingRequest } from '@/domains/booking/types/booking';
-import { PreBookingMessageThread } from '@/domains/sessions/trial-sessions/components/PreBookingMessageThread';
+import { PreBookingMessageModal } from '@/domains/sessions/trial-sessions/components/PreBookingMessageModal';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import {
   acceptTrialSessionRequest,
@@ -23,6 +23,9 @@ import {
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import { StudentProfileModal } from '@/domains/students/learning-profile/components/StudentProfileModal';
+import { getStudentLearningProfileById } from '@/domains/students/learning-profile/services/learningProfileStorage';
+import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
@@ -218,7 +221,15 @@ function PendingStudentsPanel({
 }) {
   const [requests, setRequests] = useState<TrialSessionRequest[]>([]);
   const [busyRequestId, setBusyRequestId] = useState<string | null>(null);
-  const [activeFilters, setActiveFilters] = useState<PendingFilter[]>([]);
+  const [activeFilters, setActiveFilters] = useState<PendingFilter[]>(
+    pendingFilters.map((filter) => filter.id)
+  );
+  const [messageRequest, setMessageRequest] = useState<TrialSessionRequest | null>(null);
+  const [studentProfileForModal, setStudentProfileForModal] = useState<{
+    studentName: string;
+    profile: StudentLearningProfile;
+  } | null>(null);
+  const [loadingStudentProfileId, setLoadingStudentProfileId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentTutor) return undefined;
@@ -232,12 +243,16 @@ function PendingStudentsPanel({
     );
 
     if (activeFilters.length === 0) {
-      return currentRequests;
+      return [];
     }
 
     return currentRequests.filter((request) => {
-      const isMessaged = (request.preBookingMessages ?? []).length > 0;
-      const isRequested = request.status === 'pending';
+      const storedReasons = request.pendingReasons ?? [];
+      const isMessaged =
+        storedReasons.includes('messaged') || (request.preBookingMessages ?? []).length > 0;
+      const isRequested =
+        storedReasons.includes('requested') ||
+        request.message.toLowerCase().includes('request a match');
 
       return activeFilters.some((filter) => {
         if (filter === 'messaged') return isMessaged;
@@ -264,6 +279,23 @@ function PendingStudentsPanel({
       senderName: currentTutor.name,
       body,
     });
+  }
+
+
+  async function handleStudentProfileClick(request: TrialSessionRequest) {
+    if (loadingStudentProfileId) return;
+
+    setLoadingStudentProfileId(request.studentId);
+
+    try {
+      const profile = await getStudentLearningProfileById(request.studentId);
+      setStudentProfileForModal({
+        studentName: request.studentName,
+        profile,
+      });
+    } finally {
+      setLoadingStudentProfileId(null);
+    }
   }
 
   async function handleAccept(request: TrialSessionRequest) {
@@ -323,69 +355,154 @@ function PendingStudentsPanel({
         <Card>
           <p className="font-medium text-slate-950">No pending students yet.</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Pre-booking messages and pending match requests will appear here.
+            Pre-booking messages and pending match requests matching the selected filters will appear here.
           </p>
         </Card>
       ) : (
         <div className="grid gap-4">
           {pendingRequests.map((request) => (
-            <Card key={request.id}>
-              <div className="grid gap-5">
-                <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="text-2xl font-semibold tracking-tight text-slate-950">
-                        {request.studentName}
-                      </h3>
-                      <TrialStatusBadge status={request.status} />
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge>{request.subject}</Badge>
-                      <Badge>{request.level}</Badge>
-                      <Badge>{request.learningStyle}</Badge>
-                    </div>
-
-                    <p className="mt-5 max-w-3xl leading-7 text-slate-600">
-                      {request.message}
-                    </p>
-
-                    <p className="mt-4 text-sm font-medium text-slate-700">
-                      Preferred time: {request.preferredTime}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 gap-3">
-                    <Button
-                      disabled={busyRequestId === request.id}
-                      onClick={() => void handleAccept(request)}
-                    >
-                      {busyRequestId === request.id ? 'Saving...' : 'Accept'}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      disabled={busyRequestId === request.id}
-                      onClick={() => void handleReject(request)}
-                    >
-                      Reject
-                    </Button>
-                  </div>
-                </div>
-
-                <PreBookingMessageThread
-                  messages={request.preBookingMessages ?? []}
-                  currentUserId={currentTutor?.id}
-                  disabled={busyRequestId === request.id}
-                  placeholder="Reply to the student's question before accepting..."
-                  emptyText="No clarifying messages yet."
-                  onSend={(body) => handleTutorPreBookingMessage(request, body)}
-                />
-              </div>
-            </Card>
+            <PendingStudentCard
+              key={request.id}
+              request={request}
+              isLoadingProfile={loadingStudentProfileId === request.studentId}
+              disabled={busyRequestId === request.id}
+              onViewProfile={() => void handleStudentProfileClick(request)}
+              onMessage={() => setMessageRequest(request)}
+              onAccept={() => void handleAccept(request)}
+              onReject={() => void handleReject(request)}
+            />
           ))}
         </div>
       )}
+
+      {messageRequest ? (
+        <PreBookingMessageModal
+          recipientName={messageRequest.studentName}
+          request={messageRequest}
+          currentUserId={currentTutor?.id}
+          isCreatingRequest={busyRequestId === messageRequest.id}
+          onClose={() => setMessageRequest(null)}
+          onSend={(body) => handleTutorPreBookingMessage(messageRequest, body)}
+        />
+      ) : null}
+
+      {studentProfileForModal ? (
+        <StudentProfileModal
+          studentName={studentProfileForModal.studentName}
+          profile={studentProfileForModal.profile}
+          onClose={() => setStudentProfileForModal(null)}
+        />
+      ) : null}
+
     </div>
+  );
+}
+
+function PendingStudentCard({
+  request,
+  isLoadingProfile,
+  disabled,
+  onViewProfile,
+  onMessage,
+  onAccept,
+  onReject,
+}: {
+  request: TrialSessionRequest;
+  isLoadingProfile: boolean;
+  disabled: boolean;
+  onViewProfile: () => void;
+  onMessage: () => void;
+  onAccept: () => void;
+  onReject: () => void;
+}) {
+  const hasMessages = (request.preBookingMessages ?? []).length > 0;
+
+  return (
+    <Card className="grid gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Student
+          </p>
+
+          <ProfileNameButton
+            label={isLoadingProfile ? 'Loading...' : request.studentName || 'Unnamed'}
+            disabled={isLoadingProfile}
+            onClick={onViewProfile}
+          />
+
+          <p className="mt-1 text-sm text-slate-600">
+            {request.level} {request.subject}
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge>{request.learningStyle}</Badge>
+            <TrialStatusBadge status={request.status} />
+            {hasMessages ? (
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                Messaged
+              </span>
+            ) : null}
+          </div>
+
+          <p className="mt-3 text-sm text-slate-500">
+            Preferred time: {request.preferredTime}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <Button variant="secondary" disabled={disabled} onClick={onMessage}>
+            Message
+          </Button>
+          <Button disabled={disabled} onClick={onAccept}>
+            {disabled ? 'Saving...' : 'Accept'}
+          </Button>
+          <Button variant="secondary" disabled={disabled} onClick={onReject}>
+            Reject
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ProfileNameButton({
+  label,
+  disabled = false,
+  onClick,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-950 transition hover:border-slate-300 hover:bg-slate-100 disabled:opacity-60"
+    >
+      {label}
+      <ProfileIcon />
+    </button>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      className="h-3.5 w-3.5 text-slate-400"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="8" cy="5" r="3" />
+      <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+    </svg>
   );
 }
 
