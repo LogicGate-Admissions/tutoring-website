@@ -23,9 +23,11 @@ import {
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';
 import {
+  addMatchRequestToPreBookingConversation,
   addPreBookingMessage,
   createTrialSessionRequest,
   subscribeToStudentTrialSessions,
+  updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
@@ -230,7 +232,7 @@ export function TutorDiscoveryPage() {
   }
 
   function findExistingRequest(tutorId: string) {
-    return studentRequests.find((request) => request.tutorId === tutorId);
+    return getLatestRequestForTutor(studentRequests, tutorId);
   }
 
   function handleViewProfile(tutor: Tutor) {
@@ -348,6 +350,19 @@ export function TutorDiscoveryPage() {
     const existingRequest = findExistingRequest(tutor.id);
 
     if (existingRequest) {
+      if (existingRequest.status === 'rejected') {
+        await updateTrialSessionStatus(existingRequest.id, 'pending');
+        await addMatchRequestToPreBookingConversation({
+          requestId: existingRequest.id,
+          senderId: currentStudent.id,
+          senderName: currentStudent.name,
+          body:
+            'I would like to request the match again. I still think this tutor could be a good fit.',
+        });
+        setNotice(`Match request sent again to ${tutor.name}.`);
+        return;
+      }
+
       setNotice(`You have already sent a match request to ${tutor.name}.`);
       return;
     }
@@ -471,6 +486,51 @@ export function TutorDiscoveryPage() {
       )}
     </main>
   );
+}
+
+
+function getLatestRequestForTutor(
+  requests: TrialSessionRequest[],
+  tutorId: string
+) {
+  return requests
+    .filter((request) => request.tutorId === tutorId)
+    .sort((a, b) => getRequestUpdatedMillis(b) - getRequestUpdatedMillis(a))[0];
+}
+
+function getRequestUpdatedMillis(request: TrialSessionRequest) {
+  const updatedAtMillis = timestampToMillis(request.updatedAt);
+  if (updatedAtMillis) return updatedAtMillis;
+
+  const createdAtMillis = timestampToMillis(request.createdAt);
+  if (createdAtMillis) return createdAtMillis;
+
+  const latestMessage = request.preBookingMessages?.at(-1);
+  if (!latestMessage?.createdAt) return 0;
+
+  const messageMillis = new Date(latestMessage.createdAt).getTime();
+  return Number.isNaN(messageMillis) ? 0 : messageMillis;
+}
+
+function timestampToMillis(value: unknown) {
+  if (!value) return 0;
+
+  if (typeof value === 'string') {
+    const millis = new Date(value).getTime();
+    return Number.isNaN(millis) ? 0 : millis;
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    const timestampLike = value as { toMillis?: () => number; toDate?: () => Date };
+    if (typeof timestampLike.toMillis === 'function') {
+      return timestampLike.toMillis();
+    }
+    if (typeof timestampLike.toDate === 'function') {
+      return timestampLike.toDate().getTime();
+    }
+  }
+
+  return 0;
 }
 
 function roundUpToStep(value: number, step = 5) {

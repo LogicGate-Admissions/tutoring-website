@@ -24,6 +24,7 @@ import {
   createTrialSessionRequest,
   markPreBookingMessagesSeen,
   subscribeToStudentTrialSessions,
+  updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import { getStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
@@ -300,7 +301,7 @@ function PendingTutorsPanel({
     }
 
     for (const request of requests) {
-      if (request.status !== 'pending' || confirmedTutorIdSet.has(request.tutorId)) {
+      if (request.status === 'accepted' || confirmedTutorIdSet.has(request.tutorId)) {
         continue;
       }
 
@@ -351,11 +352,11 @@ function PendingTutorsPanel({
 
   const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
   const selectedTutorRequest = selectedTutor
-    ? requests.find((request) => request.tutorId === selectedTutor.id)
+    ? getLatestRequestForTutor(requests, selectedTutor.id)
     : undefined;
   const messageTutor = tutors.find((tutor) => tutor.id === messageTutorId) ?? null;
   const messageTutorRequest = messageTutor
-    ? requests.find((request) => request.tutorId === messageTutor.id)
+    ? getLatestRequestForTutor(requests, messageTutor.id)
     : undefined;
 
   function toggleFilter(filter: PendingFilter) {
@@ -401,7 +402,7 @@ function PendingTutorsPanel({
     const trimmedBody = body.trim();
     if (!trimmedBody) return;
 
-    const existingRequest = requests.find((request) => request.tutorId === tutor.id);
+    const existingRequest = getLatestRequestForTutor(requests, tutor.id);
 
     if (existingRequest) {
       await addPreBookingMessage({
@@ -467,11 +468,23 @@ function PendingTutorsPanel({
       return;
     }
 
-    const existingRequest = requests.find((request) => request.tutorId === tutor.id);
+    const existingRequest = getLatestRequestForTutor(requests, tutor.id);
     const body =
       'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.';
 
     if (existingRequest) {
+      if (existingRequest.status === 'rejected') {
+        await updateTrialSessionStatus(existingRequest.id, 'pending');
+        await addMatchRequestToPreBookingConversation({
+          requestId: existingRequest.id,
+          senderId: currentStudent.id,
+          senderName: currentStudent.name,
+          body: 'I would like to request the match again. I still think this tutor could be a good fit.',
+        });
+        setNotice(`Match request sent again to ${tutor.name}.`);
+        return;
+      }
+
       const requestedAlready =
         (existingRequest.pendingReasons ?? []).includes('requested') ||
         existingRequest.message.toLowerCase().includes('request a match');
@@ -638,7 +651,13 @@ function PendingTutorCard({
 }) {
   const latestMessage = getLatestPreBookingMessage(item.request);
   const unreadCount = getUnreadPreBookingCount(item.request, currentUserId);
-  const hasRequested = item.reasons.includes('requested');
+  const isRejected = item.request?.status === 'rejected';
+  const hasRequested = item.reasons.includes('requested') && !isRejected;
+  const requestButtonLabel = isRejected
+    ? 'Request again'
+    : hasRequested
+      ? 'Unsend request'
+      : 'Request match';
 
   return (
     <Card className="grid gap-4">
@@ -686,7 +705,7 @@ function PendingTutorCard({
           Message
         </Button>
         <Button variant={hasRequested ? 'secondary' : 'primary'} onClick={onRequestMatch}>
-          {hasRequested ? 'Unsend request' : 'Request match'}
+          {requestButtonLabel}
         </Button>
       </div>
     </Card>
@@ -802,6 +821,51 @@ function PendingMetricBadge({
   );
 }
 
+
+
+function getLatestRequestForTutor(
+  requests: TrialSessionRequest[],
+  tutorId: string
+) {
+  return requests
+    .filter((request) => request.tutorId === tutorId)
+    .sort((a, b) => getRequestUpdatedMillis(b) - getRequestUpdatedMillis(a))[0];
+}
+
+function getRequestUpdatedMillis(request: TrialSessionRequest) {
+  const updatedAtMillis = timestampToMillis(request.updatedAt);
+  if (updatedAtMillis) return updatedAtMillis;
+
+  const createdAtMillis = timestampToMillis(request.createdAt);
+  if (createdAtMillis) return createdAtMillis;
+
+  const latestMessage = request.preBookingMessages?.at(-1);
+  if (!latestMessage?.createdAt) return 0;
+
+  const messageMillis = new Date(latestMessage.createdAt).getTime();
+  return Number.isNaN(messageMillis) ? 0 : messageMillis;
+}
+
+function timestampToMillis(value: unknown) {
+  if (!value) return 0;
+
+  if (typeof value === 'string') {
+    const millis = new Date(value).getTime();
+    return Number.isNaN(millis) ? 0 : millis;
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    const timestampLike = value as { toMillis?: () => number; toDate?: () => Date };
+    if (typeof timestampLike.toMillis === 'function') {
+      return timestampLike.toMillis();
+    }
+    if (typeof timestampLike.toDate === 'function') {
+      return timestampLike.toDate().getTime();
+    }
+  }
+
+  return 0;
+}
 
 function isAutomaticMatchRequestMessage(body: string) {
   return body.toLowerCase().includes('request a match');

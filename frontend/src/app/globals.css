@@ -126,3 +126,163 @@ select,
 textarea {
   font: inherit;
 }
+
+/* App dark mode ---------------------------------------------------------- */
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+  --surface-soft: #111827;
+}
+
+html[data-theme='dark'] body {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .bg-\[\#f8f7f4\],
+html[data-theme='dark'] .bg-white,
+html[data-theme='dark'] .bg-white\/95 {
+  background-color: #111827 !important;
+}
+
+html[data-theme='dark'] .bg-slate-50,
+html[data-theme='dark'] .hover\:bg-slate-50:hover {
+  background-color: #1f2937 !important;
+}
+
+html[data-theme='dark'] .bg-slate-100,
+html[data-theme='dark'] .hover\:bg-slate-100:hover {
+  background-color: #273449 !important;
+}
+
+html[data-theme='dark'] .bg-slate-200 {
+  background-color: #334155 !important;
+}
+
+html[data-theme='dark'] .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+html[data-theme='dark'] .border-slate-300 {
+  border-color: #475569 !important;
+}
+
+html[data-theme='dark'] .hover\:border-slate-300:hover,
+html[data-theme='dark'] .hover\:border-slate-400:hover,
+html[data-theme='dark'] .hover\:border-slate-950:hover {
+  border-color: #94a3b8 !important;
+}
+
+html[data-theme='dark'] .text-slate-950,
+html[data-theme='dark'] .text-slate-900,
+html[data-theme='dark'] .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] .text-slate-700,
+html[data-theme='dark'] .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html[data-theme='dark'] .text-slate-500,
+html[data-theme='dark'] .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html[data-theme='dark'] input,
+html[data-theme='dark'] textarea,
+html[data-theme='dark'] select {
+  background-color: #0f172a;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+html[data-theme='dark'] input::placeholder,
+html[data-theme='dark'] textarea::placeholder {
+  color: #64748b;
+}
+
+html[data-theme='dark'] .shadow-sm,
+html[data-theme='dark'] .shadow-lg,
+html[data-theme='dark'] .shadow-xl,
+html[data-theme='dark'] .shadow-2xl {
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    color-scheme: dark;
+    --background: #0f172a;
+    --foreground: #e2e8f0;
+    --surface-soft: #111827;
+  }
+
+  html:not([data-theme]) body {
+    background: #0f172a;
+    color: #e2e8f0;
+  }
+
+  html:not([data-theme]) .bg-\[\#f8f7f4\],
+  html:not([data-theme]) .bg-white,
+  html:not([data-theme]) .bg-white\/95 {
+    background-color: #111827 !important;
+  }
+
+  html:not([data-theme]) .bg-slate-50,
+  html:not([data-theme]) .hover\:bg-slate-50:hover {
+    background-color: #1f2937 !important;
+  }
+
+  html:not([data-theme]) .bg-slate-100,
+  html:not([data-theme]) .hover\:bg-slate-100:hover {
+    background-color: #273449 !important;
+  }
+
+  html:not([data-theme]) .bg-slate-200 {
+    background-color: #334155 !important;
+  }
+
+  html:not([data-theme]) .border-slate-200 {
+    border-color: #334155 !important;
+  }
+
+  html:not([data-theme]) .border-slate-300 {
+    border-color: #475569 !important;
+  }
+
+  html:not([data-theme]) .hover\:border-slate-300:hover,
+  html:not([data-theme]) .hover\:border-slate-400:hover,
+  html:not([data-theme]) .hover\:border-slate-950:hover {
+    border-color: #94a3b8 !important;
+  }
+
+  html:not([data-theme]) .text-slate-950,
+  html:not([data-theme]) .text-slate-900,
+  html:not([data-theme]) .text-slate-800 {
+    color: #f8fafc !important;
+  }
+
+  html:not([data-theme]) .text-slate-700,
+  html:not([data-theme]) .text-slate-600 {
+    color: #cbd5e1 !important;
+  }
+
+  html:not([data-theme]) .text-slate-500,
+  html:not([data-theme]) .text-slate-400 {
+    color: #94a3b8 !important;
+  }
+
+  html:not([data-theme]) input,
+  html:not([data-theme]) textarea,
+  html:not([data-theme]) select {
+    background-color: #0f172a;
+    color: #f8fafc;
+    border-color: #475569;
+  }
+
+  html:not([data-theme]) input::placeholder,
+  html:not([data-theme]) textarea::placeholder {
+    color: #64748b;
+  }
+}

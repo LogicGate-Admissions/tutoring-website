@@ -37,7 +37,15 @@ export function TutorProfileModal({
   onToggleShortlist,
   onRequestTrial,
 }: TutorProfileModalProps) {
-  const hasExistingRequest = Boolean(existingRequest);
+  const hasPendingOrAcceptedRequest =
+    existingRequest?.status === 'pending' || existingRequest?.status === 'accepted';
+  const requestButtonLabel = existingRequest
+    ? {
+        pending: 'Request sent',
+        accepted: 'Accepted',
+        rejected: 'Request again',
+      }[existingRequest.status]
+    : 'Request match';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
@@ -163,8 +171,11 @@ export function TutorProfileModal({
                 {isShortlisted ? 'Shortlisted' : 'Shortlist'}
               </Button>
 
-              <Button disabled={hasExistingRequest} onClick={() => onRequestTrial?.(tutor)}>
-                {hasExistingRequest ? 'Request sent' : 'Request match'}
+              <Button
+                disabled={hasPendingOrAcceptedRequest}
+                onClick={() => onRequestTrial?.(tutor)}
+              >
+                {requestButtonLabel}
               </Button>
             </div>
           </div>

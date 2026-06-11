@@ -35,7 +35,7 @@ import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
 
 type Section = 'my-students' | 'pending-students' | 'my-sessions' | 'tutor-profile';
-type PendingFilter = 'messaged' | 'requested';
+type PendingFilter = 'messaged' | 'requested' | 'rejected';
 
 const tabs: Array<{ id: Section; label: string; description: string }> = [
   {
@@ -70,6 +70,7 @@ const TUTOR_SECTIONS: Section[] = [
 const pendingFilters: Array<{ id: PendingFilter; label: string }> = [
   { id: 'messaged', label: 'Messaged' },
   { id: 'requested', label: 'Requested' },
+  { id: 'rejected', label: 'Rejected' },
 ];
 
 function activeSectionFromParams(searchParams: ReturnType<typeof useSearchParams>): Section {
@@ -228,7 +229,8 @@ function PendingStudentsPanel({
   const pendingRequests = useMemo(() => {
     const confirmedStudentIdSet = new Set(confirmedStudentIds);
     const currentRequests = requests.filter(
-      (request) => request.status === 'pending' && !confirmedStudentIdSet.has(request.studentId)
+      (request) =>
+        request.status !== 'accepted' && !confirmedStudentIdSet.has(request.studentId)
     );
 
     if (activeFilters.length === 0) {
@@ -236,6 +238,10 @@ function PendingStudentsPanel({
     }
 
     return currentRequests.filter((request) => {
+      if (request.status === 'rejected') {
+        return activeFilters.includes('rejected');
+      }
+
       const storedReasons = request.pendingReasons ?? [];
       const isMessaged =
         storedReasons.includes('messaged') || (request.preBookingMessages ?? []).length > 0;
@@ -245,7 +251,8 @@ function PendingStudentsPanel({
 
       return activeFilters.some((filter) => {
         if (filter === 'messaged') return isMessaged;
-        return isRequested;
+        if (filter === 'requested') return isRequested;
+        return false;
       });
     });
   }, [activeFilters, confirmedStudentIds, requests]);
@@ -328,6 +335,16 @@ function PendingStudentsPanel({
     }
   }
 
+  async function handleMoveBackToPending(request: TrialSessionRequest) {
+    setBusyRequestId(request.id);
+
+    try {
+      await updateTrialSessionStatus(request.id, 'pending');
+    } finally {
+      setBusyRequestId(null);
+    }
+  }
+
   return (
     <div className="grid gap-5">
       <Card>
@@ -337,7 +354,7 @@ function PendingStudentsPanel({
               Pending students
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Students who have messaged you or requested a match before they move into My students.
+              Students who have messaged you, requested a match, or were previously rejected before they move into My students.
             </p>
           </div>
 
@@ -353,7 +370,7 @@ function PendingStudentsPanel({
         <Card>
           <p className="font-medium text-slate-950">No pending students yet.</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Pre-booking messages and pending match requests matching the selected filters will appear here.
+            Pre-booking messages, pending match requests, and rejected students matching the selected filters will appear here.
           </p>
         </Card>
       ) : (
@@ -368,6 +385,7 @@ function PendingStudentsPanel({
               onMessage={() => void openPendingStudentMessage(request)}
               onAccept={() => void handleAccept(request)}
               onReject={() => void handleReject(request)}
+              onMoveBackToPending={() => void handleMoveBackToPending(request)}
               currentUserId={currentTutor?.id ?? ''}
             />
           ))}
@@ -407,6 +425,7 @@ function PendingStudentCard({
   onMessage,
   onAccept,
   onReject,
+  onMoveBackToPending,
 }: {
   request: TrialSessionRequest;
   isLoadingProfile: boolean;
@@ -416,10 +435,12 @@ function PendingStudentCard({
   onMessage: () => void;
   onAccept: () => void;
   onReject: () => void;
+  onMoveBackToPending: () => void;
 }) {
   const hasMessages = (request.preBookingMessages ?? []).length > 0;
   const latestMessage = getLatestPreBookingMessage(request);
   const unreadCount = getUnreadPreBookingCount(request, currentUserId);
+  const isRejected = request.status === 'rejected';
 
   return (
     <Card className="grid gap-4">
@@ -468,12 +489,20 @@ function PendingStudentCard({
         <Button variant="secondary" disabled={disabled} onClick={onMessage}>
           Message
         </Button>
-        <Button disabled={disabled} onClick={onAccept}>
-          {disabled ? 'Saving...' : 'Accept'}
-        </Button>
-        <Button variant="secondary" disabled={disabled} onClick={onReject}>
-          Reject
-        </Button>
+        {isRejected ? (
+          <Button disabled={disabled} onClick={onMoveBackToPending}>
+            {disabled ? 'Saving...' : 'Move to pending'}
+          </Button>
+        ) : (
+          <>
+            <Button disabled={disabled} onClick={onAccept}>
+              {disabled ? 'Saving...' : 'Accept'}
+            </Button>
+            <Button variant="secondary" disabled={disabled} onClick={onReject}>
+              Reject
+            </Button>
+          </>
+        )}
       </div>
     </Card>
   );
