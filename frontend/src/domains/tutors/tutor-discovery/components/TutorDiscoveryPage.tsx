@@ -11,7 +11,6 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';

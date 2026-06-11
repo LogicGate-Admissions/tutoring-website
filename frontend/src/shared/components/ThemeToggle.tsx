@@ -3,29 +3,21 @@
 /**
  * Small client-side theme toggle shared by public and signed-in screens.
  *
- * The chosen theme is stored once in localStorage and applied through
- * html[data-theme], so it stays consistent between pages.
+ * The DOM is identical during server/client hydration. CSS decides which icon
+ * is visible from html[data-theme], avoiding hydration mismatches when the
+ * saved theme is dark.
  */
-
-import { useEffect, useState } from 'react';
 
 const STORAGE_KEY = 'logicgate-theme';
 
 type ThemePreference = 'light' | 'dark';
 
-function getInitialTheme(): ThemePreference {
-  if (typeof window === 'undefined') {
+function getCurrentTheme(): ThemePreference {
+  if (typeof document === 'undefined') {
     return 'light';
   }
 
-  const storedTheme = window.localStorage.getItem(STORAGE_KEY);
-  if (storedTheme === 'light' || storedTheme === 'dark') {
-    return storedTheme;
-  }
-
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light';
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
 }
 
 function applyTheme(theme: ThemePreference) {
@@ -34,14 +26,9 @@ function applyTheme(theme: ThemePreference) {
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemePreference>(getInitialTheme);
-
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
   function toggleTheme() {
-    setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'));
+    const nextTheme = getCurrentTheme() === 'dark' ? 'light' : 'dark';
+    applyTheme(nextTheme);
   }
 
   return (
@@ -49,10 +36,11 @@ export function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       className="rounded-full border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-950 hover:bg-slate-50"
-      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label="Toggle dark mode"
+      title="Toggle dark mode"
     >
-      {theme === 'dark' ? '☀️' : '🌙'}
+      <span className="logicgate-theme-toggle-light" aria-hidden="true">🌙</span>
+      <span className="logicgate-theme-toggle-dark" aria-hidden="true">☀️</span>
     </button>
   );
 }

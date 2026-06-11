@@ -197,83 +197,103 @@ function buildMessageNotification({
   };
 }
 
-function buildTutorTrialNotifications(requests: TrialSessionRequest[]) {
-  return requests
-    .filter((request) => request.status === 'pending')
-    .flatMap((request) => {
-      const unreadMessage = getLatestUnreadPreBookingMessage(request, 'tutor');
+function buildTutorTrialNotifications(
+  requests: TrialSessionRequest[]
+): AppNotification[] {
+  const notifications: AppNotification[] = [];
 
-      if (unreadMessage) {
-        return [
-          {
-            id: `pre-booking-message-${request.id}`,
-            type: 'message' as const,
-            title: `New message from ${request.studentName}`,
-            description: unreadMessage.body || 'Open Pending students to reply.',
-            meta: `${request.level} ${request.subject}`.trim(),
-            href: '/tutor/dashboard?section=pending-students',
-            createdAt: unreadMessage.createdAt || normaliseNotificationDate(request.updatedAt, request.createdAt),
-            onOpen: () => markPreBookingMessagesSeen(request.id, 'tutor'),
-          },
-        ];
-      }
+  for (const request of requests) {
+    if (request.status !== 'pending') {
+      continue;
+    }
 
-      const createdAt = normaliseNotificationDate(request.createdAt, request.updatedAt);
-      const seenAt = normaliseOptionalNotificationDate(request.tutorRequestSeenAt);
+    const unreadMessage = getLatestUnreadPreBookingMessage(request, 'tutor');
 
-      if (seenAt && seenAt >= createdAt) {
-        return [];
-      }
+    if (unreadMessage) {
+      notifications.push({
+        id: `pre-booking-message-${request.id}`,
+        type: 'message',
+        title: `New message from ${request.studentName}`,
+        description: unreadMessage.body || 'Open Pending students to reply.',
+        meta: `${request.level} ${request.subject}`.trim(),
+        href: '/tutor/dashboard?section=pending-students',
+        createdAt:
+          unreadMessage.createdAt ||
+          normaliseNotificationDate(request.updatedAt, request.createdAt),
+        onOpen: () => markPreBookingMessagesSeen(request.id, 'tutor'),
+      });
+      continue;
+    }
 
-      return [
-        {
-          id: `trial-request-${request.id}`,
-          type: 'trial-request' as const,
-          title: `New pending student: ${request.studentName}`,
-          description: request.message || 'A student has requested a match.',
-          meta: `${request.level} ${request.subject}`.trim(),
-          href: '/tutor/dashboard?section=pending-students',
-          createdAt,
-          onOpen: () => markTrialSessionRequestSeen(request.id),
-        },
-      ];
+    const createdAt = normaliseNotificationDate(
+      request.createdAt,
+      request.updatedAt
+    );
+    const seenAt = normaliseOptionalNotificationDate(request.tutorRequestSeenAt);
+
+    if (seenAt && seenAt >= createdAt) {
+      continue;
+    }
+
+    notifications.push({
+      id: `trial-request-${request.id}`,
+      type: 'trial-request',
+      title: `New pending student: ${request.studentName}`,
+      description: request.message || 'A student has requested a match.',
+      meta: `${request.level} ${request.subject}`.trim(),
+      href: '/tutor/dashboard?section=pending-students',
+      createdAt,
+      onOpen: () => markTrialSessionRequestSeen(request.id),
     });
+  }
+
+  return notifications;
 }
 
-function buildStudentTrialNotifications(requests: TrialSessionRequest[]) {
-  const pendingMessageNotifications = requests
-    .filter((request) => request.status === 'pending')
-    .map((request) => {
+function buildStudentTrialNotifications(
+  requests: TrialSessionRequest[]
+): AppNotification[] {
+  const notifications: AppNotification[] = [];
+
+  for (const request of requests) {
+    if (request.status === 'pending') {
       const unreadMessage = getLatestUnreadPreBookingMessage(request, 'student');
 
-      if (!unreadMessage) {
-        return null;
+      if (unreadMessage) {
+        notifications.push({
+          id: `pre-booking-message-${request.id}`,
+          type: 'message',
+          title: `New message from ${request.tutorName}`,
+          description: unreadMessage.body || 'Open Pending tutors to reply.',
+          meta: `${request.level} ${request.subject}`.trim(),
+          href: '/student/dashboard?section=pending-tutors',
+          createdAt:
+            unreadMessage.createdAt ||
+            normaliseNotificationDate(request.updatedAt, request.createdAt),
+          onOpen: () => markPreBookingMessagesSeen(request.id, 'student'),
+        });
       }
 
-      return {
-        id: `pre-booking-message-${request.id}`,
-        type: 'message' as const,
-        title: `New message from ${request.tutorName}`,
-        description: unreadMessage.body || 'Open Pending tutors to reply.',
-        meta: `${request.level} ${request.subject}`.trim(),
-        href: '/student/dashboard?section=pending-tutors',
-        createdAt: unreadMessage.createdAt || normaliseNotificationDate(request.updatedAt, request.createdAt),
-        onOpen: () => markPreBookingMessagesSeen(request.id, 'student'),
-      } satisfies AppNotification;
-    })
-    .filter((notification): notification is AppNotification => Boolean(notification));
+      continue;
+    }
 
-  const statusNotifications = requests
-    .filter((request) => request.status === 'accepted' || request.status === 'rejected')
-    .filter((request) => {
-      const updatedAt = normaliseNotificationDate(request.updatedAt, request.createdAt);
-      const seenAt = normaliseOptionalNotificationDate(request.studentStatusSeenAt);
+    if (request.status !== 'accepted' && request.status !== 'rejected') {
+      continue;
+    }
 
-      return !seenAt || updatedAt > seenAt;
-    })
-    .map((request) => ({
+    const updatedAt = normaliseNotificationDate(
+      request.updatedAt,
+      request.createdAt
+    );
+    const seenAt = normaliseOptionalNotificationDate(request.studentStatusSeenAt);
+
+    if (seenAt && updatedAt <= seenAt) {
+      continue;
+    }
+
+    notifications.push({
       id: `trial-update-${request.id}`,
-      type: 'trial-update' as const,
+      type: 'trial-update',
       title:
         request.status === 'accepted'
           ? `${request.tutorName} accepted your trial`
@@ -283,15 +303,13 @@ function buildStudentTrialNotifications(requests: TrialSessionRequest[]) {
           ? 'You can now open your dashboard to use the support space.'
           : 'You can browse other tutors and request a different trial.',
       meta: `${request.level} ${request.subject}`.trim(),
-      href:
-        request.status === 'accepted'
-          ? '/student/dashboard'
-          : '/student/tutors',
-      createdAt: normaliseNotificationDate(request.updatedAt, request.createdAt),
+      href: request.status === 'accepted' ? '/student/dashboard' : '/student/tutors',
+      createdAt: updatedAt,
       onOpen: () => markTrialSessionStatusSeen(request.id),
-    }));
+    });
+  }
 
-  return [...pendingMessageNotifications, ...statusNotifications];
+  return notifications;
 }
 
 function getLatestUnreadPreBookingMessage(

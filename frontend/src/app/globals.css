@@ -356,3 +356,31 @@ html[data-theme='dark'] .text-emerald-800 {
 html[data-theme='dark'] .border-emerald-200 {
   border-color: rgba(52, 211, 153, 0.45) !important;
 }
+
+
+/* Theme toggle icon is controlled by html[data-theme], not React state. */
+.logicgate-theme-toggle-light {
+  display: inline;
+}
+
+.logicgate-theme-toggle-dark {
+  display: none;
+}
+
+html[data-theme='dark'] .logicgate-theme-toggle-light {
+  display: none;
+}
+
+html[data-theme='dark'] .logicgate-theme-toggle-dark {
+  display: inline;
+}
+
+/* Keep next-lesson cards readable in dark mode. */
+html[data-theme='dark'] .border-emerald-100 {
+  border-color: rgba(52, 211, 153, 0.35) !important;
+}
+
+html[data-theme='dark'] .text-emerald-700,
+html[data-theme='dark'] .text-emerald-950 {
+  color: #a7f3d0 !important;
+}
