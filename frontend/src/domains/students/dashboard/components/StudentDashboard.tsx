@@ -8,6 +8,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
+import { RelationshipSupportModal } from '@/domains/async-support/components/RelationshipSupportModal';
+import type { RelationshipSupportModalFeature } from '@/domains/async-support/components/RelationshipSupportModal';
 import { useRelationshipSummaries } from '@/domains/async-support/hooks/useRelationshipSummaries';
 import type { RelationshipSupportSummary } from '@/domains/async-support/types/asyncSupport';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
@@ -48,6 +50,12 @@ type Section =
   | 'my-sessions'
   | 'learning-profile'
   | 'find-tutors';
+
+type ActiveSupportModal = {
+  relationshipId: string;
+  feature: RelationshipSupportModalFeature;
+  personName: string;
+} | null;
 
 type PendingFilter = 'shortlisted' | 'messaged' | 'requested';
 
@@ -115,6 +123,7 @@ export function StudentDashboard() {
   const activeSection = activeSectionFromParams(searchParams);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const { relationships, isLoading, error } = useRelationshipSummaries('student');
+  const [supportModal, setSupportModal] = useState<ActiveSupportModal>(null);
 
   function setActiveSection(section: Section) {
     router.replace(`/student/dashboard?section=${section}`, { scroll: false });
@@ -168,10 +177,36 @@ export function StudentDashboard() {
               isLoading={isLoading}
               error={error}
               currentUserId={currentUser?.id ?? ''}
+              onOpenSupport={(relationship, feature) =>
+                setSupportModal({
+                  relationshipId: relationship.id,
+                  feature,
+                  personName: relationship.tutorName || 'your tutor',
+                })
+              }
             />
           )}
         </main>
       </div>
+
+      {supportModal ? (
+        <RelationshipSupportModal
+          relationshipId={supportModal.relationshipId}
+          viewerRole="student"
+          feature={supportModal.feature}
+          title={
+            supportModal.feature === 'messages'
+              ? `Messages with ${supportModal.personName}`
+              : `Shared resources with ${supportModal.personName}`
+          }
+          description={
+            supportModal.feature === 'messages'
+              ? 'Continue the accepted support conversation without leaving the dashboard.'
+              : 'Upload, view, and manage shared lesson files without leaving the dashboard.'
+          }
+          onClose={() => setSupportModal(null)}
+        />
+      ) : null}
     </Container>
   );
 }
@@ -182,12 +217,14 @@ function RelationshipContent({
   isLoading,
   error,
   currentUserId,
+  onOpenSupport,
 }: {
   activeSection: Section;
   relationships: RelationshipSupportSummary[];
   isLoading: boolean;
   error: string | null;
   currentUserId: string;
+  onOpenSupport: (relationship: RelationshipSupportSummary, feature: RelationshipSupportModalFeature) => void;
 }) {
   if (activeSection === 'learning-profile') {
     return (
@@ -231,7 +268,7 @@ function RelationshipContent({
           relationship={relationship}
           viewerRole="student"
           currentUserId={currentUserId}
-          actions={getStudentRelationshipActions(relationship.id)}
+          actions={getStudentRelationshipActions(relationship, onOpenSupport)}
         />
       ))}
     </div>
@@ -684,7 +721,10 @@ function PendingTutorCard({
             {item.reasons.map((reason) => (
               <span
                 key={reason}
-                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold capitalize text-slate-700"
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-semibold capitalize',
+                  getPendingTutorReasonBadgeClass(reason)
+                )}
               >
                 {reason}
               </span>
@@ -719,6 +759,13 @@ function PendingTutorCard({
       </div>
     </Card>
   );
+}
+
+
+function getPendingTutorReasonBadgeClass(reason: PendingFilter) {
+  if (reason === 'requested') return 'logicgate-status-pending';
+  if (reason === 'messaged') return 'logicgate-status-info';
+  return 'logicgate-status-neutral';
 }
 
 function PendingFilterPills<T extends string>({
@@ -1039,17 +1086,20 @@ function ActionCard({
   );
 }
 
-function getStudentRelationshipActions(relationshipId: string) {
-  const baseHref = `/student/dashboard/support/${relationshipId}`;
+function getStudentRelationshipActions(
+  relationship: RelationshipSupportSummary,
+  onOpenSupport: (relationship: RelationshipSupportSummary, feature: RelationshipSupportModalFeature) => void
+) {
+  const baseHref = `/student/dashboard/support/${relationship.id}`;
 
   return [
     {
       label: 'Message',
-      href: `${baseHref}/messages`,
+      onClick: () => onOpenSupport(relationship, 'messages'),
     },
     {
       label: 'Shared resources',
-      href: `${baseHref}/resources`,
+      onClick: () => onOpenSupport(relationship, 'resources'),
     },
     {
       label: 'Workspace',

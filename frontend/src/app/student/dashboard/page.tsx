@@ -18,8 +18,7 @@ export default function StudentDashboardPage() {
       <main className="min-h-screen bg-[#f8f7f4]">
         <PageHeader
           eyebrow="Student area"
-          title="Student dashboard"
-          description="Manage connected tutoring relationships and asynchronous support."
+          title="Dashboard"
         />
 
         <Suspense fallback={null}>

@@ -36,23 +36,23 @@ type ConfirmingAction = 'cancel' | 'decline' | null;
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   pending_receiver: {
     label: 'Awaiting response',
-    className: 'bg-amber-50 text-amber-700 border-amber-200',
+    className: 'logicgate-status-pending',
   },
   pending_requester: {
     label: 'Awaiting your confirmation',
-    className: 'bg-blue-50 text-blue-700 border-blue-200',
+    className: 'logicgate-status-info',
   },
   confirmed: {
     label: 'Confirmed',
-    className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    className: 'logicgate-status-success',
   },
   cancelled: {
     label: 'Cancelled',
-    className: 'bg-slate-100 text-slate-500 border-slate-200',
+    className: 'logicgate-status-neutral',
   },
   declined: {
     label: 'Declined',
-    className: 'bg-rose-50 text-rose-600 border-rose-200',
+    className: 'logicgate-status-danger',
   },
 };
 
@@ -98,7 +98,7 @@ export function BookingRequestCard({
 
   const statusBadge = STATUS_LABELS[booking.status] ?? {
     label: booking.status,
-    className: 'bg-slate-100 text-slate-600 border-slate-200',
+    className: 'logicgate-status-neutral',
   };
 
   const isTerminal =
@@ -177,7 +177,7 @@ export function BookingRequestCard({
         </div>
         <span
           className={cn(
-            'inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium',
+            'inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold',
             statusBadge.className
           )}
         >

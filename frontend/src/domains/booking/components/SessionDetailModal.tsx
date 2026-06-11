@@ -96,14 +96,7 @@ export function SessionDetailModal({
     }
   }
 
-  const statusLabel =
-    booking.status === 'confirmed'
-      ? 'Confirmed'
-      : booking.status === 'pending_receiver'
-        ? 'Awaiting response'
-        : booking.status === 'pending_requester'
-          ? 'Awaiting confirmation'
-          : booking.status;
+  const statusBadge = getSessionStatusBadge(booking.status);
 
   if (typeof document === 'undefined') return null;
 
@@ -153,8 +146,13 @@ export function SessionDetailModal({
               )}
             </p>
 
-            <span className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
-              {statusLabel}
+            <span
+              className={cn(
+                'mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-semibold',
+                statusBadge.className
+              )}
+            >
+              {statusBadge.label}
             </span>
 
             <div className="mt-4 grid gap-1.5 text-sm text-slate-600">
@@ -250,6 +248,27 @@ export function SessionDetailModal({
   );
 
   return createPortal(modal, document.body);
+}
+
+
+function getSessionStatusBadge(status: BookingRequest['status']) {
+  if (status === 'confirmed') {
+    return { label: 'Confirmed', className: 'logicgate-status-success' };
+  }
+  if (status === 'pending_receiver') {
+    return { label: 'Awaiting response', className: 'logicgate-status-pending' };
+  }
+  if (status === 'pending_requester') {
+    return { label: 'Awaiting confirmation', className: 'logicgate-status-info' };
+  }
+  if (status === 'declined') {
+    return { label: 'Declined', className: 'logicgate-status-danger' };
+  }
+  if (status === 'cancelled') {
+    return { label: 'Cancelled', className: 'logicgate-status-neutral' };
+  }
+
+  return { label: status, className: 'logicgate-status-neutral' };
 }
 
 function ModalButton({

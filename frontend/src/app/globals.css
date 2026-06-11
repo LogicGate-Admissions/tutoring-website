@@ -384,3 +384,97 @@ html[data-theme='dark'] .text-emerald-700,
 html[data-theme='dark'] .text-emerald-950 {
   color: #a7f3d0 !important;
 }
+
+/* Status chips: visible in both light and dark themes. */
+.logicgate-status-pending {
+  border-color: #f59e0b !important;
+  background-color: #fef3c7 !important;
+  color: #78350f !important;
+}
+
+.logicgate-status-danger {
+  border-color: #f43f5e !important;
+  background-color: #ffe4e6 !important;
+  color: #881337 !important;
+}
+
+.logicgate-status-success {
+  border-color: #10b981 !important;
+  background-color: #d1fae5 !important;
+  color: #064e3b !important;
+}
+
+.logicgate-status-info {
+  border-color: #38bdf8 !important;
+  background-color: #e0f2fe !important;
+  color: #075985 !important;
+}
+
+.logicgate-status-neutral {
+  border-color: #94a3b8 !important;
+  background-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+html[data-theme='dark'] .logicgate-status-pending {
+  border-color: rgba(251, 191, 36, 0.65) !important;
+  background-color: rgba(146, 64, 14, 0.38) !important;
+  color: #fde68a !important;
+}
+
+html[data-theme='dark'] .logicgate-status-danger {
+  border-color: rgba(251, 113, 133, 0.65) !important;
+  background-color: rgba(127, 29, 29, 0.42) !important;
+  color: #fecdd3 !important;
+}
+
+html[data-theme='dark'] .logicgate-status-success {
+  border-color: rgba(52, 211, 153, 0.65) !important;
+  background-color: rgba(6, 78, 59, 0.42) !important;
+  color: #a7f3d0 !important;
+}
+
+html[data-theme='dark'] .logicgate-status-info {
+  border-color: rgba(56, 189, 248, 0.65) !important;
+  background-color: rgba(7, 89, 133, 0.42) !important;
+  color: #bae6fd !important;
+}
+
+html[data-theme='dark'] .logicgate-status-neutral {
+  border-color: rgba(148, 163, 184, 0.55) !important;
+  background-color: rgba(51, 65, 85, 0.7) !important;
+  color: #e2e8f0 !important;
+}
+
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) .logicgate-status-pending {
+    border-color: rgba(251, 191, 36, 0.65) !important;
+    background-color: rgba(146, 64, 14, 0.38) !important;
+    color: #fde68a !important;
+  }
+
+  html:not([data-theme]) .logicgate-status-danger {
+    border-color: rgba(251, 113, 133, 0.65) !important;
+    background-color: rgba(127, 29, 29, 0.42) !important;
+    color: #fecdd3 !important;
+  }
+
+  html:not([data-theme]) .logicgate-status-success {
+    border-color: rgba(52, 211, 153, 0.65) !important;
+    background-color: rgba(6, 78, 59, 0.42) !important;
+    color: #a7f3d0 !important;
+  }
+
+  html:not([data-theme]) .logicgate-status-info {
+    border-color: rgba(56, 189, 248, 0.65) !important;
+    background-color: rgba(7, 89, 133, 0.42) !important;
+    color: #bae6fd !important;
+  }
+
+  html:not([data-theme]) .logicgate-status-neutral {
+    border-color: rgba(148, 163, 184, 0.55) !important;
+    background-color: rgba(51, 65, 85, 0.7) !important;
+    color: #e2e8f0 !important;
+  }
+}

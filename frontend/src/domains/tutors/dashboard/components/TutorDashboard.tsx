@@ -8,6 +8,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
+import { RelationshipSupportModal } from '@/domains/async-support/components/RelationshipSupportModal';
+import type { RelationshipSupportModalFeature } from '@/domains/async-support/components/RelationshipSupportModal';
 import { useRelationshipSummaries } from '@/domains/async-support/hooks/useRelationshipSummaries';
 import type { RelationshipSupportSummary } from '@/domains/async-support/types/asyncSupport';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
@@ -36,6 +38,12 @@ import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
 
 type Section = 'my-students' | 'pending-students' | 'my-sessions' | 'tutor-profile';
+type ActiveSupportModal = {
+  relationshipId: string;
+  feature: RelationshipSupportModalFeature;
+  personName: string;
+} | null;
+
 type PendingFilter = 'messaged' | 'requested' | 'rejected';
 
 const tabs: Array<{ id: Section; label: string; description: string }> = [
@@ -91,6 +99,7 @@ export function TutorDashboard() {
   const activeSection = activeSectionFromParams(searchParams);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const { relationships, isLoading, error } = useRelationshipSummaries('tutor');
+  const [supportModal, setSupportModal] = useState<ActiveSupportModal>(null);
 
   function setActiveSection(section: Section) {
     router.replace(`/tutor/dashboard?section=${section}`, { scroll: false });
@@ -144,10 +153,36 @@ export function TutorDashboard() {
               isLoading={isLoading}
               error={error}
               currentUserId={currentUser?.id ?? ''}
+              onOpenSupport={(relationship, feature) =>
+                setSupportModal({
+                  relationshipId: relationship.id,
+                  feature,
+                  personName: relationship.studentName || 'your student',
+                })
+              }
             />
           )}
         </main>
       </div>
+
+      {supportModal ? (
+        <RelationshipSupportModal
+          relationshipId={supportModal.relationshipId}
+          viewerRole="tutor"
+          feature={supportModal.feature}
+          title={
+            supportModal.feature === 'messages'
+              ? `Messages with ${supportModal.personName}`
+              : `Shared resources with ${supportModal.personName}`
+          }
+          description={
+            supportModal.feature === 'messages'
+              ? 'Continue the accepted support conversation without leaving the dashboard.'
+              : 'Upload, view, and manage shared lesson files without leaving the dashboard.'
+          }
+          onClose={() => setSupportModal(null)}
+        />
+      ) : null}
     </Container>
   );
 }
@@ -158,12 +193,14 @@ function RelationshipContent({
   isLoading,
   error,
   currentUserId,
+  onOpenSupport,
 }: {
   activeSection: Section;
   relationships: RelationshipSupportSummary[];
   isLoading: boolean;
   error: string | null;
   currentUserId: string;
+  onOpenSupport: (relationship: RelationshipSupportSummary, feature: RelationshipSupportModalFeature) => void;
 }) {
   if (activeSection === 'tutor-profile') {
     return (
@@ -196,7 +233,7 @@ function RelationshipContent({
           relationship={relationship}
           viewerRole="tutor"
           currentUserId={currentUserId}
-          actions={getTutorRelationshipActions(relationship.id)}
+          actions={getTutorRelationshipActions(relationship, onOpenSupport)}
         />
       ))}
     </div>
@@ -462,7 +499,7 @@ function PendingStudentCard({
           <div className="mt-3 flex flex-wrap gap-2">
             <TrialStatusBadge status={request.status} />
             {hasMessages ? (
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+              <span className="logicgate-status-info rounded-full border px-3 py-1 text-xs font-semibold">
                 Messaged
               </span>
             ) : null}
@@ -769,17 +806,20 @@ function ActionCard({
   );
 }
 
-function getTutorRelationshipActions(relationshipId: string) {
-  const baseHref = `/tutor/dashboard/support/${relationshipId}`;
+function getTutorRelationshipActions(
+  relationship: RelationshipSupportSummary,
+  onOpenSupport: (relationship: RelationshipSupportSummary, feature: RelationshipSupportModalFeature) => void
+) {
+  const baseHref = `/tutor/dashboard/support/${relationship.id}`;
 
   return [
     {
       label: 'Message',
-      href: `${baseHref}/messages`,
+      onClick: () => onOpenSupport(relationship, 'messages'),
     },
     {
       label: 'Shared resources',
-      href: `${baseHref}/resources`,
+      onClick: () => onOpenSupport(relationship, 'resources'),
     },
     {
       label: 'Workspace',
