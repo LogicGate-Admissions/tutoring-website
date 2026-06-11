@@ -4,6 +4,7 @@
 
 import {
   addDoc,
+  arrayUnion,
   collection,
   doc,
   onSnapshot,
@@ -18,14 +19,26 @@ import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import type {
   CreateTrialSessionRequestInput,
+  PreBookingMessage,
   TrialSessionRequest,
   TrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/types/trialSession';
 
+type AddPreBookingMessageInput = {
+  requestId: string;
+  senderId: string;
+  senderRole: 'student' | 'tutor';
+  senderName: string;
+  body: string;
+};
+
 function mapTrialSessionDocument(document: { id: string; data: () => unknown }) {
+  const data = document.data() as Omit<TrialSessionRequest, 'id'>;
+
   return {
     id: document.id,
-    ...(document.data() as Omit<TrialSessionRequest, 'id'>),
+    ...data,
+    preBookingMessages: normalisePreBookingMessages(data.preBookingMessages),
   } satisfies TrialSessionRequest;
 }
 
@@ -35,10 +48,46 @@ function mapTrialSessionDocument(document: { id: string; data: () => unknown }) 
 export async function createTrialSessionRequest(
   input: CreateTrialSessionRequestInput
 ) {
-  await addDoc(collection(db, FIRESTORE_COLLECTIONS.trialSessionRequests), {
-    ...input,
-    status: 'pending',
-    createdAt: serverTimestamp(),
+  const requestRef = await addDoc(
+    collection(db, FIRESTORE_COLLECTIONS.trialSessionRequests),
+    {
+      ...input,
+      preBookingMessages: normalisePreBookingMessages(input.preBookingMessages),
+      status: 'pending',
+      createdAt: serverTimestamp(),
+    }
+  );
+
+  return requestRef.id;
+}
+
+/** Adds a text-only clarifying message to a pending match request. */
+export async function addPreBookingMessage(input: AddPreBookingMessageInput) {
+  const trimmedBody = input.body.trim();
+
+  if (!trimmedBody) {
+    return;
+  }
+
+  const message: PreBookingMessage = {
+    id: crypto.randomUUID(),
+    senderId: input.senderId,
+    senderRole: input.senderRole,
+    senderName: input.senderName,
+    body: trimmedBody,
+    createdAt: new Date().toISOString(),
+  };
+
+  const requestRef = doc(
+    db,
+    FIRESTORE_COLLECTIONS.trialSessionRequests,
+    input.requestId
+  );
+
+  await updateDoc(requestRef, {
+    preBookingMessages: arrayUnion(message),
+    message: trimmedBody,
+    updatedAt: serverTimestamp(),
   });
 }
 
@@ -61,12 +110,13 @@ export async function updateTrialSessionStatus(
   });
 }
 
-
 /**
  * Accepts a trial request and creates the relationship that powers async support.
  *
  * This keeps the dashboard flow automatic: once a tutor accepts, both the
- * student and tutor get the shared message/resource/question space.
+ * student and tutor get the shared message/resource/question space. Any simple
+ * pre-booking conversation is copied onto the relationship so the normal
+ * message thread starts with that context.
  */
 export async function acceptTrialSessionRequest(request: TrialSessionRequest) {
   await createStudentTutorRelationship({
@@ -78,11 +128,11 @@ export async function acceptTrialSessionRequest(request: TrialSessionRequest) {
     tutorEmail: getCurrentFirebaseUser()?.email ?? '',
     subject: request.subject,
     level: request.level,
+    preBookingMessages: request.preBookingMessages ?? [],
   });
 
   await updateTrialSessionStatus(request.id, 'accepted');
 }
-
 
 /** Marks a student-facing trial status notification as seen. */
 export async function markTrialSessionStatusSeen(requestId: string) {
@@ -135,4 +185,31 @@ export function subscribeToStudentTrialSessions(
   return onSnapshot(studentRequestsQuery, (snapshot) => {
     onChange(snapshot.docs.map(mapTrialSessionDocument));
   });
+}
+
+function normalisePreBookingMessages(value: unknown): PreBookingMessage[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      const data = item as Record<string, unknown>;
+      const body = String(data.body ?? '').trim();
+
+      if (!body) {
+        return null;
+      }
+
+      return {
+        id: String(data.id ?? `pre-booking-${index}`),
+        senderId: String(data.senderId ?? ''),
+        senderRole: data.senderRole === 'tutor' ? 'tutor' : 'student',
+        senderName: String(data.senderName ?? 'Unknown user'),
+        body,
+        createdAt: String(data.createdAt ?? ''),
+      } satisfies PreBookingMessage;
+    })
+    .filter((message): message is PreBookingMessage => Boolean(message))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }

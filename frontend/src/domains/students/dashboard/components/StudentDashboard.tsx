@@ -4,29 +4,63 @@
  * File purpose: Main student dashboard for ongoing tutor support.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
 import { useRelationshipSummaries } from '@/domains/async-support/hooks/useRelationshipSummaries';
 import type { RelationshipSupportSummary } from '@/domains/async-support/types/asyncSupport';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
+import type { AuthUser } from '@/domains/auth/types/auth';
 import { MySessionsTab } from '@/domains/booking/components/sessions/MySessionsTab';
 import type { BookingRequest } from '@/domains/booking/types/booking';
+import { PreBookingMessageModal } from '@/domains/sessions/trial-sessions/components/PreBookingMessageModal';
+import { PreBookingMessageThread } from '@/domains/sessions/trial-sessions/components/PreBookingMessageThread';
+import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
+import {
+  addPreBookingMessage,
+  createTrialSessionRequest,
+  subscribeToStudentTrialSessions,
+} from '@/domains/sessions/trial-sessions/services/trialSessionService';
+import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import { getStoredLearningProfile } from '@/domains/students/learning-profile/services/learningProfileStorage';
+import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';
+import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
+import { getTutorProfiles } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
+import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
 
-type Section = 'my-tutors' | 'learning-profile' | 'find-tutors' | 'my-sessions';
+type Section =
+  | 'my-tutors'
+  | 'pending-tutors'
+  | 'my-sessions'
+  | 'learning-profile'
+  | 'find-tutors';
 
+type PendingFilter = 'shortlisted' | 'messaged' | 'requested';
+
+type PendingTutorItem = {
+  tutor: Tutor;
+  request?: TrialSessionRequest;
+  reasons: PendingFilter[];
+};
+
+const SHORTLIST_STORAGE_PREFIX = 'logicgate-shortlisted-tutors';
 
 const tabs: Array<{ id: Section; label: string; description: string }> = [
   {
     id: 'my-tutors',
     label: 'My tutors',
-    description: 'Tutor support',
+    description: 'Confirmed support',
+  },
+  {
+    id: 'pending-tutors',
+    label: 'Pending tutors',
+    description: 'Shortlist & requests',
   },
   {
     id: 'my-sessions',
@@ -47,9 +81,16 @@ const tabs: Array<{ id: Section; label: string; description: string }> = [
 
 const STUDENT_SECTIONS: Section[] = [
   'my-tutors',
+  'pending-tutors',
   'my-sessions',
   'learning-profile',
   'find-tutors',
+];
+
+const pendingFilters: Array<{ id: PendingFilter; label: string }> = [
+  { id: 'shortlisted', label: 'Shortlisted' },
+  { id: 'messaged', label: 'Messaged' },
+  { id: 'requested', label: 'Requested' },
 ];
 
 function activeSectionFromParams(searchParams: ReturnType<typeof useSearchParams>): Section {
@@ -64,7 +105,7 @@ export function StudentDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeSection = activeSectionFromParams(searchParams);
-  const [currentUserId, setCurrentUserId] = useState('');
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const { relationships, isLoading, error } = useRelationshipSummaries('student');
 
   function setActiveSection(section: Section) {
@@ -73,7 +114,7 @@ export function StudentDashboard() {
 
   useEffect(() => {
     const unsub = subscribeToCurrentUser((user) => {
-      setCurrentUserId(user?.id ?? '');
+      setCurrentUser(user?.role === 'student' ? user : null);
     });
     return unsub;
   }, []);
@@ -82,14 +123,13 @@ export function StudentDashboard() {
     <Container className="grid gap-6 py-8">
       <Card>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Support dashboard
+          Student dashboard
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-          Manage support through each tutor
+          Manage your tutor support
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Students start from a tutor relationship, then choose whether to
-          message, view resources, book sessions, or open the live workspace for that tutor.
+          Keep confirmed tutors, pending tutor conversations, sessions, and your learning profile in one place.
         </p>
       </Card>
 
@@ -103,7 +143,7 @@ export function StudentDashboard() {
         <main className="min-w-0">
           {activeSection === 'my-sessions' ? (
             <MySessionsTab
-              userId={currentUserId}
+              userId={currentUser?.id ?? ''}
               role="student"
               counterparties={relationships.map((r) => ({
                 id: r.tutorId,
@@ -120,13 +160,18 @@ export function StudentDashboard() {
                 return rel ? `/student/dashboard/support/${rel.id}/workspace` : undefined;
               }}
             />
+          ) : activeSection === 'pending-tutors' ? (
+            <PendingTutorsPanel
+              currentStudent={currentUser}
+              confirmedTutorIds={relationships.map((relationship) => relationship.tutorId)}
+            />
           ) : (
             <RelationshipContent
               activeSection={activeSection}
               relationships={relationships}
               isLoading={isLoading}
               error={error}
-              currentUserId={currentUserId}
+              currentUserId={currentUser?.id ?? ''}
             />
           )}
         </main>
@@ -177,7 +222,7 @@ function RelationshipContent({
         error={error}
         isEmpty={relationships.length === 0}
         emptyTitle="No tutors yet"
-        emptyDescription="When you become connected with a tutor, they will appear here with message, resource, session, and workspace actions."
+        emptyDescription="When a tutor accepts your request, they will appear here with message, resource, session, and workspace actions."
       />
     );
   }
@@ -194,6 +239,421 @@ function RelationshipContent({
         />
       ))}
     </div>
+  );
+}
+
+function PendingTutorsPanel({
+  currentStudent,
+  confirmedTutorIds,
+}: {
+  currentStudent: AuthUser | null;
+  confirmedTutorIds: string[];
+}) {
+  const [requests, setRequests] = useState<TrialSessionRequest[]>([]);
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [shortlistedTutorIds, setShortlistedTutorIds] = useState<string[]>([]);
+  const [activeFilters, setActiveFilters] = useState<PendingFilter[]>([]);
+  const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
+  const [messageTutorId, setMessageTutorId] = useState<string | null>(null);
+  const [isCreatingRequest, setIsCreatingRequest] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    if (!currentStudent) return undefined;
+    return subscribeToStudentTrialSessions(currentStudent.id, setRequests);
+  }, [currentStudent]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTutors() {
+      const profiles = await getTutorProfiles();
+      if (isMounted) {
+        setTutors(profiles);
+      }
+    }
+
+    void loadTutors();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentStudent || typeof window === 'undefined') return undefined;
+
+    const timer = window.setTimeout(() => {
+      const storedIds = window.localStorage.getItem(
+        `${SHORTLIST_STORAGE_PREFIX}:${currentStudent.id}`
+      );
+      setShortlistedTutorIds(storedIds ? JSON.parse(storedIds) : []);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [currentStudent]);
+
+  const pendingItems = useMemo(() => {
+    const items = new Map<string, PendingTutorItem>();
+    const confirmedTutorIdSet = new Set(confirmedTutorIds);
+
+    for (const tutorId of shortlistedTutorIds) {
+      if (confirmedTutorIdSet.has(tutorId)) continue;
+
+      const tutor = tutors.find((candidate) => candidate.id === tutorId);
+      if (!tutor) continue;
+
+      items.set(tutor.id, { tutor, reasons: ['shortlisted'] });
+    }
+
+    for (const request of requests) {
+      if (request.status !== 'pending' || confirmedTutorIdSet.has(request.tutorId)) {
+        continue;
+      }
+
+      const tutor = tutors.find((candidate) => candidate.id === request.tutorId);
+      if (!tutor) continue;
+
+      const existing = items.get(tutor.id) ?? { tutor, reasons: [] };
+      const reasons = new Set<PendingFilter>(existing.reasons);
+      reasons.add('requested');
+
+      if ((request.preBookingMessages ?? []).length > 0) {
+        reasons.add('messaged');
+      }
+
+      items.set(tutor.id, {
+        tutor,
+        request,
+        reasons: [...reasons],
+      });
+    }
+
+    const allItems = [...items.values()];
+
+    if (activeFilters.length === 0) {
+      return allItems;
+    }
+
+    return allItems.filter((item) =>
+      activeFilters.some((filter) => item.reasons.includes(filter))
+    );
+  }, [activeFilters, confirmedTutorIds, requests, shortlistedTutorIds, tutors]);
+
+  const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
+  const selectedTutorRequest = selectedTutor
+    ? requests.find((request) => request.tutorId === selectedTutor.id)
+    : undefined;
+  const messageTutor = tutors.find((tutor) => tutor.id === messageTutorId) ?? null;
+  const messageTutorRequest = messageTutor
+    ? requests.find((request) => request.tutorId === messageTutor.id)
+    : undefined;
+
+  function toggleFilter(filter: PendingFilter) {
+    setActiveFilters((currentFilters) =>
+      currentFilters.includes(filter)
+        ? currentFilters.filter((item) => item !== filter)
+        : [...currentFilters, filter]
+    );
+  }
+
+  function toggleShortlist(tutor: Tutor) {
+    if (!currentStudent || typeof window === 'undefined') return;
+
+    setShortlistedTutorIds((currentTutorIds) => {
+      const isShortlisted = currentTutorIds.includes(tutor.id);
+      const nextTutorIds = isShortlisted
+        ? currentTutorIds.filter((id) => id !== tutor.id)
+        : [...currentTutorIds, tutor.id];
+
+      window.localStorage.setItem(
+        `${SHORTLIST_STORAGE_PREFIX}:${currentStudent.id}`,
+        JSON.stringify(nextTutorIds)
+      );
+
+      return nextTutorIds;
+    });
+  }
+
+  async function sendPreBookingMessage(tutor: Tutor, body: string) {
+    if (!currentStudent) {
+      setNotice('Please log in again before messaging a tutor.');
+      return;
+    }
+
+    const trimmedBody = body.trim();
+    if (!trimmedBody) return;
+
+    const existingRequest = requests.find((request) => request.tutorId === tutor.id);
+
+    if (existingRequest) {
+      await addPreBookingMessage({
+        requestId: existingRequest.id,
+        senderId: currentStudent.id,
+        senderRole: 'student',
+        senderName: currentStudent.name,
+        body: trimmedBody,
+      });
+      setNotice(`Message sent to ${tutor.name}.`);
+      return;
+    }
+
+    setIsCreatingRequest(true);
+
+    try {
+      const profile = await getStoredLearningProfile();
+      const now = new Date().toISOString();
+
+      await createTrialSessionRequest({
+        tutorId: tutor.id,
+        tutorName: tutor.name,
+        studentId: currentStudent.id,
+        studentName: currentStudent.name,
+        studentEmail: currentStudent.email,
+        subject:
+          profile.subjectSelections[0]?.subjects[0] ||
+          tutor.subjects[0] ||
+          'Not specified',
+        level:
+          profile.subjectSelections[0]?.category ||
+          tutor.levels[0] ||
+          'Not specified',
+        learningStyle:
+          profile.learningStyles[0] || tutor.learningStyles[0] || 'Not specified',
+        preferredTime:
+          profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
+          tutor.availability,
+        message: trimmedBody,
+        preBookingMessages: [
+          {
+            id: crypto.randomUUID(),
+            senderId: currentStudent.id,
+            senderRole: 'student',
+            senderName: currentStudent.name,
+            body: trimmedBody,
+            createdAt: now,
+          },
+        ],
+      });
+
+      setNotice(`Message sent to ${tutor.name}.`);
+    } finally {
+      setIsCreatingRequest(false);
+    }
+  }
+
+
+  async function requestMatch(tutor: Tutor) {
+    if (!currentStudent) {
+      setNotice('Please log in again before requesting a match.');
+      return;
+    }
+
+    const existingRequest = requests.find((request) => request.tutorId === tutor.id);
+
+    if (existingRequest) {
+      setNotice(`You have already contacted ${tutor.name}.`);
+      return;
+    }
+
+    const profile = await getStoredLearningProfile();
+    const body =
+      'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.';
+
+    await createTrialSessionRequest({
+      tutorId: tutor.id,
+      tutorName: tutor.name,
+      studentId: currentStudent.id,
+      studentName: currentStudent.name,
+      studentEmail: currentStudent.email,
+      subject:
+        profile.subjectSelections[0]?.subjects[0] || tutor.subjects[0] || 'Not specified',
+      level:
+        profile.subjectSelections[0]?.category || tutor.levels[0] || 'Not specified',
+      learningStyle:
+        profile.learningStyles[0] || tutor.learningStyles[0] || 'Not specified',
+      preferredTime:
+        profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
+        tutor.availability,
+      message: body,
+      preBookingMessages: [
+        {
+          id: crypto.randomUUID(),
+          senderId: currentStudent.id,
+          senderRole: 'student',
+          senderName: currentStudent.name,
+          body,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    setNotice(`Match request sent to ${tutor.name}.`);
+  }
+
+  return (
+    <div className="grid gap-5">
+      <Card>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
+              Pending tutors
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Tutors you have shortlisted, messaged, or requested before they move into My tutors.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {pendingFilters.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => toggleFilter(filter.id)}
+                className={cn(
+                  'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                  activeFilters.includes(filter.id)
+                    ? 'border-slate-950 bg-slate-950 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                )}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {notice ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+          {notice}
+        </div>
+      ) : null}
+
+      {pendingItems.length === 0 ? (
+        <Card>
+          <p className="font-medium text-slate-950">No pending tutors yet.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Shortlisted tutors, pre-booking messages, and pending match requests will appear here.
+          </p>
+          <div className="mt-4">
+            <Button href={ROUTES.studentTutors}>Find tutors</Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {pendingItems.map((item) => (
+            <PendingTutorCard
+              key={item.tutor.id}
+              item={item}
+              currentStudentId={currentStudent?.id}
+              isShortlisted={shortlistedTutorIds.includes(item.tutor.id)}
+              disabled={!currentStudent || item.request?.status === 'accepted'}
+              onViewProfile={() => setSelectedTutorId(item.tutor.id)}
+              onMessage={() => setMessageTutorId(item.tutor.id)}
+              onToggleShortlist={() => toggleShortlist(item.tutor)}
+              onSendMessage={(body) => sendPreBookingMessage(item.tutor, body)}
+            />
+          ))}
+        </div>
+      )}
+
+      {selectedTutor ? (
+        <TutorProfileModal
+          tutor={selectedTutor}
+          existingRequest={selectedTutorRequest}
+          isShortlisted={shortlistedTutorIds.includes(selectedTutor.id)}
+          onClose={() => setSelectedTutorId(null)}
+          onMessage={() => setMessageTutorId(selectedTutor.id)}
+          onToggleShortlist={toggleShortlist}
+          onRequestTrial={(tutor) => void requestMatch(tutor)}
+        />
+      ) : null}
+
+      {messageTutor ? (
+        <PreBookingMessageModal
+          tutor={messageTutor}
+          request={messageTutorRequest}
+          currentUserId={currentStudent?.id}
+          isCreatingRequest={isCreatingRequest}
+          onClose={() => setMessageTutorId(null)}
+          onSend={(body) => sendPreBookingMessage(messageTutor, body)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function PendingTutorCard({
+  item,
+  currentStudentId,
+  isShortlisted,
+  disabled,
+  onViewProfile,
+  onMessage,
+  onToggleShortlist,
+  onSendMessage,
+}: {
+  item: PendingTutorItem;
+  currentStudentId?: string;
+  isShortlisted: boolean;
+  disabled: boolean;
+  onViewProfile: () => void;
+  onMessage: () => void;
+  onToggleShortlist: () => void;
+  onSendMessage: (body: string) => Promise<void> | void;
+}) {
+  return (
+    <Card>
+      <div className="grid gap-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-xl font-semibold tracking-tight text-slate-950">
+                {item.tutor.name}
+              </h3>
+              {item.request ? <TrialStatusBadge status={item.request.status} /> : null}
+            </div>
+
+            <p className="mt-2 text-sm text-slate-600">
+              {item.tutor.university} · {item.tutor.degree}
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {item.reasons.map((reason) => (
+                <span
+                  key={reason}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold capitalize text-slate-700"
+                >
+                  {reason}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={onViewProfile}>
+              View profile
+            </Button>
+            <Button variant="secondary" onClick={onToggleShortlist}>
+              {isShortlisted ? 'Shortlisted' : 'Shortlist'}
+            </Button>
+            <Button onClick={onMessage}>Message</Button>
+          </div>
+        </div>
+
+        {item.request ? (
+          <PreBookingMessageThread
+            messages={item.request.preBookingMessages ?? []}
+            currentUserId={currentStudentId}
+            disabled={disabled}
+            placeholder="Continue your pre-booking message..."
+            emptyText="No messages yet."
+            onSend={onSendMessage}
+          />
+        ) : null}
+      </div>
+    </Card>
   );
 }
 

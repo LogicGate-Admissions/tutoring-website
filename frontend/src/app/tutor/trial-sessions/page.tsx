@@ -1,17 +1,13 @@
 /**
- * File purpose: Tutor trial session requests route.
+ * File purpose: Legacy tutor pending-students route.
+ *
+ * Pending students now live inside the main tutor dashboard so the left-hand
+ * navigation remains stable, matching My students and My sessions.
  */
 
-import { RequireAuth } from '@/domains/auth/components/RequireAuth';
-import { TutorTrialSessionsPage } from '@/domains/sessions/trial-sessions/components/TutorTrialSessionsPage';
-import { AppTopNav } from '@/shared/components/AppTopNav';
+import { redirect } from 'next/navigation';
 
 /** URL: /tutor/trial-sessions */
 export default function TutorTrialSessionsRoute() {
-  return (
-    <RequireAuth role="tutor">
-      <AppTopNav userType="tutor" />
-      <TutorTrialSessionsPage />
-    </RequireAuth>
-  );
+  redirect('/tutor/dashboard?section=pending-students');
 }

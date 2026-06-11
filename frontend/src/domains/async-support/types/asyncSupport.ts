@@ -39,6 +39,16 @@ export type StudentTutorRelationshipStatus = 'active' | 'ended';
 /** Urgency level for messages that need extra tutor attention. */
 export type MessageUrgency = 'normal' | 'urgent';
 
+/** Text-only messages sent before a tutor accepts a match request. */
+export type PreBookingMessage = {
+  id: string;
+  senderId: string;
+  senderRole: AsyncSupportRole;
+  senderName: string;
+  body: string;
+  createdAt: string;
+};
+
 /** Metadata for the latest message stored on a relationship document. */
 export type LatestMessageSummary = {
   latestMessagePreview?: string;
@@ -82,6 +92,9 @@ export type StudentTutorRelationship = {
   level: string;
 
   status: StudentTutorRelationshipStatus;
+
+  /** Text-only messages from the pre-booking clarifying conversation. */
+  preBookingMessages?: PreBookingMessage[];
 
   /** Persistent Miro board created for this student-tutor pair. */
   miroBoardId?: string;

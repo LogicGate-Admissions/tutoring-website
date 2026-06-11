@@ -16,7 +16,7 @@ type TutorProfileModalProps = {
   existingRequest?: TrialSessionRequest;
   isShortlisted?: boolean;
   onClose: () => void;
-  onChat?: (tutor: Tutor) => void;
+  onMessage?: (tutor: Tutor) => void;
   onToggleShortlist?: (tutor: Tutor) => void;
   onRequestTrial?: (tutor: Tutor) => void;
 };
@@ -33,7 +33,7 @@ export function TutorProfileModal({
   existingRequest,
   isShortlisted = false,
   onClose,
-  onChat,
+  onMessage,
   onToggleShortlist,
   onRequestTrial,
 }: TutorProfileModalProps) {
@@ -155,8 +155,8 @@ export function TutorProfileModal({
             )}
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <Button variant="secondary" onClick={() => onChat?.(tutor)}>
-                Chat
+              <Button variant="secondary" onClick={() => onMessage?.(tutor)}>
+                Message
               </Button>
 
               <Button variant="secondary" onClick={() => onToggleShortlist?.(tutor)}>

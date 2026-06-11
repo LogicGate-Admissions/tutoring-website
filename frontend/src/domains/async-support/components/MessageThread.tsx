@@ -690,6 +690,9 @@ export function MessageThread({
     relationship?.studentId,
   );
 
+  const preBookingMessages = relationship?.preBookingMessages ?? [];
+  const hasVisibleMessages = messages.length > 0 || preBookingMessages.length > 0;
+
   return (
     <div
       className={cn("grid min-w-0 gap-4", isEmbedded && "gap-3 text-[13px]")}
@@ -719,7 +722,14 @@ export function MessageThread({
                     {isLoadingTutorProfile ? "Loading..." : relationship.tutorName}
                   </button>
                 ) : (
-                  relationship.studentName
+                  <button
+                    type="button"
+                    onClick={() => void handleStudentNameClick()}
+                    disabled={isLoadingStudentProfile}
+                    className="font-medium underline-offset-2 hover:underline disabled:opacity-60"
+                  >
+                    {isLoadingStudentProfile ? "Loading..." : relationship.studentName}
+                  </button>
                 )}
               </p>
               <p className="mt-1">
@@ -743,7 +753,7 @@ export function MessageThread({
       >
         {isLoading ? (
           <p className="text-sm text-slate-600">Loading messages...</p>
-        ) : messages.length === 0 ? (
+        ) : !hasVisibleMessages ? (
           <div className="rounded-2xl bg-slate-50 p-4">
             <h3 className="text-sm font-semibold text-slate-950">
               No messages yet
@@ -758,6 +768,13 @@ export function MessageThread({
             className="max-h-[min(28rem,55vh)] overflow-y-auto pr-1"
           >
             <div className="grid gap-3">
+              {preBookingMessages.length > 0 ? (
+                <PreBookingTranscript
+                  messages={preBookingMessages}
+                  currentUserId={currentUser?.id}
+                />
+              ) : null}
+
             {messages.map((message) => {
               const isMine = message.senderId === currentUser?.id;
               const canEditOrDelete = isMine && !message.isDeleted;
@@ -1823,6 +1840,64 @@ function SelectedAttachmentList({
           </button>
         </div>
       ))}
+    </div>
+  );
+}
+
+
+function PreBookingTranscript({
+  messages,
+  currentUserId,
+}: {
+  messages: NonNullable<StudentTutorRelationship['preBookingMessages']>;
+  currentUserId?: string;
+}) {
+  const sortedMessages = [...messages].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  );
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="mb-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Before the first session
+        </p>
+        <p className="mt-1 text-sm text-slate-600">
+          These text-only messages were sent before the match was accepted.
+        </p>
+      </div>
+
+      <div className="grid gap-2">
+        {sortedMessages.map((message) => {
+          const isMine = message.senderId === currentUserId;
+
+          return (
+            <div
+              key={message.id}
+              className={cn('flex', isMine ? 'justify-end' : 'justify-start')}
+            >
+              <div
+                className={cn(
+                  'max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm',
+                  isMine
+                    ? 'bg-slate-950 text-white'
+                    : 'border border-slate-200 bg-white text-slate-800',
+                )}
+              >
+                <p
+                  className={cn(
+                    'text-xs font-semibold',
+                    isMine ? 'text-slate-200' : 'text-slate-500',
+                  )}
+                >
+                  {isMine ? 'You' : message.senderName}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap leading-6">{message.body}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

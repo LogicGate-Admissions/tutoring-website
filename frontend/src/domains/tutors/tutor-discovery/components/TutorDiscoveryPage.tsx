@@ -10,13 +10,11 @@
  * - trial session requests are written/read from Firestore
  */
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
-import { ROUTES } from '@/shared/constants/routes';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import type { AuthUser } from '@/domains/auth/types/auth';
 import {
@@ -25,6 +23,7 @@ import {
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';
 import {
+  addPreBookingMessage,
   createTrialSessionRequest,
   subscribeToStudentTrialSessions,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
@@ -32,6 +31,7 @@ import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/type
 import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
 import { TutorFiltersPanel } from '@/domains/tutors/tutor-discovery/components/TutorFiltersPanel';
 import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
+import { PreBookingMessageModal } from '@/domains/sessions/trial-sessions/components/PreBookingMessageModal';
 import { getTutorProfiles } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 import { filterTutors } from '@/domains/tutors/tutor-discovery/utils/filterTutors';
 import {
@@ -44,6 +44,8 @@ import type {
   TutorFilters,
 } from '@/domains/tutors/tutor-discovery/types/tutor';
 import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
+
+const SHORTLIST_STORAGE_PREFIX = 'logicgate-shortlisted-tutors';
 
 /**
  * Student-facing tutor discovery page.
@@ -64,6 +66,8 @@ export function TutorDiscoveryPage() {
   const [notice, setNotice] = useState('');
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [shortlistedTutorIds, setShortlistedTutorIds] = useState<string[]>([]);
+  const [messageTutorId, setMessageTutorId] = useState<string | null>(null);
+  const [isCreatingPreBookingRequest, setIsCreatingPreBookingRequest] = useState(false);
 
   useEffect(() => {
     /** Keep the page aware of the signed-in student for request ownership. */
@@ -73,6 +77,20 @@ export function TutorDiscoveryPage() {
 
     return () => unsubscribe();
   }, []);
+
+
+  useEffect(() => {
+    if (!currentStudent || typeof window === 'undefined') return undefined;
+
+    const timer = window.setTimeout(() => {
+      const storedIds = window.localStorage.getItem(
+        `${SHORTLIST_STORAGE_PREFIX}:${currentStudent.id}`
+      );
+      setShortlistedTutorIds(storedIds ? JSON.parse(storedIds) : []);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [currentStudent]);
 
   useEffect(() => {
     /** Load the saved onboarding profile and initialise filters from it. */
@@ -185,6 +203,11 @@ export function TutorDiscoveryPage() {
     ? findExistingRequest(selectedTutor.id)
     : undefined;
 
+  const messageTutor = tutors.find((tutor) => tutor.id === messageTutorId) ?? null;
+  const messageTutorRequest = messageTutor
+    ? findExistingRequest(messageTutor.id)
+    : undefined;
+
   async function saveFiltersToOnboardingProfile() {
     const profileSelections = tutorFiltersToProfileSelections(filters);
     const nextProfile = await updateStoredLearningProfile(profileSelections);
@@ -214,11 +237,81 @@ export function TutorDiscoveryPage() {
     setSelectedTutorId(tutor.id);
   }
 
-  function handleChat(tutor: Tutor) {
-    const message = `Chat with ${tutor.name} is coming soon.`;
+  function handleMessageTutor(tutor: Tutor) {
+    setMessageTutorId(tutor.id);
+  }
 
-    setNotice(message);
-    window.alert(message);
+  async function handleSendPreBookingMessage(tutor: Tutor, body: string) {
+    if (!currentStudent) {
+      setNotice('Please log in again before messaging a tutor.');
+      return;
+    }
+
+    const trimmedBody = body.trim();
+    if (!trimmedBody) return;
+
+    const existingRequest = findExistingRequest(tutor.id);
+
+    if (existingRequest) {
+      await addPreBookingMessage({
+        requestId: existingRequest.id,
+        senderId: currentStudent.id,
+        senderRole: 'student',
+        senderName: currentStudent.name,
+        body: trimmedBody,
+      });
+      setNotice(`Message sent to ${tutor.name}.`);
+      return;
+    }
+
+    setIsCreatingPreBookingRequest(true);
+
+    try {
+      const profile = studentProfile ?? (await getStoredLearningProfile());
+      const now = new Date().toISOString();
+
+      await createTrialSessionRequest({
+        tutorId: tutor.id,
+        tutorName: tutor.name,
+        studentId: currentStudent.id,
+        studentName: currentStudent.name,
+        studentEmail: currentStudent.email,
+        subject:
+          filters.subjects[0]?.subject ||
+          profile.subjectSelections[0]?.subjects[0] ||
+          tutor.subjects[0] ||
+          'Not specified',
+        level:
+          filters.subjects[0]?.level ||
+          filters.levels[0] ||
+          profile.subjectSelections[0]?.category ||
+          tutor.levels[0] ||
+          'Not specified',
+        learningStyle:
+          filters.learningStyles[0] ||
+          profile.learningStyles[0] ||
+          tutor.learningStyles[0] ||
+          'Not specified',
+        preferredTime:
+          profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
+          tutor.availability,
+        message: trimmedBody,
+        preBookingMessages: [
+          {
+            id: crypto.randomUUID(),
+            senderId: currentStudent.id,
+            senderRole: 'student',
+            senderName: currentStudent.name,
+            body: trimmedBody,
+            createdAt: now,
+          },
+        ],
+      });
+
+      setNotice(`Message sent to ${tutor.name}.`);
+    } finally {
+      setIsCreatingPreBookingRequest(false);
+    }
   }
 
   function toggleShortlist(tutor: Tutor) {
@@ -227,6 +320,13 @@ export function TutorDiscoveryPage() {
       const nextTutorIds = isShortlisted
         ? currentTutorIds.filter((id) => id !== tutor.id)
         : [...currentTutorIds, tutor.id];
+
+      if (currentStudent && typeof window !== 'undefined') {
+        window.localStorage.setItem(
+          `${SHORTLIST_STORAGE_PREFIX}:${currentStudent.id}`,
+          JSON.stringify(nextTutorIds)
+        );
+      }
 
       setNotice(
         isShortlisted
@@ -280,6 +380,17 @@ export function TutorDiscoveryPage() {
         tutor.availability,
       message:
         'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
+      preBookingMessages: [
+        {
+          id: crypto.randomUUID(),
+          senderId: currentStudent.id,
+          senderRole: 'student',
+          senderName: currentStudent.name,
+          body:
+            'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
+          createdAt: new Date().toISOString(),
+        },
+      ],
     });
 
     setNotice(`Match request sent to ${tutor.name}.`);
@@ -292,12 +403,6 @@ export function TutorDiscoveryPage() {
         title="Find your match."
         description="Use your learning profile to narrow tutors by subject, level, style, university, rating, and price."
       />
-
-      <Container className="flex items-center gap-3 py-4">
-        <Link href={ROUTES.studentOnboardingSubjects}>
-          <Button variant="secondary">← Edit profile</Button>
-        </Link>
-      </Container>
 
       <Container className="grid items-start gap-8 py-10 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-8">
@@ -345,9 +450,21 @@ export function TutorDiscoveryPage() {
           existingRequest={selectedTutorRequest}
           isShortlisted={shortlistedTutorIds.includes(selectedTutor.id)}
           onClose={() => setSelectedTutorId(null)}
-          onChat={handleChat}
+          onMessage={handleMessageTutor}
           onToggleShortlist={toggleShortlist}
           onRequestTrial={requestTrial}
+        />
+      )}
+
+
+      {messageTutor && (
+        <PreBookingMessageModal
+          tutor={messageTutor}
+          request={messageTutorRequest}
+          currentUserId={currentStudent?.id}
+          isCreatingRequest={isCreatingPreBookingRequest}
+          onClose={() => setMessageTutorId(null)}
+          onSend={(body) => handleSendPreBookingMessage(messageTutor, body)}
         />
       )}
     </main>

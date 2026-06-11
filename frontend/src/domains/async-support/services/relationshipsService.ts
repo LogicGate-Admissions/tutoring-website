@@ -28,6 +28,7 @@ import type {
   RelationshipSupportSummary,
   StudentTutorRelationship,
   StudentTutorRelationshipStatus,
+  PreBookingMessage,
 } from '@/domains/async-support/types/asyncSupport';
 
 const RELATIONSHIPS_COLLECTION = 'studentTutorRelationships';
@@ -44,6 +45,7 @@ export type CreateStudentTutorRelationshipInput = {
 
   subject: string;
   level: string;
+  preBookingMessages?: PreBookingMessage[];
 };
 
 /** Data needed to mark a user's message thread as seen. */
@@ -98,6 +100,7 @@ export async function createStudentTutorRelationship(
     subject: input.subject,
     level: input.level,
     status: 'active',
+    preBookingMessages: input.preBookingMessages ?? [],
     createdAt: now,
     updatedAt: now,
     studentLastSeenMessagesAt: now,
@@ -116,6 +119,7 @@ export async function createStudentTutorRelationship(
     subject: relationship.subject,
     level: relationship.level,
     status: relationship.status,
+    preBookingMessages: relationship.preBookingMessages ?? [],
     createdAt: relationship.createdAt,
     updatedAt: relationship.updatedAt,
     studentLastSeenMessagesAt: relationship.studentLastSeenMessagesAt,
@@ -276,6 +280,7 @@ function mapRelationshipSnapshot(
     subject: String(data.subject ?? ''),
     level: String(data.level ?? ''),
     status: normaliseRelationshipStatus(data.status),
+    preBookingMessages: normalisePreBookingMessages(data.preBookingMessages),
     miroBoardId: optionalString(data.miroBoardId),
     miroBoardUrl: optionalString(data.miroBoardUrl),
     miroEmbedUrl: optionalString(data.miroEmbedUrl),
@@ -370,6 +375,34 @@ function normaliseOptionalRole(role: unknown): AsyncSupportRole | undefined {
 
 function normaliseMessageUrgency(value: unknown) {
   return value === 'urgent' ? 'urgent' : undefined;
+}
+
+
+function normalisePreBookingMessages(value: unknown): PreBookingMessage[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      const data = item as Record<string, unknown>;
+      const body = String(data.body ?? '').trim();
+
+      if (!body) {
+        return null;
+      }
+
+      return {
+        id: String(data.id ?? `pre-booking-${index}`),
+        senderId: String(data.senderId ?? ''),
+        senderRole: data.senderRole === 'tutor' ? 'tutor' : 'student',
+        senderName: String(data.senderName ?? 'Unknown user'),
+        body,
+        createdAt: String(data.createdAt ?? ''),
+      } satisfies PreBookingMessage;
+    })
+    .filter((message): message is PreBookingMessage => Boolean(message))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 function optionalString(value: unknown) {
