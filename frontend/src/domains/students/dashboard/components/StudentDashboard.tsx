@@ -518,23 +518,11 @@ function PendingTutorsPanel({
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {pendingFilters.map((filter) => (
-              <button
-                key={filter.id}
-                type="button"
-                onClick={() => toggleFilter(filter.id)}
-                className={cn(
-                  'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
-                  activeFilters.includes(filter.id)
-                    ? 'border-slate-950 bg-slate-950 text-white'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                )}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
+          <PendingFilterPills
+            filters={pendingFilters}
+            activeFilters={activeFilters}
+            onToggle={toggleFilter}
+          />
         </div>
       </Card>
 
@@ -564,6 +552,7 @@ function PendingTutorsPanel({
               onViewProfile={() => setSelectedTutorId(item.tutor.id)}
               onMessage={() => setMessageTutorId(item.tutor.id)}
               onToggleShortlist={() => toggleShortlist(item.tutor)}
+              currentUserId={currentStudent?.id ?? ''}
             />
           ))}
         </div>
@@ -598,20 +587,25 @@ function PendingTutorsPanel({
 function PendingTutorCard({
   item,
   isShortlisted,
+  currentUserId,
   onViewProfile,
   onMessage,
   onToggleShortlist,
 }: {
   item: PendingTutorItem;
   isShortlisted: boolean;
+  currentUserId: string;
   onViewProfile: () => void;
   onMessage: () => void;
   onToggleShortlist: () => void;
 }) {
+  const latestMessage = getLatestPreBookingMessage(item.request);
+  const unreadCount = getUnreadPreBookingCount(item.request, currentUserId);
+
   return (
     <Card className="grid gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
             Tutor
           </p>
@@ -634,22 +628,163 @@ function PendingTutorCard({
             {item.request ? <TrialStatusBadge status={item.request.status} /> : null}
           </div>
 
-          <p className="mt-3 text-sm text-slate-500">
-            Use Message to continue the pre-booking conversation or ask a clarifying question.
-          </p>
+          <PendingLatestMessageSummary latestMessage={latestMessage} />
         </div>
 
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          <Button variant="secondary" onClick={onToggleShortlist}>
-            {isShortlisted ? 'Shortlisted' : 'Shortlist'}
-          </Button>
-          <Button variant="secondary" onClick={onMessage}>
-            Message
-          </Button>
+          {unreadCount > 0 ? (
+            <PendingMetricBadge label="Unread" value={unreadCount} active />
+          ) : (
+            <PendingMetricBadge label="Unread" value={0} />
+          )}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={onToggleShortlist}>
+          {isShortlisted ? 'Shortlisted' : 'Shortlist'}
+        </Button>
+        <Button variant="secondary" onClick={onMessage}>
+          Message
+        </Button>
       </div>
     </Card>
   );
+}
+
+function PendingFilterPills<T extends string>({
+  filters,
+  activeFilters,
+  onToggle,
+}: {
+  filters: Array<{ id: T; label: string }>;
+  activeFilters: T[];
+  onToggle: (filter: T) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Filters
+        </span>
+        {filters.map((filter) => {
+          const isActive = activeFilters.includes(filter.id);
+
+          return (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => onToggle(filter.id)}
+              aria-pressed={isActive}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                isActive
+                  ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
+                  : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'flex h-3.5 w-3.5 items-center justify-center rounded-full border text-[0.55rem]',
+                  isActive ? 'border-white bg-white text-slate-950' : 'border-slate-300 text-transparent'
+                )}
+              >
+                ✓
+              </span>
+              {filter.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-xs text-slate-500">
+        Showing tutors that match any selected filter.
+      </p>
+    </div>
+  );
+}
+
+function PendingLatestMessageSummary({
+  latestMessage,
+}: {
+  latestMessage: NonNullable<TrialSessionRequest['preBookingMessages']>[number] | null;
+}) {
+  if (!latestMessage) {
+    return (
+      <p className="mt-3 text-sm text-slate-500">
+        No messages yet. Use Message to ask a clarifying question before booking.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+        Latest message
+      </p>
+      <p className="mt-1 line-clamp-2 text-sm text-slate-700">
+        <span className="font-semibold text-slate-900">
+          {latestMessage.senderName || 'Unknown user'}:
+        </span>{' '}
+        {latestMessage.body}
+      </p>
+      <p className="mt-1 text-xs text-slate-500">
+        {formatPendingCardTime(latestMessage.createdAt)}
+      </p>
+    </div>
+  );
+}
+
+function PendingMetricBadge({
+  label,
+  value,
+  active = false,
+}: {
+  label: string;
+  value: number;
+  active?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        'min-w-20 rounded-2xl border px-3 py-2 text-center',
+        active
+          ? 'border-slate-950 bg-slate-950 text-white'
+          : 'border-slate-200 bg-slate-50 text-slate-600'
+      )}
+    >
+      <p className="text-lg font-semibold leading-none">{value}</p>
+      <p className={cn('mt-1 text-[0.65rem] font-semibold uppercase tracking-wide', active ? 'text-slate-300' : 'text-slate-500')}>
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function getLatestPreBookingMessage(request?: TrialSessionRequest) {
+  const messages = request?.preBookingMessages ?? [];
+  return messages.length > 0 ? messages[messages.length - 1] : null;
+}
+
+function getUnreadPreBookingCount(request: TrialSessionRequest | undefined, currentUserId: string) {
+  if (!request || !currentUserId) return 0;
+  return (request.preBookingMessages ?? []).filter(
+    (message) => message.senderId !== currentUserId
+  ).length;
+}
+
+function formatPendingCardTime(value?: string) {
+  if (!value) return 'Just now';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Just now';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function ProfileNameButton({
