@@ -19,6 +19,7 @@ import {
 } from '@/domains/tutors/tutor-discovery/constants/tutorProfiles';
 import type { QualificationCategory } from '@/domains/students/learning-profile/types/learningProfile';
 import type {
+  Tutor,
   TutorFilters,
   TutorSubjectFilter,
 } from '@/domains/tutors/tutor-discovery/types/tutor';
@@ -34,6 +35,7 @@ import {
 
 type TutorFiltersPanelProps = {
   filters: TutorFilters;
+  allTutors?: Tutor[];
   onChange: (filters: TutorFilters) => void;
   onClear: () => void;
   onResetToOnboarding?: () => void;
@@ -50,6 +52,7 @@ type TutorFiltersPanelProps = {
  */
 export function TutorFiltersPanel({
   filters,
+  allTutors,
   onChange,
   onClear,
   onResetToOnboarding,
@@ -229,6 +232,7 @@ export function TutorFiltersPanel({
           maxPrice={filters.maxPricePerHour}
           onMinPriceChange={updateMinimumPrice}
           onMaxPriceChange={updateMaximumPrice}
+          allTutors={allTutors}
         />
       </div>
     </aside>

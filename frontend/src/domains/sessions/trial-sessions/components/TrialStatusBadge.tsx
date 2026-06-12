@@ -20,9 +20,9 @@ export function TrialStatusBadge({ status }: TrialStatusBadgeProps) {
   }[status];
 
   const className = {
-    pending: 'border-amber-200 bg-amber-50 text-amber-800',
-    accepted: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    rejected: 'border-rose-200 bg-rose-50 text-rose-800',
+    pending: 'logicgate-status-pending font-semibold',
+    accepted: 'logicgate-status-success font-semibold',
+    rejected: 'logicgate-status-danger font-semibold',
   }[status];
 
   return <Badge className={className}>{label}</Badge>;

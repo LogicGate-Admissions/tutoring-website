@@ -19,7 +19,7 @@ export const DEFAULT_TUTOR_FILTERS: TutorFilters = {
   universities: [],
   minPricePerHour: MIN_TUTOR_PRICE_PER_HOUR,
   maxPricePerHour: MAX_TUTOR_PRICE_PER_HOUR,
-  sortBy: 'Best match',
+  sortBy: 'Highest rated',
 };
 
 function uniqueValues<T>(values: T[]) {

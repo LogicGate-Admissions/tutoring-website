@@ -5,7 +5,7 @@
  *
  * Sections: pending requests, upcoming confirmed sessions, weekly calendar,
  * and past sessions. Booking new sessions happens from relationship cards
- * or the messages thread — not from this tab.
+ * or the messages thread - not from this tab.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -37,6 +37,7 @@ type MySessionsTabProps = {
   role: 'tutor' | 'student';
   counterparties: Counterparty[];
   getOtherPartyName: (booking: BookingRequest) => string;
+  getWorkspaceHref?: (booking: BookingRequest) => string | undefined;
 };
 
 type ModalSection = 'pending' | 'sent' | 'upcoming' | 'past' | null;
@@ -45,6 +46,7 @@ export function MySessionsTab({
   userId,
   role,
   getOtherPartyName,
+  getWorkspaceHref,
 }: MySessionsTabProps) {
   const { pendingRequests, sentRequests, upcomingSessions, pastSessions, allSessions, loading, error } =
     useBookings(userId, role);
@@ -214,6 +216,7 @@ export function MySessionsTab({
           otherPartyName={getOtherPartyName(selectedBooking)}
           viewerRole={role}
           viewerId={userId}
+          workspaceHref={getWorkspaceHref?.(selectedBooking)}
           onClose={() => setSelectedBooking(null)}
         />
       ) : null}
@@ -347,7 +350,7 @@ function WeeklyCalendar({
   );
 
   const totalHeightRem = TOTAL_HOURS * SLOT_HEIGHT_REM;
-  const weekLabel = `${monday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${sunday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const weekLabel = `${monday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${sunday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
   const draggingBooking = draggingId
     ? sessions.find((s) => s.id === draggingId) ?? null

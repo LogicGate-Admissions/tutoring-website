@@ -97,7 +97,7 @@ export default function TutorExplorer() {
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mb-10">
           <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-950 text-wrap-balance lg:text-4xl">
-            Browse tutors — no account needed
+            Browse tutors - no account needed
           </h2>
           <p className="mt-3 max-w-xl text-base leading-7 text-slate-600">
             Explore the same matching filters students use after onboarding.

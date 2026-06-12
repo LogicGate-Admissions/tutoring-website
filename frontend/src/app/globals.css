@@ -126,3 +126,355 @@ select,
 textarea {
   font: inherit;
 }
+
+/* App dark mode ---------------------------------------------------------- */
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+  --surface-soft: #111827;
+}
+
+html[data-theme='dark'] body {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+html[data-theme='dark'] .bg-\[\#f8f7f4\],
+html[data-theme='dark'] .bg-white,
+html[data-theme='dark'] .bg-white\/95 {
+  background-color: #111827 !important;
+}
+
+html[data-theme='dark'] .bg-slate-50,
+html[data-theme='dark'] .hover\:bg-slate-50:hover {
+  background-color: #1f2937 !important;
+}
+
+html[data-theme='dark'] .bg-slate-100,
+html[data-theme='dark'] .hover\:bg-slate-100:hover {
+  background-color: #273449 !important;
+}
+
+html[data-theme='dark'] .bg-slate-200 {
+  background-color: #334155 !important;
+}
+
+html[data-theme='dark'] .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+html[data-theme='dark'] .border-slate-300 {
+  border-color: #475569 !important;
+}
+
+html[data-theme='dark'] .hover\:border-slate-300:hover,
+html[data-theme='dark'] .hover\:border-slate-400:hover,
+html[data-theme='dark'] .hover\:border-slate-950:hover {
+  border-color: #94a3b8 !important;
+}
+
+html[data-theme='dark'] .text-slate-950,
+html[data-theme='dark'] .text-slate-900,
+html[data-theme='dark'] .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+html[data-theme='dark'] .text-slate-700,
+html[data-theme='dark'] .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+html[data-theme='dark'] .text-slate-500,
+html[data-theme='dark'] .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html[data-theme='dark'] input,
+html[data-theme='dark'] textarea,
+html[data-theme='dark'] select {
+  background-color: #0f172a;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+html[data-theme='dark'] input::placeholder,
+html[data-theme='dark'] textarea::placeholder {
+  color: #64748b;
+}
+
+html[data-theme='dark'] .shadow-sm,
+html[data-theme='dark'] .shadow-lg,
+html[data-theme='dark'] .shadow-xl,
+html[data-theme='dark'] .shadow-2xl {
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    color-scheme: dark;
+    --background: #0f172a;
+    --foreground: #e2e8f0;
+    --surface-soft: #111827;
+  }
+
+  html:not([data-theme]) body {
+    background: #0f172a;
+    color: #e2e8f0;
+  }
+
+  html:not([data-theme]) .bg-\[\#f8f7f4\],
+  html:not([data-theme]) .bg-white,
+  html:not([data-theme]) .bg-white\/95 {
+    background-color: #111827 !important;
+  }
+
+  html:not([data-theme]) .bg-slate-50,
+  html:not([data-theme]) .hover\:bg-slate-50:hover {
+    background-color: #1f2937 !important;
+  }
+
+  html:not([data-theme]) .bg-slate-100,
+  html:not([data-theme]) .hover\:bg-slate-100:hover {
+    background-color: #273449 !important;
+  }
+
+  html:not([data-theme]) .bg-slate-200 {
+    background-color: #334155 !important;
+  }
+
+  html:not([data-theme]) .border-slate-200 {
+    border-color: #334155 !important;
+  }
+
+  html:not([data-theme]) .border-slate-300 {
+    border-color: #475569 !important;
+  }
+
+  html:not([data-theme]) .hover\:border-slate-300:hover,
+  html:not([data-theme]) .hover\:border-slate-400:hover,
+  html:not([data-theme]) .hover\:border-slate-950:hover {
+    border-color: #94a3b8 !important;
+  }
+
+  html:not([data-theme]) .text-slate-950,
+  html:not([data-theme]) .text-slate-900,
+  html:not([data-theme]) .text-slate-800 {
+    color: #f8fafc !important;
+  }
+
+  html:not([data-theme]) .text-slate-700,
+  html:not([data-theme]) .text-slate-600 {
+    color: #cbd5e1 !important;
+  }
+
+  html:not([data-theme]) .text-slate-500,
+  html:not([data-theme]) .text-slate-400 {
+    color: #94a3b8 !important;
+  }
+
+  html:not([data-theme]) input,
+  html:not([data-theme]) textarea,
+  html:not([data-theme]) select {
+    background-color: #0f172a;
+    color: #f8fafc;
+    border-color: #475569;
+  }
+
+  html:not([data-theme]) input::placeholder,
+  html:not([data-theme]) textarea::placeholder {
+    color: #64748b;
+  }
+}
+
+/* Final dark-mode polish -------------------------------------------------- */
+html[data-theme='dark'] .logicgate-landing-nav {
+  background-color: rgba(17, 24, 39, 0.94) !important;
+  border-color: #334155 !important;
+  backdrop-filter: blur(14px);
+}
+
+html[data-theme='dark'] .logicgate-mobile-drawer {
+  background-color: #111827 !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme='dark'] .bg-slate-950 {
+  background-color: #2563eb !important;
+}
+
+html[data-theme='dark'] .hover\:bg-slate-800:hover {
+  background-color: #1d4ed8 !important;
+}
+
+html[data-theme='dark'] .border-slate-950,
+html[data-theme='dark'] .hover\:border-slate-950:hover,
+html[data-theme='dark'] .focus\:border-slate-950:focus {
+  border-color: #60a5fa !important;
+}
+
+html[data-theme='dark'] .focus\:ring-slate-900:focus,
+html[data-theme='dark'] .focus\:ring-slate-200:focus {
+  --tw-ring-color: rgba(96, 165, 250, 0.35) !important;
+}
+
+html[data-theme='dark'] .bg-amber-50 {
+  background-color: rgba(146, 64, 14, 0.28) !important;
+}
+
+html[data-theme='dark'] .text-amber-800 {
+  color: #fcd34d !important;
+}
+
+html[data-theme='dark'] .border-amber-200 {
+  border-color: rgba(251, 191, 36, 0.45) !important;
+}
+
+html[data-theme='dark'] .bg-rose-50,
+html[data-theme='dark'] .bg-red-100 {
+  background-color: rgba(127, 29, 29, 0.32) !important;
+}
+
+html[data-theme='dark'] .text-rose-800,
+html[data-theme='dark'] .text-red-700 {
+  color: #fca5a5 !important;
+}
+
+html[data-theme='dark'] .border-rose-200,
+html[data-theme='dark'] .border-red-200 {
+  border-color: rgba(248, 113, 113, 0.45) !important;
+}
+
+html[data-theme='dark'] .bg-emerald-50 {
+  background-color: rgba(6, 78, 59, 0.32) !important;
+}
+
+html[data-theme='dark'] .text-emerald-800 {
+  color: #6ee7b7 !important;
+}
+
+html[data-theme='dark'] .border-emerald-200 {
+  border-color: rgba(52, 211, 153, 0.45) !important;
+}
+
+
+/* Theme toggle icon is controlled by html[data-theme], not React state. */
+.logicgate-theme-toggle-light {
+  display: inline;
+}
+
+.logicgate-theme-toggle-dark {
+  display: none;
+}
+
+html[data-theme='dark'] .logicgate-theme-toggle-light {
+  display: none;
+}
+
+html[data-theme='dark'] .logicgate-theme-toggle-dark {
+  display: inline;
+}
+
+/* Keep next-lesson cards readable in dark mode. */
+html[data-theme='dark'] .border-emerald-100 {
+  border-color: rgba(52, 211, 153, 0.35) !important;
+}
+
+html[data-theme='dark'] .text-emerald-700,
+html[data-theme='dark'] .text-emerald-950 {
+  color: #a7f3d0 !important;
+}
+
+/* Status chips: visible in both light and dark themes. */
+.logicgate-status-pending {
+  border-color: #f59e0b !important;
+  background-color: #fef3c7 !important;
+  color: #78350f !important;
+}
+
+.logicgate-status-danger {
+  border-color: #f43f5e !important;
+  background-color: #ffe4e6 !important;
+  color: #881337 !important;
+}
+
+.logicgate-status-success {
+  border-color: #10b981 !important;
+  background-color: #d1fae5 !important;
+  color: #064e3b !important;
+}
+
+.logicgate-status-info {
+  border-color: #38bdf8 !important;
+  background-color: #e0f2fe !important;
+  color: #075985 !important;
+}
+
+.logicgate-status-neutral {
+  border-color: #94a3b8 !important;
+  background-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+html[data-theme='dark'] .logicgate-status-pending {
+  border-color: rgba(251, 191, 36, 0.65) !important;
+  background-color: rgba(146, 64, 14, 0.38) !important;
+  color: #fde68a !important;
+}
+
+html[data-theme='dark'] .logicgate-status-danger {
+  border-color: rgba(251, 113, 133, 0.65) !important;
+  background-color: rgba(127, 29, 29, 0.42) !important;
+  color: #fecdd3 !important;
+}
+
+html[data-theme='dark'] .logicgate-status-success {
+  border-color: rgba(52, 211, 153, 0.65) !important;
+  background-color: rgba(6, 78, 59, 0.42) !important;
+  color: #a7f3d0 !important;
+}
+
+html[data-theme='dark'] .logicgate-status-info {
+  border-color: rgba(56, 189, 248, 0.65) !important;
+  background-color: rgba(7, 89, 133, 0.42) !important;
+  color: #bae6fd !important;
+}
+
+html[data-theme='dark'] .logicgate-status-neutral {
+  border-color: rgba(148, 163, 184, 0.55) !important;
+  background-color: rgba(51, 65, 85, 0.7) !important;
+  color: #e2e8f0 !important;
+}
+
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) .logicgate-status-pending {
+    border-color: rgba(251, 191, 36, 0.65) !important;
+    background-color: rgba(146, 64, 14, 0.38) !important;
+    color: #fde68a !important;
+  }
+
+  html:not([data-theme]) .logicgate-status-danger {
+    border-color: rgba(251, 113, 133, 0.65) !important;
+    background-color: rgba(127, 29, 29, 0.42) !important;
+    color: #fecdd3 !important;
+  }
+
+  html:not([data-theme]) .logicgate-status-success {
+    border-color: rgba(52, 211, 153, 0.65) !important;
+    background-color: rgba(6, 78, 59, 0.42) !important;
+    color: #a7f3d0 !important;
+  }
+
+  html:not([data-theme]) .logicgate-status-info {
+    border-color: rgba(56, 189, 248, 0.65) !important;
+    background-color: rgba(7, 89, 133, 0.42) !important;
+    color: #bae6fd !important;
+  }
+
+  html:not([data-theme]) .logicgate-status-neutral {
+    border-color: rgba(148, 163, 184, 0.55) !important;
+    background-color: rgba(51, 65, 85, 0.7) !important;
+    color: #e2e8f0 !important;
+  }
+}

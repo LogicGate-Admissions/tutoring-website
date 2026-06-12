@@ -8,7 +8,15 @@
  * WhatsApp-style replies, and owner-controlled message edits/deletes.
  */
 
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  ClipboardEvent,
+  DragEvent as ReactDragEvent,
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   MathKeyboard,
   MATH_PLACEHOLDER,
@@ -45,7 +53,9 @@ import type {
 } from "@/domains/async-support/types/asyncSupport";
 import { Button } from "@/shared/components/Button";
 import { Card } from "@/shared/components/Card";
+import { PdfFirstPagePreview } from "@/domains/async-support/components/PdfFirstPagePreview";
 import { cn } from "@/shared/utils/cn";
+import { getFilesFromClipboard } from "@/shared/utils/clipboardFiles";
 import { DragToBookCalendar } from "@/domains/booking/components/DragToBookCalendar";
 import { useRelationshipBookings } from "@/domains/booking/hooks/useRelationshipBookings";
 import type { BookingRequest } from "@/domains/booking/types/booking";
@@ -57,15 +67,21 @@ import {
 import {
   getStoredLearningProfile,
   getStudentAvailabilityById,
+  getStudentLearningProfileById,
   updateStoredLearningProfile,
 } from "@/domains/students/learning-profile/services/learningProfileStorage";
 import {
+  getTutorProfile,
   getTutorProfileDraft,
   saveTutorProfileFromOnboarding,
 } from "@/domains/tutors/tutor-discovery/services/tutorProfileService";
+import { TutorProfileModal } from "@/domains/tutors/tutor-discovery/components/TutorProfileModal";
+import { StudentProfileModal } from "@/domains/students/learning-profile/components/StudentProfileModal";
+import type { Tutor } from "@/domains/tutors/tutor-discovery/types/tutor";
 import type { AuthUser } from "@/domains/auth/types/auth";
 import type {
   Day,
+  StudentLearningProfile,
   TimeBlock,
 } from "@/domains/students/learning-profile/types/learningProfile";
 import type { TutorProfileDraft } from "@/domains/tutors/tutor-discovery/services/tutorProfileService";
@@ -74,14 +90,20 @@ type MessageThreadProps = {
   relationshipId: string;
   viewerRole: AsyncSupportRole;
   density?: "default" | "embedded";
+  showHeader?: boolean;
 };
 
 type CurrentThreadUser = AuthUser | null;
+
+const RESOURCE_DRAG_MIME_TYPE = 'application/x-logicgate-resource';
+const RESOURCE_DRAG_START_EVENT = 'logicgate-resource-drag-start';
+const RESOURCE_DRAG_END_EVENT = 'logicgate-resource-drag-end';
 
 export function MessageThread({
   relationshipId,
   viewerRole,
   density = "default",
+  showHeader = true,
 }: MessageThreadProps) {
   const isEmbedded = density === "embedded";
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -127,6 +149,38 @@ export function MessageThread({
   const [counterpartyStudentBlocks, setCounterpartyStudentBlocks] = useState<
     TimeBlock[]
   >([]);
+  const [tutorProfileModal, setTutorProfileModal] = useState<Tutor | null>(null);
+  const [isLoadingTutorProfile, setIsLoadingTutorProfile] = useState(false);
+  const [studentProfileModal, setStudentProfileModal] = useState<{
+    studentName: string;
+    profile: StudentLearningProfile;
+  } | null>(null);
+  const [isLoadingStudentProfile, setIsLoadingStudentProfile] = useState(false);
+
+  async function handleTutorNameClick() {
+    if (!relationship?.tutorId || isLoadingTutorProfile) return;
+    setIsLoadingTutorProfile(true);
+    try {
+      const profile = await getTutorProfile(relationship.tutorId);
+      setTutorProfileModal(profile);
+    } finally {
+      setIsLoadingTutorProfile(false);
+    }
+  }
+
+  async function handleStudentNameClick() {
+    if (!relationship?.studentId || isLoadingStudentProfile) return;
+    setIsLoadingStudentProfile(true);
+    try {
+      const profile = await getStudentLearningProfileById(relationship.studentId);
+      setStudentProfileModal({
+        studentName: relationship.studentName,
+        profile,
+      });
+    } finally {
+      setIsLoadingStudentProfile(false);
+    }
+  }
 
   useEffect(() => {
     const unsubscribe = subscribeToCurrentUser((user) => {
@@ -387,6 +441,9 @@ export function MessageThread({
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -514,9 +571,34 @@ export function MessageThread({
     }
   }
 
+  function addSelectedFiles(files: File[]) {
+    if (files.length === 0) return;
+
+    setSelectedFiles((currentFiles) => {
+      const availableSlots = Math.max(0, 5 - currentFiles.length);
+      const nextFiles = files.slice(0, availableSlots);
+
+      if (files.length > availableSlots) {
+        setError("You can attach up to 5 files per message.");
+      }
+
+      return [...currentFiles, ...nextFiles];
+    });
+  }
+
   function handleFilesSelected(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
-    setSelectedFiles((currentFiles) => [...currentFiles, ...files]);
+    event.target.value = "";
+    addSelectedFiles(files);
+  }
+
+  function handleMessagePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    const files = getFilesFromClipboard(event.clipboardData);
+    if (files.length === 0) return;
+
+    event.preventDefault();
+    addSelectedFiles(files);
+    textareaRef.current?.focus();
   }
 
   function removeSelectedFile(fileIndex: number) {
@@ -608,17 +690,20 @@ export function MessageThread({
     relationship?.studentId,
   );
 
+  const preBookingMessages = relationship?.preBookingMessages ?? [];
+  const hasVisibleMessages = messages.length > 0 || preBookingMessages.length > 0;
+
   return (
     <div
       className={cn("grid min-w-0 gap-4", isEmbedded && "gap-3 text-[13px]")}
     >
-      {!isEmbedded ? (
+      {!isEmbedded && showHeader ? (
         <Card>
           <h2 className="text-xl font-semibold tracking-tight text-slate-950">
             Message thread
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Use this space for async support between sessions. New messages
+            Use this space for support between sessions. New messages
             appear automatically, and unread messages are marked when you open
             the thread.
           </p>
@@ -627,9 +712,25 @@ export function MessageThread({
             <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
               <p>
                 <span className="font-semibold">Conversation with:</span>{" "}
-                {viewerRole === "student"
-                  ? relationship.tutorName
-                  : relationship.studentName}
+                {viewerRole === "student" ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleTutorNameClick()}
+                    disabled={isLoadingTutorProfile}
+                    className="font-medium underline-offset-2 hover:underline disabled:opacity-60"
+                  >
+                    {isLoadingTutorProfile ? "Loading..." : relationship.tutorName}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleStudentNameClick()}
+                    disabled={isLoadingStudentProfile}
+                    className="font-medium underline-offset-2 hover:underline disabled:opacity-60"
+                  >
+                    {isLoadingStudentProfile ? "Loading..." : relationship.studentName}
+                  </button>
+                )}
               </p>
               <p className="mt-1">
                 <span className="font-semibold">Subject:</span>{" "}
@@ -652,14 +753,13 @@ export function MessageThread({
       >
         {isLoading ? (
           <p className="text-sm text-slate-600">Loading messages...</p>
-        ) : messages.length === 0 ? (
+        ) : !hasVisibleMessages ? (
           <div className="rounded-2xl bg-slate-50 p-4">
             <h3 className="text-sm font-semibold text-slate-950">
               No messages yet
             </h3>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Send a message or attach a file to start this async support
-              thread.
+              Send a message or attach a file to start this conversation.
             </p>
           </div>
         ) : (
@@ -668,6 +768,13 @@ export function MessageThread({
             className="max-h-[min(28rem,55vh)] overflow-y-auto pr-1"
           >
             <div className="grid gap-3">
+              {preBookingMessages.length > 0 ? (
+                <PreBookingTranscript
+                  messages={preBookingMessages}
+                  currentUserId={currentUser?.id}
+                />
+              ) : null}
+
             {messages.map((message) => {
               const isMine = message.senderId === currentUser?.id;
               const canEditOrDelete = isMine && !message.isDeleted;
@@ -683,7 +790,13 @@ export function MessageThread({
                     <UnreadDivider />
                   ) : null}
                   <MessageBubble
+                    relationshipId={relationshipId}
                     message={message}
+                    onSenderNameClick={
+                      message.senderRole === "tutor"
+                        ? () => void handleTutorNameClick()
+                        : () => void handleStudentNameClick()
+                    }
                     isMine={isMine}
                     isEditing={editingMessageId === message.id}
                     isHighlighted={highlightedMessageId === message.id}
@@ -733,12 +846,18 @@ export function MessageThread({
               onCancel={() => setReplyingTo(null)}
             />
           ) : null}
-
+          
           <textarea
             ref={textareaRef}
             id="support-message"
             value={draftMessage}
             onChange={(event) => setDraftMessage(event.target.value)}
+            onInput={(event) => {
+              const el = event.currentTarget;
+              el.style.height = "auto";
+              el.style.height = `${el.scrollHeight}px`;
+            }}
+            onPaste={handleMessagePaste}
             onKeyDown={(event) => {
               // Tab remains an optional shortcut for moving between maths slots.
               if (event.key === "Tab") {
@@ -750,12 +869,13 @@ export function MessageThread({
               }
             }}
             placeholder="Write a message..."
-            rows={isEmbedded ? 3 : 4}
+            rows={1}
             maxLength={2000}
-            className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
+            style={{ maxHeight: "10rem" }}
+            className="w-full resize-none overflow-y-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950"
           />
 
-          {/* Live rendered preview – shown whenever the draft contains $...$ math */}
+          {/* Live rendered preview - shown whenever the draft contains $...$ math */}
           {draftMessage.includes("$") ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
@@ -828,7 +948,7 @@ export function MessageThread({
 
                 {!isEmbedded ? (
                   <p className="text-xs text-slate-500">
-                    Images, PDFs, and documents up to 10MB each.
+                    Images, PDFs, documents, and pasted screenshots up to 10MB each.
                   </p>
                 ) : null}
               </div>
@@ -882,6 +1002,22 @@ export function MessageThread({
         </form>
       </Card>
 
+      {tutorProfileModal ? (
+        <TutorProfileModal
+          tutor={tutorProfileModal}
+          readOnly
+          onClose={() => setTutorProfileModal(null)}
+        />
+      ) : null}
+
+      {studentProfileModal ? (
+        <StudentProfileModal
+          studentName={studentProfileModal.studentName}
+          profile={studentProfileModal.profile}
+          onClose={() => setStudentProfileModal(null)}
+        />
+      ) : null}
+
       {isScheduleOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -894,10 +1030,13 @@ export function MessageThread({
             {/* Header */}
             <div className="flex items-start justify-between">
               <h2 className="text-lg font-semibold text-slate-950">
-                Schedule a session with{" "}
-                {viewerRole === "student"
-                  ? relationship?.tutorName
-                  : relationship?.studentName}
+                {scheduleTab === "availability"
+                  ? "Change availability"
+                  : `Book a session with ${
+                      viewerRole === "student"
+                        ? relationship?.tutorName
+                        : relationship?.studentName
+                    }`}
               </h2>
               <button
                 type="button"
@@ -1049,6 +1188,7 @@ function openUrgentEmailDraftOrShowFallback({
 }
 
 function MessageBubble({
+  relationshipId,
   message,
   isMine,
   isEditing,
@@ -1066,8 +1206,11 @@ function MessageBubble({
   onSetUrgency,
   onRegisterElement,
   onJumpToMessage,
+  onSenderNameClick,
 }: {
+  relationshipId: string;
   message: SupportMessage;
+  onSenderNameClick?: () => void;
   isMine: boolean;
   isEditing: boolean;
   isHighlighted: boolean;
@@ -1103,14 +1246,17 @@ function MessageBubble({
         )}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span
+          <button
+            type="button"
+            onClick={onSenderNameClick}
+            disabled={!onSenderNameClick}
             className={cn(
-              "text-xs font-semibold",
+              "text-xs font-semibold underline-offset-2 hover:underline disabled:pointer-events-none disabled:no-underline",
               isMine ? "text-slate-200" : "text-slate-600",
             )}
           >
             {isMine ? "You" : message.senderName || "Unknown user"}
-          </span>
+          </button>
 
           {!isDeleted && message.urgency === "urgent" ? (
             <span
@@ -1180,6 +1326,7 @@ function MessageBubble({
 
             {message.attachments.length > 0 ? (
               <AttachmentList
+                relationshipId={relationshipId}
                 attachments={message.attachments}
                 isMine={isMine}
               />
@@ -1484,9 +1631,11 @@ function QuotedReplyCard({
 }
 
 function AttachmentList({
+  relationshipId,
   attachments,
   isMine,
 }: {
+  relationshipId: string;
   attachments: SupportAttachment[];
   isMine: boolean;
 }) {
@@ -1495,6 +1644,7 @@ function AttachmentList({
       {attachments.map((attachment) => (
         <AttachmentItem
           key={attachment.id}
+          relationshipId={relationshipId}
           attachment={attachment}
           isMine={isMine}
         />
@@ -1504,9 +1654,11 @@ function AttachmentList({
 }
 
 function AttachmentItem({
+  relationshipId,
   attachment,
   isMine,
 }: {
+  relationshipId: string;
   attachment: SupportAttachment;
   isMine: boolean;
 }) {
@@ -1517,19 +1669,42 @@ function AttachmentItem({
       : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
   );
 
+  function handleAttachmentDragStart(event: ReactDragEvent<HTMLAnchorElement>) {
+    if (!attachment.url) return;
+
+    event.dataTransfer.setData(
+      RESOURCE_DRAG_MIME_TYPE,
+      JSON.stringify({
+        relationshipId,
+        title: attachment.name,
+        url: attachment.url,
+        contentType: attachment.contentType,
+        kind: attachment.kind,
+        sizeBytes: attachment.sizeBytes,
+      }),
+    );
+    event.dataTransfer.effectAllowed = "copy";
+    window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_START_EVENT));
+  }
+
+  function handleAttachmentDragEnd() {
+    window.dispatchEvent(new CustomEvent(RESOURCE_DRAG_END_EVENT));
+  }
+
   const metaLine = (
-    <p
+    <div
       className={cn(
-        "px-3 py-2 text-xs",
+        "min-w-0 overflow-hidden px-3 py-2 text-xs",
         isMine ? "text-slate-300" : "text-slate-500",
       )}
     >
-      <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>
-      {" · "}
-      <span className="break-words [overflow-wrap:anywhere]">{attachment.name}</span>
-      {" · "}
-      {formatFileSize(attachment.sizeBytes)}
-    </p>
+      <p className="min-w-0 truncate" title={attachment.name}>
+        <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>
+        {" · "}
+        <span>{attachment.name}</span>
+      </p>
+      <p className="mt-0.5">{formatFileSize(attachment.sizeBytes)}</p>
+    </div>
   );
 
   if (attachment.url && attachment.kind === "image") {
@@ -1538,6 +1713,9 @@ function AttachmentItem({
         href={attachment.url}
         target="_blank"
         rel="noreferrer"
+        draggable
+        onDragStart={handleAttachmentDragStart}
+        onDragEnd={handleAttachmentDragEnd}
         className={cn(baseClassName, "overflow-hidden p-0")}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1551,51 +1729,81 @@ function AttachmentItem({
     );
   }
 
+  if (attachment.url && attachment.kind === "pdf") {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        draggable
+        onDragStart={handleAttachmentDragStart}
+        onDragEnd={handleAttachmentDragEnd}
+        className={cn(baseClassName, "overflow-hidden p-0")}
+      >
+        <div className="flex w-full justify-center overflow-hidden bg-slate-100 p-2">
+          <PdfFirstPagePreview
+            url={attachment.url}
+            title={`First page preview of ${attachment.name}`}
+            className="w-full max-w-52"
+          />
+        </div>
+        {metaLine}
+      </a>
+    );
+  }
+
   if (attachment.url) {
     return (
       <a
         href={attachment.url}
         target="_blank"
         rel="noreferrer"
+        draggable
+        onDragStart={handleAttachmentDragStart}
+        onDragEnd={handleAttachmentDragEnd}
         className={cn(baseClassName, "px-3 py-2")}
       >
-        <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
-        <span className="break-words [overflow-wrap:anywhere]">
-          {attachment.name}
-        </span>
-        <span
-          className={cn(
-            "ml-2 text-xs",
-            isMine ? "text-slate-300" : "text-slate-500",
-          )}
-        >
-          {formatFileSize(attachment.sizeBytes)}
-        </span>
+        <div className="min-w-0 overflow-hidden">
+          <p className="truncate" title={attachment.name}>
+            <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
+            <span>{attachment.name}</span>
+          </p>
+          <p
+            className={cn(
+              "mt-0.5 text-xs",
+              isMine ? "text-slate-300" : "text-slate-500",
+            )}
+          >
+            {formatFileSize(attachment.sizeBytes)}
+          </p>
+        </div>
       </a>
     );
   }
 
   return (
     <div className={cn(baseClassName, "px-3 py-2 opacity-70")}>
-      <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
-      <span className="break-words [overflow-wrap:anywhere]">
-        {attachment.name}
-      </span>
-      <span
-        className={cn(
-          "ml-2 text-xs",
-          isMine ? "text-slate-300" : "text-slate-500",
-        )}
-      >
-        {formatFileSize(attachment.sizeBytes)}
-      </span>
+      <div className="min-w-0 overflow-hidden">
+        <p className="truncate" title={attachment.name}>
+          <span className="font-semibold">{attachmentLabel(attachment.kind)}</span>{" "}
+          <span>{attachment.name}</span>
+        </p>
+        <p
+          className={cn(
+            "mt-0.5 text-xs",
+            isMine ? "text-slate-300" : "text-slate-500",
+          )}
+        >
+          {formatFileSize(attachment.sizeBytes)}
+        </p>
+      </div>
       <span
         className={cn(
           "mt-1 block text-xs",
           isMine ? "text-slate-300" : "text-slate-500",
         )}
       >
-        File unavailable — it may have been uploaded before storage was enabled.
+        File unavailable - it may have been uploaded before storage was enabled.
       </span>
     </div>
   );
@@ -1609,27 +1817,87 @@ function SelectedAttachmentList({
   onRemove: (fileIndex: number) => void;
 }) {
   return (
-    <div className="grid gap-2 rounded-2xl bg-slate-50 p-3">
+    <div className="grid min-w-0 max-w-full gap-2 overflow-hidden rounded-2xl bg-slate-50 p-3">
       {files.map((file, index) => (
         <div
           key={`${file.name}-${file.size}-${index}`}
-          className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm text-slate-700"
+          className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-xl bg-white px-3 py-2 text-sm text-slate-700"
         >
-          <span className="min-w-0 truncate">
-            {file.name}{" "}
-            <span className="text-xs text-slate-500">
+          <div className="min-w-0 overflow-hidden">
+            <p className="truncate font-medium" title={file.name}>
+              {file.name}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
               {formatFileSize(file.size)}
-            </span>
-          </span>
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => onRemove(index)}
-            className="shrink-0 text-xs font-semibold text-slate-500 hover:text-slate-950"
+            className="shrink-0 rounded-full px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-950"
           >
             Remove
           </button>
         </div>
       ))}
+    </div>
+  );
+}
+
+
+function PreBookingTranscript({
+  messages,
+  currentUserId,
+}: {
+  messages: NonNullable<StudentTutorRelationship['preBookingMessages']>;
+  currentUserId?: string;
+}) {
+  const sortedMessages = [...messages].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  );
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="mb-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Before the first session
+        </p>
+        <p className="mt-1 text-sm text-slate-600">
+          These text-only messages were sent before the match was accepted.
+        </p>
+      </div>
+
+      <div className="grid gap-2">
+        {sortedMessages.map((message) => {
+          const isMine = message.senderId === currentUserId;
+
+          return (
+            <div
+              key={message.id}
+              className={cn('flex', isMine ? 'justify-end' : 'justify-start')}
+            >
+              <div
+                className={cn(
+                  'max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm',
+                  isMine
+                    ? 'bg-slate-950 text-white'
+                    : 'border border-slate-200 bg-white text-slate-800',
+                )}
+              >
+                <p
+                  className={cn(
+                    'text-xs font-semibold',
+                    isMine ? 'text-slate-200' : 'text-slate-500',
+                  )}
+                >
+                  {isMine ? 'You' : message.senderName}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap leading-6">{message.body}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

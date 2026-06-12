@@ -139,7 +139,7 @@ function availabilitySummary(availability: TimeBlock[]) {
 
   const firstBlocks = availability
     .slice(0, 4)
-    .map((block) => `${block.day} ${block.from}–${block.to}`);
+    .map((block) => `${block.day} ${block.from}-${block.to}`);
 
   const remainingCount = Math.max(availability.length - firstBlocks.length, 0);
   const suffix = remainingCount > 0 ? `, +${remainingCount} more` : '';
@@ -222,6 +222,13 @@ function tutorToDraft(
   } satisfies TutorProfileDraft;
 }
 
+/** Load a single tutor's public profile by their uid. */
+export async function getTutorProfile(tutorId: string): Promise<Tutor | null> {
+  const snapshot = await getDoc(tutorProfileDocumentRef(tutorId));
+  if (!snapshot.exists()) return null;
+  return mapTutorDocument(snapshot);
+}
+
 /** Load all public tutor profiles from Firestore for student discovery. */
 export async function getTutorProfiles() {
   const tutorProfilesQuery = query(
@@ -291,7 +298,7 @@ export async function saveTutorProfileFromOnboarding(
     availabilityBlocks: profile.availability,
     bio: profile.bio.trim() || 'This tutor has not added a full bio yet.',
     hobbies: [],
-    personality: learningStyles,
+    personality: [],
     tags: uniqueNonEmptyValues([...levels, ...subjects, ...learningStyles]),
     ownerId: tutor.id,
     updatedAt: serverTimestamp(),

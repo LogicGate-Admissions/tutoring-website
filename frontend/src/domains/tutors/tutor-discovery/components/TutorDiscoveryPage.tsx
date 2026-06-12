@@ -10,7 +10,6 @@
  * - trial session requests are written/read from Firestore
  */
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
@@ -25,13 +24,21 @@ import {
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import { timeBlockLabel } from '@/domains/students/learning-profile/utils/timeBlocks';
 import {
+  addMatchRequestToPreBookingConversation,
+  addPreBookingMessage,
   createTrialSessionRequest,
   subscribeToStudentTrialSessions,
+  updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import {
+  getTrialRequestDisplayPriority,
+  hasRequestedMatch,
+} from '@/domains/sessions/trial-sessions/utils/trialRequestState';
 import { TutorCard } from '@/domains/tutors/tutor-discovery/components/TutorCard';
 import { TutorFiltersPanel } from '@/domains/tutors/tutor-discovery/components/TutorFiltersPanel';
 import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
+import { PreBookingMessageModal } from '@/domains/sessions/trial-sessions/components/PreBookingMessageModal';
 import { getTutorProfiles } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 import { filterTutors } from '@/domains/tutors/tutor-discovery/utils/filterTutors';
 import {
@@ -44,6 +51,8 @@ import type {
   TutorFilters,
 } from '@/domains/tutors/tutor-discovery/types/tutor';
 import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
+
+const SHORTLIST_STORAGE_PREFIX = 'logicgate-shortlisted-tutors';
 
 /**
  * Student-facing tutor discovery page.
@@ -64,6 +73,8 @@ export function TutorDiscoveryPage() {
   const [notice, setNotice] = useState('');
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [shortlistedTutorIds, setShortlistedTutorIds] = useState<string[]>([]);
+  const [messageTutorId, setMessageTutorId] = useState<string | null>(null);
+  const [isCreatingPreBookingRequest, setIsCreatingPreBookingRequest] = useState(false);
 
   useEffect(() => {
     /** Keep the page aware of the signed-in student for request ownership. */
@@ -73,6 +84,20 @@ export function TutorDiscoveryPage() {
 
     return () => unsubscribe();
   }, []);
+
+
+  useEffect(() => {
+    if (!currentStudent || typeof window === 'undefined') return undefined;
+
+    const timer = window.setTimeout(() => {
+      const storedIds = window.localStorage.getItem(
+        `${SHORTLIST_STORAGE_PREFIX}:${currentStudent.id}`
+      );
+      setShortlistedTutorIds(storedIds ? JSON.parse(storedIds) : []);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [currentStudent]);
 
   useEffect(() => {
     /** Load the saved onboarding profile and initialise filters from it. */
@@ -128,15 +153,66 @@ export function TutorDiscoveryPage() {
     return subscribeToStudentTrialSessions(currentStudent.id, setStudentRequests);
   }, [currentStudent]);
 
+  const dynamicMaxTutorPrice = useMemo(
+    () => getDynamicMaxTutorPrice(tutors),
+    [tutors]
+  );
+
+  const effectiveFilters = useMemo(() => {
+    if (
+      filters.maxPricePerHour === DEFAULT_TUTOR_FILTERS.maxPricePerHour &&
+      dynamicMaxTutorPrice > DEFAULT_TUTOR_FILTERS.maxPricePerHour
+    ) {
+      return {
+        ...filters,
+        maxPricePerHour: dynamicMaxTutorPrice,
+      };
+    }
+
+    return filters;
+  }, [dynamicMaxTutorPrice, filters]);
+
+  const tutorsMatchingNonPriceFilters = useMemo(() => {
+    /**
+     * The price histogram should respond to the currently selected subject,
+     * level, university, learning-style and availability filters, but not to
+     * the price range itself. Otherwise the bars disappear while the student
+     * is dragging the hourly-rate handles.
+     */
+    return filterTutors(
+      tutors,
+      {
+        ...effectiveFilters,
+        minPricePerHour: DEFAULT_TUTOR_FILTERS.minPricePerHour,
+        maxPricePerHour: dynamicMaxTutorPrice,
+      },
+      studentProfile?.availability
+    );
+  }, [dynamicMaxTutorPrice, effectiveFilters, tutors, studentProfile]);
+
   const filteredTutors = useMemo(
-    () => filterTutors(tutors, filters),
-    [filters, tutors]
+    () =>
+      tutorsMatchingNonPriceFilters.filter(
+        (tutor) =>
+          tutor.pricePerHour >= effectiveFilters.minPricePerHour &&
+          tutor.pricePerHour <= effectiveFilters.maxPricePerHour
+      ),
+    [
+      effectiveFilters.minPricePerHour,
+      effectiveFilters.maxPricePerHour,
+      tutorsMatchingNonPriceFilters,
+    ]
   );
 
   const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
 
   const selectedTutorRequest = selectedTutor
     ? findExistingRequest(selectedTutor.id)
+    : undefined;
+
+  const messageTutor = tutors.find((tutor) => tutor.id === messageTutorId) ?? null;
+  const messageTutorRequest = messageTutor
+    ? findExistingRequest(messageTutor.id)
     : undefined;
 
   async function saveFiltersToOnboardingProfile() {
@@ -148,7 +224,10 @@ export function TutorDiscoveryPage() {
   }
 
   function clearFilters() {
-    setFilters(DEFAULT_TUTOR_FILTERS);
+    setFilters({
+      ...DEFAULT_TUTOR_FILTERS,
+      maxPricePerHour: dynamicMaxTutorPrice,
+    });
   }
 
   function resetToOnboardingFilters() {
@@ -158,18 +237,89 @@ export function TutorDiscoveryPage() {
   }
 
   function findExistingRequest(tutorId: string) {
-    return studentRequests.find((request) => request.tutorId === tutorId);
+    return getLatestRequestForTutor(studentRequests, tutorId);
   }
 
   function handleViewProfile(tutor: Tutor) {
     setSelectedTutorId(tutor.id);
   }
 
-  function handleChat(tutor: Tutor) {
-    const message = `Chat with ${tutor.name} is coming soon.`;
+  function handleMessageTutor(tutor: Tutor) {
+    setMessageTutorId(tutor.id);
+  }
 
-    setNotice(message);
-    window.alert(message);
+  async function handleSendPreBookingMessage(tutor: Tutor, body: string) {
+    if (!currentStudent) {
+      setNotice('Please log in again before messaging a tutor.');
+      return;
+    }
+
+    const trimmedBody = body.trim();
+    if (!trimmedBody) return;
+
+    const existingRequest = findExistingRequest(tutor.id);
+
+    if (existingRequest) {
+      await addPreBookingMessage({
+        requestId: existingRequest.id,
+        senderId: currentStudent.id,
+        senderRole: 'student',
+        senderName: currentStudent.name,
+        body: trimmedBody,
+      });
+      setNotice(`Message sent to ${tutor.name}.`);
+      return;
+    }
+
+    setIsCreatingPreBookingRequest(true);
+
+    try {
+      const profile = studentProfile ?? (await getStoredLearningProfile());
+      const now = new Date().toISOString();
+
+      await createTrialSessionRequest({
+        tutorId: tutor.id,
+        tutorName: tutor.name,
+        studentId: currentStudent.id,
+        studentName: currentStudent.name,
+        studentEmail: currentStudent.email,
+        subject:
+          filters.subjects[0]?.subject ||
+          profile.subjectSelections[0]?.subjects[0] ||
+          tutor.subjects[0] ||
+          'Not specified',
+        level:
+          filters.subjects[0]?.level ||
+          filters.levels[0] ||
+          profile.subjectSelections[0]?.category ||
+          tutor.levels[0] ||
+          'Not specified',
+        learningStyle:
+          filters.learningStyles[0] ||
+          profile.learningStyles[0] ||
+          tutor.learningStyles[0] ||
+          'Not specified',
+        preferredTime:
+          profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
+          tutor.availability,
+        message: trimmedBody,
+        pendingReasons: ['messaged'],
+        preBookingMessages: [
+          {
+            id: crypto.randomUUID(),
+            senderId: currentStudent.id,
+            senderRole: 'student',
+            senderName: currentStudent.name,
+            body: trimmedBody,
+            createdAt: now,
+          },
+        ],
+      });
+
+      setNotice(`Message sent to ${tutor.name}.`);
+    } finally {
+      setIsCreatingPreBookingRequest(false);
+    }
   }
 
   function toggleShortlist(tutor: Tutor) {
@@ -178,6 +328,13 @@ export function TutorDiscoveryPage() {
       const nextTutorIds = isShortlisted
         ? currentTutorIds.filter((id) => id !== tutor.id)
         : [...currentTutorIds, tutor.id];
+
+      if (currentStudent && typeof window !== 'undefined') {
+        window.localStorage.setItem(
+          `${SHORTLIST_STORAGE_PREFIX}:${currentStudent.id}`,
+          JSON.stringify(nextTutorIds)
+        );
+      }
 
       setNotice(
         isShortlisted
@@ -198,7 +355,32 @@ export function TutorDiscoveryPage() {
     const existingRequest = findExistingRequest(tutor.id);
 
     if (existingRequest) {
-      setNotice(`You have already sent a match request to ${tutor.name}.`);
+      if (existingRequest.status === 'rejected') {
+        await updateTrialSessionStatus(existingRequest.id, 'pending');
+        await addMatchRequestToPreBookingConversation({
+          requestId: existingRequest.id,
+          senderId: currentStudent.id,
+          senderName: currentStudent.name,
+          body:
+            'I would like to request the match again. I still think this tutor could be a good fit.',
+        });
+        setNotice(`Match request sent again to ${tutor.name}.`);
+        return;
+      }
+
+      if (hasRequestedMatch(existingRequest)) {
+        setNotice(`You have already sent a match request to ${tutor.name}.`);
+        return;
+      }
+
+      await addMatchRequestToPreBookingConversation({
+        requestId: existingRequest.id,
+        senderId: currentStudent.id,
+        senderName: currentStudent.name,
+        body:
+          'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
+      });
+      setNotice(`Match request sent to ${tutor.name}.`);
       return;
     }
 
@@ -231,6 +413,18 @@ export function TutorDiscoveryPage() {
         tutor.availability,
       message:
         'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
+      pendingReasons: ['requested'],
+      preBookingMessages: [
+        {
+          id: crypto.randomUUID(),
+          senderId: currentStudent.id,
+          senderRole: 'student',
+          senderName: currentStudent.name,
+          body:
+            'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
+          createdAt: new Date().toISOString(),
+        },
+      ],
     });
 
     setNotice(`Match request sent to ${tutor.name}.`);
@@ -244,16 +438,17 @@ export function TutorDiscoveryPage() {
         description="Use your learning profile to narrow tutors by subject, level, style, university, rating, and price."
       />
 
-      <Container className="flex items-center gap-3 py-4">
-        <Link href={ROUTES.studentOnboardingSubjects}>
-          <Button variant="secondary">← Edit profile</Button>
-        </Link>
+      <Container className="pt-8">
+        <Button href={ROUTES.studentDashboard} variant="secondary">
+          Back to dashboard
+        </Button>
       </Container>
 
       <Container className="grid items-start gap-8 py-10 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-8">
           <TutorFiltersPanel
-            filters={filters}
+            filters={effectiveFilters}
+            allTutors={tutorsMatchingNonPriceFilters}
             onChange={setFilters}
             onClear={clearFilters}
             onResetToOnboarding={resetToOnboardingFilters}
@@ -295,13 +490,92 @@ export function TutorDiscoveryPage() {
           existingRequest={selectedTutorRequest}
           isShortlisted={shortlistedTutorIds.includes(selectedTutor.id)}
           onClose={() => setSelectedTutorId(null)}
-          onChat={handleChat}
+          onMessage={handleMessageTutor}
           onToggleShortlist={toggleShortlist}
           onRequestTrial={requestTrial}
         />
       )}
+
+
+      {messageTutor && (
+        <PreBookingMessageModal
+          tutor={messageTutor}
+          request={messageTutorRequest}
+          currentUserId={currentStudent?.id}
+          isCreatingRequest={isCreatingPreBookingRequest}
+          onClose={() => setMessageTutorId(null)}
+          onSend={(body) => handleSendPreBookingMessage(messageTutor, body)}
+        />
+      )}
     </main>
   );
+}
+
+
+function getLatestRequestForTutor(
+  requests: TrialSessionRequest[],
+  tutorId: string
+) {
+  return requests
+    .filter((request) => request.tutorId === tutorId)
+    .sort((a, b) => {
+      const priorityDifference =
+        getTrialRequestDisplayPriority(b) - getTrialRequestDisplayPriority(a);
+
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+
+      return getRequestUpdatedMillis(b) - getRequestUpdatedMillis(a);
+    })[0];
+}
+
+function getRequestUpdatedMillis(request: TrialSessionRequest) {
+  const updatedAtMillis = timestampToMillis(request.updatedAt);
+  if (updatedAtMillis) return updatedAtMillis;
+
+  const createdAtMillis = timestampToMillis(request.createdAt);
+  if (createdAtMillis) return createdAtMillis;
+
+  const latestMessage = request.preBookingMessages?.at(-1);
+  if (!latestMessage?.createdAt) return 0;
+
+  const messageMillis = new Date(latestMessage.createdAt).getTime();
+  return Number.isNaN(messageMillis) ? 0 : messageMillis;
+}
+
+function timestampToMillis(value: unknown) {
+  if (!value) return 0;
+
+  if (typeof value === 'string') {
+    const millis = new Date(value).getTime();
+    return Number.isNaN(millis) ? 0 : millis;
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    const timestampLike = value as { toMillis?: () => number; toDate?: () => Date };
+    if (typeof timestampLike.toMillis === 'function') {
+      return timestampLike.toMillis();
+    }
+    if (typeof timestampLike.toDate === 'function') {
+      return timestampLike.toDate().getTime();
+    }
+  }
+
+  return 0;
+}
+
+function roundUpToStep(value: number, step = 5) {
+  return Math.ceil(value / step) * step;
+}
+
+function getDynamicMaxTutorPrice(tutors: Tutor[]) {
+  const highestTutorPrice = Math.max(
+    DEFAULT_TUTOR_FILTERS.maxPricePerHour,
+    ...tutors.map((tutor) => tutor.pricePerHour)
+  );
+
+  return Math.max(100, roundUpToStep(highestTutorPrice));
 }
 
 function TutorResultsHeader({

@@ -3,7 +3,7 @@
  * Shared TypeScript types for asynchronous support.
  *
  * A support relationship is the shared space between one student and one tutor.
- * Messages, flagged questions, resources, and future notification indicators all
+ * Messages, resources, and future notification indicators all
  * attach to this relationship so context stays in one place.
  */
 
@@ -38,6 +38,16 @@ export type StudentTutorRelationshipStatus = 'active' | 'ended';
 
 /** Urgency level for messages that need extra tutor attention. */
 export type MessageUrgency = 'normal' | 'urgent';
+
+/** Text-only messages sent before a tutor accepts a match request. */
+export type PreBookingMessage = {
+  id: string;
+  senderId: string;
+  senderRole: AsyncSupportRole;
+  senderName: string;
+  body: string;
+  createdAt: string;
+};
 
 /** Metadata for the latest message stored on a relationship document. */
 export type LatestMessageSummary = {
@@ -82,6 +92,16 @@ export type StudentTutorRelationship = {
   level: string;
 
   status: StudentTutorRelationshipStatus;
+
+  /** Text-only messages from the pre-booking clarifying conversation. */
+  preBookingMessages?: PreBookingMessage[];
+
+  /** Persistent Miro board created for this student-tutor pair. */
+  miroBoardId?: string;
+  miroBoardUrl?: string;
+  miroEmbedUrl?: string;
+  miroBoardName?: string;
+  miroCreatedAt?: string;
 
   createdAt: string;
   updatedAt: string;
@@ -174,6 +194,9 @@ export type SharedResource = {
   type: SharedResourceType;
 
   url?: string;
+
+  /** Uploaded file metadata when this resource is a Firebase Storage file. */
+  attachment?: SupportAttachment;
 
   createdAt: string;
   updatedAt: string;

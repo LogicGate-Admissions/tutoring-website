@@ -24,7 +24,7 @@ type EmailPayload = {
 
 async function sendEmail(payload: EmailPayload): Promise<void> {
   if (!RESEND_API_KEY) {
-    console.warn('[emailNotificationService] RESEND_API_KEY not set — email skipped.');
+    console.warn('[emailNotificationService] RESEND_API_KEY not set - email skipped.');
     return;
   }
 

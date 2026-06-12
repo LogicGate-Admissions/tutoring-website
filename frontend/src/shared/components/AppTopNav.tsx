@@ -14,6 +14,7 @@ import { BrandHomeLink } from '@/shared/components/BrandHomeLink';
 import { SignOutButton } from '@/domains/auth/components/SignOutButton';
 import { NotificationBell } from '@/domains/notifications/components/NotificationBell';
 import { Container } from '@/shared/components/Container';
+import { ThemeToggle } from '@/shared/components/ThemeToggle';
 import { ROUTES } from '@/shared/constants/routes';
 
 type AppTopNavProps = {
@@ -32,6 +33,8 @@ export function AppTopNav({ userType }: AppTopNavProps) {
         <BrandHomeLink />
 
         <div className="flex items-center gap-3">
+          <ThemeToggle />
+
           <NotificationBell userType={userType} />
 
           <SignOutButton />

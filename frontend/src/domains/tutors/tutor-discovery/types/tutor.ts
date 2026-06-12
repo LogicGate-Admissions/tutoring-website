@@ -47,10 +47,10 @@ export type Tutor = {
 };
 
 export type TutorSortOption =
-  | 'Best match'
   | 'Highest rated'
   | 'Lowest price'
-  | 'Highest price';
+  | 'Highest price'
+  | 'Most hours in common';
 
 /** Level-specific subject filter, e.g. GCSE Maths vs A-level Maths. */
 export type TutorSubjectFilter = {

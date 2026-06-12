@@ -2,15 +2,14 @@
 
 /**
  * File purpose:
- * Shared page for async-support features.
+ * Shared page for relationship support features.
  *
- * In this messaging stage, the message thread is implemented. Flagged
- * questions and shared resources stay as placeholders for later feedback-led
- * iterations.
+ * Relationship feature page for messages and shared resources.
  */
 
 import { useEffect, useState } from 'react';
 import { MessageThread } from '@/domains/async-support/components/MessageThread';
+import { ResourcesPanel } from '@/domains/async-support/components/ResourcesPanel';
 import { getStudentTutorRelationshipById } from '@/domains/async-support/services/relationshipsService';
 import type {
   AsyncSupportRole,
@@ -41,15 +40,13 @@ const featureCopy: Record<
 > = {
   messages: {
     title: 'Messages',
-    description:
-      'This is the shared async message thread for this tutoring relationship.',
-    emptyTitle: 'Message thread',
+    description: 'Send messages, screenshots, files, and lesson questions for this tutoring relationship.',
+    emptyTitle: 'Messages',
     emptyDescription: 'Use the message composer below to start the conversation.',
   },
   questions: {
     title: 'Flagged questions',
-    description:
-      'A planned space for students to flag academic questions between sessions.',
+    description: 'A planned space for students to flag academic questions between sessions.',
     emptyTitle: 'Flagged questions not implemented yet',
     emptyDescription:
       'This stays as a placeholder until the flagged-question feature issue is implemented.',
@@ -57,10 +54,10 @@ const featureCopy: Record<
   resources: {
     title: 'Shared resources',
     description:
-      'A planned space for links, notes, worksheets, and lesson materials.',
-    emptyTitle: 'Shared resources not implemented yet',
+      'Upload and open worksheets, screenshots, notes, and lesson materials for this relationship.',
+    emptyTitle: 'No shared resources yet',
     emptyDescription:
-      'This stays as a placeholder until the shared-resource feature issue is implemented.',
+      'Upload the first resource to make it available to both student and tutor.',
   },
 };
 
@@ -134,30 +131,30 @@ export function SupportFeaturePage({
         </div>
 
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Async support
-          </p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+                {copy.title}
+              </h1>
 
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-            {copy.title}
-          </h1>
-
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            {copy.description}
-          </p>
-
-          {relationship ? (
-            <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-              <p>
-                <span className="font-semibold">Relationship:</span>{' '}
-                {otherPersonName || 'Unknown person'}
-              </p>
-              <p className="mt-1">
-                <span className="font-semibold">Subject:</span>{' '}
-                {relationship.level} {relationship.subject}
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+                {copy.description}
               </p>
             </div>
-          ) : null}
+
+            {relationship ? (
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 lg:min-w-64">
+                <p>
+                  <span className="font-semibold">With:</span>{' '}
+                  {otherPersonName || 'Unknown person'}
+                </p>
+                <p className="mt-1">
+                  <span className="font-semibold">Subject:</span>{' '}
+                  {relationship.level} {relationship.subject}
+                </p>
+              </div>
+            ) : null}
+          </div>
         </Card>
 
         {isLoading ? (
@@ -172,7 +169,15 @@ export function SupportFeaturePage({
             <p className="mt-2 text-sm text-slate-600">{error}</p>
           </Card>
         ) : feature === 'messages' ? (
-          <MessageThread relationshipId={relationshipId} viewerRole={viewerRole} />
+          <MessageThread
+            relationshipId={relationshipId}
+            viewerRole={viewerRole}
+            showHeader={false}
+          />
+        ) : feature === 'resources' ? (
+          <Card>
+            <ResourcesPanel relationshipId={relationshipId} viewerRole={viewerRole} />
+          </Card>
         ) : (
           <Card>
             <h2 className="text-xl font-semibold tracking-tight text-slate-950">

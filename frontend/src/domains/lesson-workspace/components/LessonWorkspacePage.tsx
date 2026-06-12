@@ -6,8 +6,8 @@
  *
  * Iteration 2 brings the lesson back into the platform: users enter a shared
  * workspace, then join an embedded Jitsi call when the session opens. The
- * whiteboard and shared resources panels are intentionally lightweight
- * placeholders so the video-call slice can be tested first.
+ * whiteboard and resources panels now sit alongside the embedded call so
+ * live lesson materials stay in one workspace.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -19,6 +19,8 @@ import {
   startLessonSession,
 } from "@/domains/booking/services/bookingService";
 import { MessageThread } from "@/domains/async-support/components/MessageThread";
+import { ResourcesPanel } from "@/domains/async-support/components/ResourcesPanel";
+import { MiroWhiteboard } from "@/domains/lesson-workspace/components/MiroWhiteboard";
 import { getStudentTutorRelationshipById } from "@/domains/async-support/services/relationshipsService";
 import type {
   AsyncSupportRole,
@@ -135,10 +137,6 @@ export function LessonWorkspacePage({
   const lessonState = getLessonJoinState(currentLesson, now);
   const lessonIsLive = (currentLesson?.lessonStatus ?? "scheduled") === "live";
   const lessonCompleted = currentLesson?.lessonStatus === "completed";
-  const showLiveWorkspace = Boolean(
-    currentLesson && (lessonIsLive || hasJoinedLocally || hasOpenedCallThisLesson),
-  );
-
   const otherPersonName =
     viewerRole === "student"
       ? relationship?.tutorName
@@ -293,8 +291,9 @@ export function LessonWorkspacePage({
 
         <div
           className={cn(
-            "grid gap-4 lg:grid-cols-[88px_minmax(0,1fr)]",
-            activePanel && "xl:grid-cols-[88px_380px_minmax(0,1fr)]",
+            activePanel
+              ? "grid min-w-[980px] grid-cols-[72px_320px_minmax(0,1fr)] gap-4 lg:min-w-0 lg:grid-cols-[88px_320px_minmax(0,1fr)]"
+              : "grid gap-4 lg:grid-cols-[88px_minmax(0,1fr)]",
           )}
         >
           <WorkspaceSidePanel
@@ -305,20 +304,12 @@ export function LessonWorkspacePage({
           />
 
           <main className="grid min-w-0 gap-4">
-            {showLiveWorkspace && currentLesson ? (
-              <LiveLessonStage
-                lesson={currentLesson}
-                relationshipId={relationshipId}
-                showCall={hasJoinedLocally}
-                onCallLeft={handleCallLeft}
-              />
-            ) : (
-              <WaitingWorkspaceCard
-                lessonState={lessonState}
-                lessonIsLive={lessonIsLive}
-                lessonCompleted={lessonCompleted}
-              />
-            )}
+            <LiveLessonStage
+              lesson={currentLesson}
+              relationshipId={relationshipId}
+              showCall={Boolean(currentLesson && hasJoinedLocally)}
+              onCallLeft={handleCallLeft}
+            />
           </main>
         </div>
       </Container>
@@ -384,7 +375,7 @@ function WorkspaceSidePanel({
           </div>
 
           {activePanel === "messages" ? (
-            <div className="max-h-[calc(100vh-260px)] min-w-0 overflow-y-auto overflow-x-hidden pr-1">
+            <div className="max-h-[calc(100vh-260px)] min-w-0 overflow-y-auto overflow-x-hidden">
               <MessageThread
                 relationshipId={relationshipId}
                 viewerRole={viewerRole}
@@ -394,8 +385,13 @@ function WorkspaceSidePanel({
           ) : null}
 
           {activePanel === "resources" ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm leading-6 text-slate-500">
-              Shared resources placeholder
+            <div className="max-h-[calc(100vh-260px)] min-w-0 overflow-y-auto overflow-x-hidden">
+              <ResourcesPanel
+                relationshipId={relationshipId}
+                viewerRole={viewerRole}
+                mode="embedded"
+                enableBoardDrag
+              />
             </div>
           ) : null}
         </Card>
@@ -410,15 +406,15 @@ function LiveLessonStage({
   showCall,
   onCallLeft,
 }: {
-  lesson: BookingRequest;
+  lesson: BookingRequest | null;
   relationshipId: string;
   showCall: boolean;
   onCallLeft: () => void;
 }) {
   return (
     <div className="relative min-w-0">
-      <WhiteboardPlaceholder />
-      {showCall ? (
+      <MiroWhiteboard relationshipId={relationshipId} />
+      {showCall && lesson ? (
         <FloatingJitsiCall
           lesson={lesson}
           relationshipId={relationshipId}
@@ -718,54 +714,6 @@ function JitsiCallSurface({
   );
 }
 
-function WhiteboardPlaceholder() {
-  return (
-    <Card className="min-w-0">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Whiteboard
-          </p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
-            Persistent board
-          </h2>
-        </div>
-      </div>
-      <div className="mt-5 min-h-[calc(100vh-320px)] rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
-        Whiteboard area
-      </div>
-    </Card>
-  );
-}
-
-function WaitingWorkspaceCard({
-  lessonState,
-  lessonIsLive,
-  lessonCompleted,
-}: {
-  lessonState: LessonJoinState;
-  lessonIsLive: boolean;
-  lessonCompleted: boolean;
-}) {
-  return (
-    <Card>
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-        Lesson room
-      </p>
-      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-        {lessonCompleted
-          ? "This lesson has ended"
-          : lessonIsLive
-            ? "This lesson is live"
-            : "Prepare for the next lesson"}
-      </h2>
-      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-        {lessonState.helperText}
-      </p>
-    </Card>
-  );
-}
-
 function ChatBubbleIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -891,7 +839,7 @@ function formatLessonSummary(lesson: BookingRequest) {
     minute: "2-digit",
   }).format(end);
 
-  return `${lesson.subject} · ${dateLabel}–${endLabel}`;
+  return `${lesson.subject} · ${dateLabel}-${endLabel}`;
 }
 
 function clamp(value: number, min: number, max: number) {

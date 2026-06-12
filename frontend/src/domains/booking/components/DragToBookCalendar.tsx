@@ -76,7 +76,7 @@ function intersectBlocks(a: TimeBlock[], b: TimeBlock[]): TimeBlock[] {
 
 function formatDraftSummary(date: Date, from: string, to: string): string {
   const duration = timeToMinutes(to) - timeToMinutes(from);
-  return `${LONG_DAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]} · ${from}–${to} (${duration} min)`;
+  return `${LONG_DAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]} · ${from}-${to} (${duration} min)`;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -141,7 +141,7 @@ export function DragToBookCalendar({
     dragStateRef.current = dragState;
   }, [dragState]);
 
-  // Fetch tutor's profile (subjects + availability) — personalised per tutorId
+  // Fetch tutor's profile (subjects + availability) - personalised per tutorId
   useEffect(() => {
     let cancelled = false;
     getDoc(doc(db, FIRESTORE_COLLECTIONS.tutorProfiles, tutorId))
@@ -166,7 +166,7 @@ export function DragToBookCalendar({
     return () => { cancelled = true; };
   }, [tutorId]);
 
-  // Document-level mouse handlers — registered once, read state via ref
+  // Document-level mouse handlers - registered once, read state via ref
   useEffect(() => {
     function onMouseMove(e: globalThis.MouseEvent) {
       const current = dragStateRef.current;
@@ -219,9 +219,9 @@ export function DragToBookCalendar({
     const s = weekDates[0];
     const e = weekDates[6];
     if (s.getMonth() === e.getMonth()) {
-      return `${s.getDate()}–${e.getDate()} ${MONTHS[s.getMonth()]} ${s.getFullYear()}`;
+      return `${s.getDate()}-${e.getDate()} ${MONTHS[s.getMonth()]} ${s.getFullYear()}`;
     }
-    return `${s.getDate()} ${MONTHS[s.getMonth()]}–${e.getDate()} ${MONTHS[e.getMonth()]} ${e.getFullYear()}`;
+    return `${s.getDate()} ${MONTHS[s.getMonth()]}-${e.getDate()} ${MONTHS[e.getMonth()]} ${e.getFullYear()}`;
   }, [weekDates]);
 
   function goToPrevWeek() {
@@ -278,7 +278,7 @@ export function DragToBookCalendar({
           durationMinutes,
           notes: notes.trim() || undefined,
         });
-        setToast('Request sent — waiting for confirmation');
+        setToast('Request sent - waiting for confirmation');
       }
       setTimeout(() => { setToast(null); onSuccess(); }, 2000);
     } catch (err) {
@@ -324,8 +324,8 @@ export function DragToBookCalendar({
       </h2>
       <p className="mt-1 text-sm text-slate-500">
         {isReschedule
-          ? 'Drag on the calendar to pick a new time. Green shows availability overlap — any time works.'
-          : 'Drag on the calendar to select a session time. Green shows availability overlap — any time works.'}
+          ? 'Drag on the calendar to pick a new time. Green shows availability overlap - any time works.'
+          : 'Drag on the calendar to select a session time. Green shows availability overlap - any time works.'}
       </p>
 
       {/* Week navigation */}
@@ -485,7 +485,7 @@ export function DragToBookCalendar({
         </span>
       </div>
 
-      {/* Booking form — shown after a drag selection is made */}
+      {/* Booking form - shown after a drag selection is made */}
       {bookingDraft ? (
         <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
           <h3 className="text-sm font-semibold text-slate-950">Selected time</h3>

@@ -39,5 +39,7 @@ export type StudentLearningProfile = {
   subjectSelections: QualificationSubjectSelection[];
   learningStyles: string[];
   preferredUniversities: string[];
+  /** Short free-text note from the student about how they learn and what they need help with. */
+  bio: string;
   availability: TimeBlock[];
 };

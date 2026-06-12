@@ -5,18 +5,25 @@
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
+import {
+  getMatchRequestButtonLabel,
+  hasRequestedMatch,
+  isMatchRequestLocked,
+} from '@/domains/sessions/trial-sessions/utils/trialRequestState';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 import { tutorInitials } from '@/domains/tutors/tutor-discovery/utils/tutorDisplay';
+import { TutorAvailabilityDisplay } from '@/domains/tutors/tutor-discovery/components/TutorAvailabilityDisplay';
 
 type TutorProfileModalProps = {
   tutor: Tutor;
+  readOnly?: boolean;
   existingRequest?: TrialSessionRequest;
-  isShortlisted: boolean;
+  isShortlisted?: boolean;
   onClose: () => void;
-  onChat: (tutor: Tutor) => void;
-  onToggleShortlist: (tutor: Tutor) => void;
-  onRequestTrial: (tutor: Tutor) => void;
+  onMessage?: (tutor: Tutor) => void;
+  onToggleShortlist?: (tutor: Tutor) => void;
+  onRequestTrial?: (tutor: Tutor) => void;
 };
 
 /**
@@ -27,14 +34,17 @@ type TutorProfileModalProps = {
  */
 export function TutorProfileModal({
   tutor,
+  readOnly = false,
   existingRequest,
-  isShortlisted,
+  isShortlisted = false,
   onClose,
-  onChat,
+  onMessage,
   onToggleShortlist,
   onRequestTrial,
 }: TutorProfileModalProps) {
-  const hasExistingRequest = Boolean(existingRequest);
+  const shouldShowMatchRequestStatus = hasRequestedMatch(existingRequest);
+  const requestButtonLabel = getMatchRequestButtonLabel(existingRequest);
+  const isRequestButtonDisabled = isMatchRequestLocked(existingRequest);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
@@ -126,50 +136,49 @@ export function TutorProfileModal({
 
           <div className="grid gap-5 md:grid-cols-2">
             <ProfileSection title="Learning styles">
-              <p className="text-sm leading-6 text-slate-700">
-                {tutor.learningStyles.join(', ')}
-              </p>
+              <BadgeList values={tutor.learningStyles} />
             </ProfileSection>
 
             <ProfileSection title="Availability">
-              <p className="text-sm leading-6 text-slate-700">
-                {tutor.availability}
-              </p>
+              <TutorAvailabilityDisplay
+                availabilityBlocks={tutor.availabilityBlocks ?? []}
+                fallbackText={tutor.availability}
+              />
             </ProfileSection>
           </div>
 
-          <ProfileSection title="Personality">
-            <p className="text-sm leading-6 text-slate-700">
-              {tutor.personality.join(', ')}
-            </p>
-          </ProfileSection>
         </div>
 
-        {/* Phase 4: actions live here, not on the compact tutor card. */}
-        <div className="mt-6 border-t border-slate-200 pt-5">
-          {existingRequest && (
-            <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-medium text-slate-700">
-                Match request
-              </p>
-              <TrialStatusBadge status={existingRequest.status} />
+        {/* Phase 4: actions - hidden in read-only mode (e.g. already matched). */}
+        {!readOnly && (
+          <div className="mt-6 border-t border-slate-200 pt-5">
+            {existingRequest && shouldShowMatchRequestStatus ? (
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-medium text-slate-700">
+                  Match request
+                </p>
+                <TrialStatusBadge status={existingRequest.status} />
+              </div>
+            ) : null}
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Button variant="secondary" onClick={() => onMessage?.(tutor)}>
+                Message
+              </Button>
+
+              <Button variant="secondary" onClick={() => onToggleShortlist?.(tutor)}>
+                {isShortlisted ? 'Shortlisted' : 'Shortlist'}
+              </Button>
+
+              <Button
+                disabled={isRequestButtonDisabled}
+                onClick={() => onRequestTrial?.(tutor)}
+              >
+                {requestButtonLabel}
+              </Button>
             </div>
-          )}
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Button variant="secondary" onClick={() => onChat(tutor)}>
-              Chat
-            </Button>
-
-            <Button variant="secondary" onClick={() => onToggleShortlist(tutor)}>
-              {isShortlisted ? 'Shortlisted' : 'Shortlist'}
-            </Button>
-
-            <Button disabled={hasExistingRequest} onClick={() => onRequestTrial(tutor)}>
-              {hasExistingRequest ? 'Request sent' : 'Request match'}
-            </Button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

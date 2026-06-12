@@ -223,7 +223,7 @@ export async function acceptBookingRequest(
     const now = Timestamp.now();
 
     if (bothAccepted) {
-      // FUTURE: payment gate — trigger payment intent creation here before confirming
+      // FUTURE: payment gate - trigger payment intent creation here before confirming
       transaction.update(bookingRef, {
         tutorAccepted,
         studentAccepted,
@@ -247,7 +247,7 @@ export async function acceptBookingRequest(
 
   if (confirmedBooking !== null) {
     const b = confirmedBooking as BookingRequest;
-    // Post-transaction conflict check (best-effort — see SCHEMA ASSUMPTION above)
+    // Post-transaction conflict check (best-effort - see SCHEMA ASSUMPTION above)
     await assertNoConflict(b.tutorId, b.date.toDate(), b.durationMinutes, bookingId);
 
     const dateStr = b.date.toDate().toLocaleDateString('en-GB', {
@@ -278,7 +278,7 @@ export async function acceptBookingRequest(
         requesterId,
         bookingId,
         'booking_accepted',
-        `Accepted — confirm your ${b.subject} session on ${dateStr}`
+        `Accepted - confirm your ${b.subject} session on ${dateStr}`
       );
     }
   }

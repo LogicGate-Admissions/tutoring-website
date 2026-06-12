@@ -33,10 +33,6 @@ export const LEARNING_STYLE_OPTIONS = [
     description: 'Short timed tasks that build speed and confidence under exam conditions.',
   },
   {
-    label: 'Interactive coding',
-    description: 'Learning by building, debugging, and improving code together.',
-  },
-  {
     label: 'Essay planning',
     description: 'Structuring arguments, plans, paragraphs, and exam responses clearly.',
   },
@@ -70,7 +66,7 @@ export const AVAILABILITY_PRESETS = [
   {
     id: 'weekday-mornings',
     label: 'Weekday mornings',
-    description: 'Mon–Fri, 08:00–12:00',
+    description: 'Mon-Fri, 08:00-12:00',
     blocks: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) =>
       presetBlock('weekday-mornings', day as Day, '08:00', '12:00')
     ),
@@ -78,7 +74,7 @@ export const AVAILABILITY_PRESETS = [
   {
     id: 'after-school',
     label: 'After school',
-    description: 'Mon–Fri, 16:00–18:00',
+    description: 'Mon-Fri, 16:00-18:00',
     blocks: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) =>
       presetBlock('after-school', day as Day, '16:00', '18:00')
     ),
@@ -86,7 +82,7 @@ export const AVAILABILITY_PRESETS = [
   {
     id: 'weekday-afternoons',
     label: 'Weekday afternoons',
-    description: 'Mon–Fri, 13:00–17:00',
+    description: 'Mon-Fri, 13:00-17:00',
     blocks: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) =>
       presetBlock('weekday-afternoons', day as Day, '13:00', '17:00')
     ),
@@ -94,7 +90,7 @@ export const AVAILABILITY_PRESETS = [
   {
     id: 'weekday-evenings',
     label: 'Weekday evenings',
-    description: 'Mon–Fri, 18:00–21:00',
+    description: 'Mon-Fri, 18:00-21:00',
     blocks: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) =>
       presetBlock('weekday-evenings', day as Day, '18:00', '21:00')
     ),
@@ -102,7 +98,7 @@ export const AVAILABILITY_PRESETS = [
   {
     id: 'weekend-mornings',
     label: 'Weekend mornings',
-    description: 'Sat–Sun, 09:00–12:00',
+    description: 'Sat-Sun, 09:00-12:00',
     blocks: ['Sat', 'Sun'].map((day) =>
       presetBlock('weekend-mornings', day as Day, '09:00', '12:00')
     ),
@@ -110,7 +106,7 @@ export const AVAILABILITY_PRESETS = [
   {
     id: 'weekend-afternoons',
     label: 'Weekend afternoons',
-    description: 'Sat–Sun, 13:00–17:00',
+    description: 'Sat-Sun, 13:00-17:00',
     blocks: ['Sat', 'Sun'].map((day) =>
       presetBlock('weekend-afternoons', day as Day, '13:00', '17:00')
     ),
@@ -118,7 +114,7 @@ export const AVAILABILITY_PRESETS = [
   {
     id: 'weekend-evenings',
     label: 'Weekend evenings',
-    description: 'Sat–Sun, 18:00–22:00',
+    description: 'Sat-Sun, 18:00-22:00',
     blocks: ['Sat', 'Sun'].map((day) =>
       presetBlock('weekend-evenings', day as Day, '18:00', '22:00')
     ),
@@ -130,6 +126,7 @@ export const DEFAULT_LEARNING_PROFILE = {
   subjectSelections: [],
   learningStyles: [],
   preferredUniversities: [],
+  bio: '',
   availability: [],
 } satisfies import('@/domains/students/learning-profile/types/learningProfile').StudentLearningProfile;
 

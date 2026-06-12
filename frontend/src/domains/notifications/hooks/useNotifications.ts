@@ -3,21 +3,29 @@
 /**
  * File purpose: build all top-nav notifications for the signed-in user.
  *
- * The bell is intentionally generic. This hook currently produces message and
- * trial-request notifications, and the same pattern can later add flagged
- * questions, resources, homework, or calendar notifications.
+ * The bell is intentionally generic. This hook currently produces relationship
+ * message notifications, pending match/pre-booking notifications, and booking
+ * notifications.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
-import { subscribeToRelationshipSummaries } from '@/domains/async-support/services/relationshipsService';
+import {
+  markRelationshipMessagesSeen,
+  subscribeToRelationshipSummaries,
+} from '@/domains/async-support/services/relationshipsService';
 import type { AsyncSupportRole } from '@/domains/async-support/types/asyncSupport';
 import {
+  markPreBookingMessagesSeen,
+  markTrialSessionRequestSeen,
   markTrialSessionStatusSeen,
   subscribeToStudentTrialSessions,
   subscribeToTutorTrialSessions,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
-import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import type {
+  PreBookingMessage,
+  TrialSessionRequest,
+} from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { AppNotification } from '@/domains/notifications/types/notification';
 import { useBookingNotifications } from '@/domains/booking/hooks/useBookingNotifications';
 
@@ -25,6 +33,7 @@ type UseNotificationsResult = {
   notifications: AppNotification[];
   isLoading: boolean;
   error: string | null;
+  clearAll: () => Promise<void>;
 };
 
 export function useNotifications(
@@ -37,14 +46,15 @@ export function useNotifications(
   const [trialNotifications, setTrialNotifications] = useState<
     AppNotification[]
   >([]);
+  const unreadRelationshipIdsRef = useRef<string[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [isLoadingTrials, setIsLoadingTrials] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { notifications: bookingNotifications } = useBookingNotifications(
-    currentUserId,
-    viewerRole
-  );
+  const {
+    notifications: bookingNotifications,
+    markAllAsRead: markAllBookingNotificationsRead,
+  } = useBookingNotifications(currentUserId, viewerRole);
 
   useEffect(() => {
     let unsubscribeRelationships: (() => void) | undefined;
@@ -76,25 +86,25 @@ export function useNotifications(
         viewerId: user.id,
         viewerRole,
         onChange: (relationships) => {
+          const unread = relationships.filter((r) => r.hasUnreadMessageActivity);
+          unreadRelationshipIdsRef.current = unread.map((r) => r.id);
           setMessageNotifications(
-            relationships
-              .filter((relationship) => relationship.hasUnreadMessageActivity)
-              .map((relationship) =>
-                buildMessageNotification({
-                  relationshipId: relationship.id,
-                  viewerRole,
-                  senderName:
-                    relationship.latestMessageSenderName ||
-                    (viewerRole === 'student'
-                      ? relationship.tutorName
-                      : relationship.studentName),
-                  messagePreview: relationship.latestMessagePreview || '',
-                  subject: relationship.subject,
-                  level: relationship.level,
-                  createdAt: relationship.latestMessageAt || relationship.updatedAt,
-                  isUrgent: relationship.latestMessageUrgency === 'urgent',
-                })
-              )
+            unread.map((relationship) =>
+              buildMessageNotification({
+                relationshipId: relationship.id,
+                viewerRole,
+                senderName:
+                  relationship.latestMessageSenderName ||
+                  (viewerRole === 'student'
+                    ? relationship.tutorName
+                    : relationship.studentName),
+                messagePreview: relationship.latestMessagePreview || '',
+                subject: relationship.subject,
+                level: relationship.level,
+                createdAt: relationship.latestMessageAt || relationship.updatedAt,
+                isUrgent: relationship.latestMessageUrgency === 'urgent',
+              })
+            )
           );
           setIsLoadingMessages(false);
         },
@@ -130,10 +140,23 @@ export function useNotifications(
     ...bookingNotifications,
   ].sort((first, second) => second.createdAt.localeCompare(first.createdAt));
 
+  async function clearAll() {
+    await Promise.all([
+      ...unreadRelationshipIdsRef.current.map((relationshipId) =>
+        markRelationshipMessagesSeen({ relationshipId, viewerRole })
+      ),
+      ...trialNotifications
+        .filter((notification) => typeof notification.onOpen === 'function')
+        .map((notification) => notification.onOpen!()),
+      markAllBookingNotificationsRead(),
+    ]);
+  }
+
   return {
     notifications,
     isLoading: isLoadingMessages || isLoadingTrials,
     error,
+    clearAll,
   };
 }
 
@@ -174,32 +197,103 @@ function buildMessageNotification({
   };
 }
 
-function buildTutorTrialNotifications(requests: TrialSessionRequest[]) {
-  return requests
-    .filter((request) => request.status === 'pending')
-    .map((request) => ({
+function buildTutorTrialNotifications(
+  requests: TrialSessionRequest[]
+): AppNotification[] {
+  const notifications: AppNotification[] = [];
+
+  for (const request of requests) {
+    if (request.status !== 'pending') {
+      continue;
+    }
+
+    const unreadMessage = getLatestUnreadPreBookingMessage(request, 'tutor');
+
+    if (unreadMessage) {
+      notifications.push({
+        id: `pre-booking-message-${request.id}`,
+        type: 'message',
+        title: `New message from ${request.studentName}`,
+        description: unreadMessage.body || 'Open Pending students to reply.',
+        meta: `${request.level} ${request.subject}`.trim(),
+        href: '/tutor/dashboard?section=pending-students',
+        createdAt:
+          unreadMessage.createdAt ||
+          normaliseNotificationDate(request.updatedAt, request.createdAt),
+        onOpen: () => markPreBookingMessagesSeen(request.id, 'tutor'),
+      });
+      continue;
+    }
+
+    const createdAt = normaliseNotificationDate(
+      request.createdAt,
+      request.updatedAt
+    );
+    const seenAt = normaliseOptionalNotificationDate(request.tutorRequestSeenAt);
+
+    if (seenAt && seenAt >= createdAt) {
+      continue;
+    }
+
+    notifications.push({
       id: `trial-request-${request.id}`,
-      type: 'trial-request' as const,
-      title: `New match request from ${request.studentName}`,
+      type: 'trial-request',
+      title: `New pending student: ${request.studentName}`,
       description: request.message || 'A student has requested a match.',
       meta: `${request.level} ${request.subject}`.trim(),
-      href: '/tutor/trial-sessions',
-      createdAt: normaliseNotificationDate(request.createdAt, request.updatedAt),
-    }));
+      href: '/tutor/dashboard?section=pending-students',
+      createdAt,
+      onOpen: () => markTrialSessionRequestSeen(request.id),
+    });
+  }
+
+  return notifications;
 }
 
-function buildStudentTrialNotifications(requests: TrialSessionRequest[]) {
-  return requests
-    .filter((request) => request.status === 'accepted' || request.status === 'rejected')
-    .filter((request) => {
-      const updatedAt = normaliseNotificationDate(request.updatedAt, request.createdAt);
-      const seenAt = normaliseOptionalNotificationDate(request.studentStatusSeenAt);
+function buildStudentTrialNotifications(
+  requests: TrialSessionRequest[]
+): AppNotification[] {
+  const notifications: AppNotification[] = [];
 
-      return !seenAt || updatedAt > seenAt;
-    })
-    .map((request) => ({
+  for (const request of requests) {
+    if (request.status === 'pending') {
+      const unreadMessage = getLatestUnreadPreBookingMessage(request, 'student');
+
+      if (unreadMessage) {
+        notifications.push({
+          id: `pre-booking-message-${request.id}`,
+          type: 'message',
+          title: `New message from ${request.tutorName}`,
+          description: unreadMessage.body || 'Open Pending tutors to reply.',
+          meta: `${request.level} ${request.subject}`.trim(),
+          href: '/student/dashboard?section=pending-tutors',
+          createdAt:
+            unreadMessage.createdAt ||
+            normaliseNotificationDate(request.updatedAt, request.createdAt),
+          onOpen: () => markPreBookingMessagesSeen(request.id, 'student'),
+        });
+      }
+
+      continue;
+    }
+
+    if (request.status !== 'accepted' && request.status !== 'rejected') {
+      continue;
+    }
+
+    const updatedAt = normaliseNotificationDate(
+      request.updatedAt,
+      request.createdAt
+    );
+    const seenAt = normaliseOptionalNotificationDate(request.studentStatusSeenAt);
+
+    if (seenAt && updatedAt <= seenAt) {
+      continue;
+    }
+
+    notifications.push({
       id: `trial-update-${request.id}`,
-      type: 'trial-update' as const,
+      type: 'trial-update',
       title:
         request.status === 'accepted'
           ? `${request.tutorName} accepted your trial`
@@ -209,13 +303,40 @@ function buildStudentTrialNotifications(requests: TrialSessionRequest[]) {
           ? 'You can now open your dashboard to use the support space.'
           : 'You can browse other tutors and request a different trial.',
       meta: `${request.level} ${request.subject}`.trim(),
-      href:
-        request.status === 'accepted'
-          ? '/student/dashboard'
-          : '/student/tutors',
-      createdAt: normaliseNotificationDate(request.updatedAt, request.createdAt),
+      href: request.status === 'accepted' ? '/student/dashboard' : '/student/tutors',
+      createdAt: updatedAt,
       onOpen: () => markTrialSessionStatusSeen(request.id),
-    }));
+    });
+  }
+
+  return notifications;
+}
+
+function getLatestUnreadPreBookingMessage(
+  request: TrialSessionRequest,
+  viewerRole: 'student' | 'tutor'
+): PreBookingMessage | null {
+  const seenAt = normaliseOptionalNotificationDate(
+    viewerRole === 'student'
+      ? request.studentPreBookingSeenAt
+      : request.tutorPreBookingSeenAt
+  );
+
+  const unreadMessages = (request.preBookingMessages ?? []).filter((message) => {
+    if (message.senderRole === viewerRole) {
+      return false;
+    }
+
+    if (!message.createdAt) {
+      return true;
+    }
+
+    return !seenAt || message.createdAt > seenAt;
+  });
+
+  return unreadMessages.length > 0
+    ? unreadMessages[unreadMessages.length - 1]
+    : null;
 }
 
 function normaliseOptionalNotificationDate(value: unknown) {

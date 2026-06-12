@@ -95,3 +95,26 @@ export async function updateStoredLearningProfile(update: Partial<StudentLearnin
   await saveLearningProfile(nextProfile);
   return nextProfile;
 }
+
+
+/** Load any student's learning profile by ID. Used by tutors viewing student context. */
+export async function getStudentLearningProfileById(
+  studentId: string,
+): Promise<StudentLearningProfile> {
+  const snapshot = await getDoc(studentProfileDocumentRef(studentId));
+
+  if (!snapshot.exists()) {
+    return DEFAULT_LEARNING_PROFILE;
+  }
+
+  const storedProfile = snapshot.data() as Partial<StudentLearningProfile>;
+  const subjectSelections = storedProfile.subjectSelections ?? [];
+
+  return {
+    ...DEFAULT_LEARNING_PROFILE,
+    ...storedProfile,
+    subjectSelections,
+    studiedSubjectSelections:
+      storedProfile.studiedSubjectSelections ?? subjectSelections,
+  };
+}
