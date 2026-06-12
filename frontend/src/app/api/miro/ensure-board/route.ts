@@ -16,10 +16,9 @@ type RelationshipMiroFields = {
   miroBoardCreationStatus?: "creating" | "ready" | "error";
   miroBoardCreationStartedAt?: string | null;
   miroBoardCreationError?: string | null;
-  miroEditorInviteEmails?: string[];
-  miroEditorInvitedAt?: string;
-  miroEditorInviteStatus?: "invited" | "error";
-  miroEditorInviteError?: string | null;
+  miroTeamAccessConfiguredAt?: string;
+  miroTeamAccessStatus?: "configured" | "error";
+  miroTeamAccessError?: string | null;
   miroBoardName?: string;
   miroCreatedAt?: string;
   updatedAt?: string;
@@ -49,10 +48,12 @@ const MIRO_API_BASE_URL = "https://api.miro.com/v2";
 const BOARD_CREATION_LOCK_STALE_MS = 120_000;
 const BOARD_CREATION_WAIT_ATTEMPTS = 20;
 const BOARD_CREATION_WAIT_MS = 750;
-const MIRO_EDITOR_INVITE_EMAILS_ENV_KEYS = [
-  "MIRO_EDITOR_INVITE_EMAILS",
-  "MIRO_DEV_TEAM_EMAILS",
-];
+const MIRO_TEAM_EDITOR_POLICY = {
+  sharingPolicy: {
+    access: "private",
+    teamAccess: "edit",
+  },
+};
 
 export async function POST(request: Request) {
   try {
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
     }
 
     if (claim.status === "ready") {
-      const relationship = await ensureConfiguredBoardEditors({
+      const relationship = await ensureMiroTeamEditorAccess({
         relationship: claim.relationship,
         relationshipRef,
       });
@@ -101,13 +102,13 @@ export async function POST(request: Request) {
         );
       }
 
-      const relationshipWithEditors = await ensureConfiguredBoardEditors({
+      const relationshipWithTeamAccess = await ensureMiroTeamEditorAccess({
         relationship,
         relationshipRef,
       });
 
       return NextResponse.json(
-        buildReadyBoardResponse(relationshipWithEditors, true),
+        buildReadyBoardResponse(relationshipWithTeamAccess, true),
       );
     }
 
@@ -159,14 +160,14 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    const relationshipWithEditors = await ensureConfiguredBoardEditors({
+    const relationshipWithTeamAccess = await ensureMiroTeamEditorAccess({
       accessToken,
       relationship: relationshipWithBoard,
       relationshipRef,
     });
 
     return NextResponse.json(
-      buildReadyBoardResponse(relationshipWithEditors, false),
+      buildReadyBoardResponse(relationshipWithTeamAccess, false),
     );
   } catch (error) {
     const message = getErrorMessage(error);
@@ -236,7 +237,7 @@ async function waitForMiroBoardToBeReady(
   return null;
 }
 
-async function ensureConfiguredBoardEditors({
+async function ensureMiroTeamEditorAccess({
   accessToken,
   relationship,
   relationshipRef,
@@ -246,41 +247,21 @@ async function ensureConfiguredBoardEditors({
   relationshipRef: DocumentReference<RelationshipDocument>;
 }) {
   const boardId = relationship.miroBoardId;
-  const configuredEditorEmails = getConfiguredMiroEditorEmails();
 
-  if (!boardId || configuredEditorEmails.length === 0) {
-    return relationship;
-  }
-
-  const alreadyInvited = new Set(
-    (relationship.miroEditorInviteEmails ?? []).map((email) =>
-      email.toLowerCase(),
-    ),
-  );
-  const emailsToInvite = configuredEditorEmails.filter(
-    (email) => !alreadyInvited.has(email.toLowerCase()),
-  );
-
-  if (emailsToInvite.length === 0) {
+  if (!boardId || relationship.miroTeamAccessStatus === "configured") {
     return relationship;
   }
 
   try {
-    await shareMiroBoardWithEditors({
+    await updateMiroBoardTeamAccess({
       accessToken: accessToken ?? (await getMiroAccessToken()),
       boardId,
-      emails: emailsToInvite,
     });
 
-    const invitedEmails = uniqueEmails([
-      ...(relationship.miroEditorInviteEmails ?? []),
-      ...emailsToInvite,
-    ]);
     const update: RelationshipMiroFields = {
-      miroEditorInviteEmails: invitedEmails,
-      miroEditorInvitedAt: new Date().toISOString(),
-      miroEditorInviteStatus: "invited",
-      miroEditorInviteError: null,
+      miroTeamAccessConfiguredAt: new Date().toISOString(),
+      miroTeamAccessStatus: "configured",
+      miroTeamAccessError: null,
     };
 
     await relationshipRef.set(
@@ -294,8 +275,8 @@ async function ensureConfiguredBoardEditors({
     return { ...relationship, ...update };
   } catch (error) {
     const update: RelationshipMiroFields = {
-      miroEditorInviteStatus: "error",
-      miroEditorInviteError: getErrorMessage(error),
+      miroTeamAccessStatus: "error",
+      miroTeamAccessError: getErrorMessage(error),
     };
 
     await relationshipRef.set(
@@ -310,42 +291,37 @@ async function ensureConfiguredBoardEditors({
   }
 }
 
-async function shareMiroBoardWithEditors({
+async function updateMiroBoardTeamAccess({
   accessToken,
   boardId,
-  emails,
 }: {
   accessToken: string;
   boardId: string;
-  emails: string[];
 }) {
-  for (const emailChunk of chunkEmails(emails, 20)) {
-    const response = await fetch(
-      `${MIRO_API_BASE_URL}/boards/${encodeURIComponent(boardId)}/members`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          emails: emailChunk,
-          role: "editor",
-          message:
-            "You have been added as an editor to the LogicGate lesson workspace.",
-        }),
+  const response = await fetch(
+    `${MIRO_API_BASE_URL}/boards/${encodeURIComponent(boardId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
       },
-    );
-    const data = await readJsonResponse<{ message?: string; error?: string }>(
-      response,
-    );
+      body: JSON.stringify({
+        policy: MIRO_TEAM_EDITOR_POLICY,
+      }),
+    },
+  );
+  const data = await readJsonResponse<{ message?: string; error?: string }>(
+    response,
+  );
 
-    if (!response.ok) {
-      throw new Error(
-        data.message || data.error || "Could not invite Miro board editors.",
-      );
-    }
+  if (!response.ok) {
+    throw new Error(
+      data.message ||
+        data.error ||
+        `Could not set Miro team editor access (${response.status}).`,
+    );
   }
 }
 
@@ -475,8 +451,8 @@ function buildReadyBoardResponse(
       relationship.miroBoardUrl || `https://miro.com/app/board/${boardId}/`,
     miroEmbedUrl: ensureAutoplayEmbedUrl(relationship.miroEmbedUrl),
     reusedExistingBoard,
-    miroEditorInviteStatus: relationship.miroEditorInviteStatus,
-    miroEditorInviteError: relationship.miroEditorInviteError,
+    miroTeamAccessStatus: relationship.miroTeamAccessStatus,
+    miroTeamAccessError: relationship.miroTeamAccessError,
   };
 }
 
@@ -510,49 +486,6 @@ function buildBoardDescription(relationship: RelationshipDocument) {
   return `Persistent ${level}${subject} whiteboard for this LogicGate student-tutor relationship.`;
 }
 
-function getConfiguredMiroEditorEmails() {
-  const rawEmails = MIRO_EDITOR_INVITE_EMAILS_ENV_KEYS.map(
-    (key) => process.env[key],
-  ).find((value) => value?.trim());
-
-  if (!rawEmails) {
-    return [];
-  }
-
-  return uniqueEmails(
-    rawEmails
-      .split(/[\n,;]/)
-      .map((email) => email.trim())
-      .filter(Boolean),
-  );
-}
-
-function uniqueEmails(emails: string[]) {
-  const seen = new Set<string>();
-  const unique: string[] = [];
-
-  for (const email of emails) {
-    const normalizedEmail = email.toLowerCase();
-
-    if (!seen.has(normalizedEmail)) {
-      seen.add(normalizedEmail);
-      unique.push(email);
-    }
-  }
-
-  return unique;
-}
-
-function chunkEmails(emails: string[], chunkSize: number) {
-  const chunks: string[][] = [];
-
-  for (let index = 0; index < emails.length; index += chunkSize) {
-    chunks.push(emails.slice(index, index + chunkSize));
-  }
-
-  return chunks;
-}
-
 function delay(milliseconds: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
@@ -560,5 +493,9 @@ function delay(milliseconds: number) {
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown error.";
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Something went wrong.";
 }

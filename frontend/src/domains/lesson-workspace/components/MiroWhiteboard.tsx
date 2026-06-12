@@ -31,7 +31,7 @@ type EnsureBoardResponse = {
   miroBoardUrl?: string;
   miroEmbedUrl?: string;
   reusedExistingBoard?: boolean;
-  miroEditorInviteError?: string;
+  miroTeamAccessError?: string;
   error?: string;
 };
 
