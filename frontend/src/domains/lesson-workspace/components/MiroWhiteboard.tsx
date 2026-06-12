@@ -27,8 +27,11 @@ type MiroBoardState =
   | { relationshipId: string; status: 'error'; message: string };
 
 type EnsureBoardResponse = {
+  miroBoardId?: string;
   miroBoardUrl?: string;
   miroEmbedUrl?: string;
+  reusedExistingBoard?: boolean;
+  miroEditorInviteError?: string;
   error?: string;
 };
 
@@ -52,6 +55,7 @@ const RESOURCE_DRAG_MIME_TYPE = 'application/x-logicgate-resource';
 const RESOURCE_DRAG_START_EVENT = 'logicgate-resource-drag-start';
 const RESOURCE_DRAG_END_EVENT = 'logicgate-resource-drag-end';
 const BOARD_COORDINATE_SCALE = 1.6;
+const ensureBoardRequests = new Map<string, Promise<EnsureBoardResponse>>();
 
 export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
   const boardAreaRef = useRef<HTMLDivElement | null>(null);
@@ -90,16 +94,11 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
     let isActive = true;
     async function ensureBoard() {
       try {
-        const response = await fetch('/api/miro/ensure-board', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ relationshipId }),
-        });
-        const data = (await response.json()) as EnsureBoardResponse;
+        const data = await requestMiroBoard(relationshipId);
 
         if (!isActive) return;
 
-        if (!response.ok || !data.miroEmbedUrl || !data.miroBoardUrl) {
+        if (!data.miroEmbedUrl || !data.miroBoardUrl) {
           setBoardState({
             relationshipId,
             status: 'error',
@@ -114,13 +113,16 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
           miroBoardUrl: data.miroBoardUrl,
           miroEmbedUrl: data.miroEmbedUrl,
         });
-      } catch {
+      } catch (error) {
         if (!isActive) return;
 
         setBoardState({
           relationshipId,
           status: 'error',
-          message: 'Could not connect to the Miro whiteboard service.',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Could not connect to the Miro whiteboard service.',
         });
       }
     }
@@ -313,6 +315,36 @@ export function MiroWhiteboard({ relationshipId }: MiroWhiteboardProps) {
   );
 }
 
+
+
+async function requestMiroBoard(relationshipId: string) {
+  const existingRequest = ensureBoardRequests.get(relationshipId);
+
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = fetch('/api/miro/ensure-board', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ relationshipId }),
+  })
+    .then(async (response) => {
+      const data = (await response.json()) as EnsureBoardResponse;
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not load the Miro whiteboard.');
+      }
+
+      return data;
+    })
+    .finally(() => {
+      ensureBoardRequests.delete(relationshipId);
+    });
+
+  ensureBoardRequests.set(relationshipId, request);
+  return request;
+}
 
 function buildMiroEmbedSrc(miroEmbedUrl: string) {
   const url = new URL(miroEmbedUrl);

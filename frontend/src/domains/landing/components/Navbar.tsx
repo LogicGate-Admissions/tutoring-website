@@ -8,27 +8,14 @@ import Link from 'next/link';
 import { BrandHomeLink } from '@/shared/components/BrandHomeLink';
 import { ThemeToggle } from '@/shared/components/ThemeToggle';
 import { ROUTES } from '@/shared/constants/routes';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 60);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   return (
     <>
-      <nav
-        className={`logicgate-landing-nav fixed top-0 left-0 right-0 z-50 h-16 border-b transition-all duration-200 ${
-          scrolled
-            ? 'border-slate-200 bg-white/95 backdrop-blur-sm'
-            : 'border-transparent bg-[#f8f7f4]/95 backdrop-blur-sm'
-        }`}
-      >
+      <nav className="logicgate-landing-nav fixed top-0 left-0 right-0 z-50 h-16 border-b border-slate-200 bg-white/95 backdrop-blur-sm transition-all duration-200">
         <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-6 lg:px-8">
           {/* Logo */}
           <BrandHomeLink />

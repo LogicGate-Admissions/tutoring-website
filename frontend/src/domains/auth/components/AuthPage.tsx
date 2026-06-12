@@ -16,6 +16,7 @@ import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { ThemeToggle } from '@/shared/components/ThemeToggle';
 import { ROUTES } from '@/shared/constants/routes';
 import {
   authenticateWithEmailAndPassword,
@@ -76,8 +77,9 @@ function AuthShell({ children }: { children: ReactNode }) {
   /** Login and sign-up pages need an obvious route back to the landing page. */
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
-      <Container className="pt-6">
-        <BrandHomeLink className="w-fit" />
+      <Container className="flex items-center justify-between pt-6">
+        <BrandHomeLink />
+        <ThemeToggle />
       </Container>
       {children}
     </main>
