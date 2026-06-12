@@ -11,9 +11,11 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { ROUTES } from '@/shared/constants/routes';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import type { AuthUser } from '@/domains/auth/types/auth';
 import {
@@ -435,6 +437,12 @@ export function TutorDiscoveryPage() {
         title="Find your match."
         description="Use your learning profile to narrow tutors by subject, level, style, university, rating, and price."
       />
+
+      <Container className="pt-8">
+        <Button href={ROUTES.studentDashboard} variant="secondary">
+          Back to dashboard
+        </Button>
+      </Container>
 
       <Container className="grid items-start gap-8 py-10 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-8">

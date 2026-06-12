@@ -76,9 +76,9 @@ function AuthShell({ children }: { children: ReactNode }) {
   /** Login and sign-up pages need an obvious route back to the landing page. */
   return (
     <main className="min-h-screen bg-[#f8f7f4]">
-      <div className="px-6 pt-6 lg:px-8">
+      <Container className="pt-6">
         <BrandHomeLink className="w-fit" />
-      </div>
+      </Container>
       {children}
     </main>
   );

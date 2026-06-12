@@ -20,11 +20,6 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleBrowseTutors = () => {
-    setMenuOpen(false);
-    document.getElementById('tutor-explorer')?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   return (
     <>
       <nav
@@ -40,13 +35,12 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden items-center gap-6 md:flex">
-            <button
-              type="button"
-              onClick={handleBrowseTutors}
+            <Link
+              href={ROUTES.studentLogin}
               className="text-sm font-medium text-slate-600 transition hover:text-slate-950"
             >
-              Browse Tutors
-            </button>
+              For Students
+            </Link>
             <Link
               href={ROUTES.tutorLogin}
               className="text-sm font-medium text-slate-600 transition hover:text-slate-950"
@@ -54,12 +48,6 @@ export default function Navbar() {
               For Tutors
             </Link>
             <ThemeToggle />
-            <Link
-              href={ROUTES.studentLogin}
-              className="rounded-full bg-slate-950 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-            >
-              Get Started
-            </Link>
           </div>
 
           {/* Mobile hamburger */}
@@ -88,33 +76,19 @@ export default function Navbar() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={handleBrowseTutors}
-                className="rounded-2xl border border-slate-200 px-5 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              <Link
+                href={ROUTES.studentLogin}
+                onClick={() => setMenuOpen(false)}
+                className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
-                Browse Tutors
-              </button>
+                For Students
+              </Link>
               <Link
                 href={ROUTES.tutorLogin}
                 onClick={() => setMenuOpen(false)}
                 className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 For Tutors
-              </Link>
-              <Link
-                href={ROUTES.studentLogin}
-                onClick={() => setMenuOpen(false)}
-                className="rounded-full bg-slate-950 px-5 py-3 text-center text-sm font-medium text-white transition hover:bg-slate-800"
-              >
-                Get Started - It&apos;s Free
-              </Link>
-              <Link
-                href={ROUTES.studentLogin}
-                onClick={() => setMenuOpen(false)}
-                className="text-center text-sm font-medium text-slate-500 transition hover:text-slate-950"
-              >
-                Already have an account? Log in
               </Link>
             </div>
           </div>
