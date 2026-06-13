@@ -96,7 +96,7 @@ export function SessionDetailModal({
     }
   }
 
-  const statusBadge = getSessionStatusBadge(booking.status);
+  const statusBadge = getSessionStatusBadge(booking.status, isPast);
 
   if (typeof document === 'undefined') return null;
 
@@ -251,9 +251,11 @@ export function SessionDetailModal({
 }
 
 
-function getSessionStatusBadge(status: BookingRequest['status']) {
+function getSessionStatusBadge(status: BookingRequest['status'], isPast: boolean = false) {
   if (status === 'confirmed') {
-    return { label: 'Confirmed', className: 'logicgate-status-success' };
+    return isPast
+      ? { label: 'Completed', className: 'logicgate-status-neutral' }
+      : { label: 'Upcoming', className: 'logicgate-status-success' };
   }
   if (status === 'pending_receiver') {
     return { label: 'Awaiting response', className: 'logicgate-status-pending' };

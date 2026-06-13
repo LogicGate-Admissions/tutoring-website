@@ -18,6 +18,7 @@ import { PageHeader } from '@/shared/components/PageHeader';
 import { ROUTES } from '@/shared/constants/routes';
 import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import type { AuthUser } from '@/domains/auth/types/auth';
+import { useRelationshipSummaries } from '@/domains/async-support/hooks/useRelationshipSummaries';
 import {
   getStoredLearningProfile,
   updateStoredLearningProfile,
@@ -71,10 +72,18 @@ export function TutorDiscoveryPage() {
   const [isLoadingTutors, setIsLoadingTutors] = useState(true);
   const [studentRequests, setStudentRequests] = useState<TrialSessionRequest[]>([]);
   const [notice, setNotice] = useState('');
+  const { relationships } = useRelationshipSummaries('student');
+  const confirmedTutorIds = useMemo(
+    () => new Set(relationships.map((r) => r.tutorId)),
+    [relationships]
+  );
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   const [shortlistedTutorIds, setShortlistedTutorIds] = useState<string[]>([]);
   const [messageTutorId, setMessageTutorId] = useState<string | null>(null);
   const [isCreatingPreBookingRequest, setIsCreatingPreBookingRequest] = useState(false);
+  const [subjectPickerTutor, setSubjectPickerTutor] = useState<Tutor | null>(null);
+  const [pickerSelectedSubject, setPickerSelectedSubject] = useState('');
+  const [pickerBusy, setPickerBusy] = useState(false);
 
   useEffect(() => {
     /** Keep the page aware of the signed-in student for request ownership. */
@@ -195,12 +204,14 @@ export function TutorDiscoveryPage() {
       tutorsMatchingNonPriceFilters.filter(
         (tutor) =>
           tutor.pricePerHour >= effectiveFilters.minPricePerHour &&
-          tutor.pricePerHour <= effectiveFilters.maxPricePerHour
+          tutor.pricePerHour <= effectiveFilters.maxPricePerHour &&
+          !confirmedTutorIds.has(tutor.id)
       ),
     [
       effectiveFilters.minPricePerHour,
       effectiveFilters.maxPricePerHour,
       tutorsMatchingNonPriceFilters,
+      confirmedTutorIds,
     ]
   );
 
@@ -346,7 +357,7 @@ export function TutorDiscoveryPage() {
     });
   }
 
-  async function requestTrial(tutor: Tutor) {
+  async function requestTrial(tutor: Tutor, subjectOverride?: string) {
     if (!currentStudent) {
       setNotice('Please log in again before requesting a match.');
       return;
@@ -393,6 +404,7 @@ export function TutorDiscoveryPage() {
       studentName: currentStudent.name,
       studentEmail: currentStudent.email,
       subject:
+        subjectOverride ||
         filters.subjects[0]?.subject ||
         profile.subjectSelections[0]?.subjects[0] ||
         tutor.subjects[0] ||
@@ -492,10 +504,36 @@ export function TutorDiscoveryPage() {
           onClose={() => setSelectedTutorId(null)}
           onMessage={handleMessageTutor}
           onToggleShortlist={toggleShortlist}
-          onRequestTrial={requestTrial}
+          onRequestTrial={(tutor) => {
+            setSubjectPickerTutor(tutor);
+            setPickerSelectedSubject('');
+          }}
         />
       )}
 
+      {subjectPickerTutor && (
+        <SubjectPickerModal
+          tutor={subjectPickerTutor}
+          selectedSubject={pickerSelectedSubject}
+          onSelect={setPickerSelectedSubject}
+          busy={pickerBusy}
+          onConfirm={async () => {
+            if (!pickerSelectedSubject) return;
+            setPickerBusy(true);
+            try {
+              await requestTrial(subjectPickerTutor, pickerSelectedSubject);
+            } finally {
+              setPickerBusy(false);
+              setSubjectPickerTutor(null);
+              setPickerSelectedSubject('');
+            }
+          }}
+          onCancel={() => {
+            setSubjectPickerTutor(null);
+            setPickerSelectedSubject('');
+          }}
+        />
+      )}
 
       {messageTutor && (
         <PreBookingMessageModal
@@ -511,6 +549,68 @@ export function TutorDiscoveryPage() {
   );
 }
 
+
+function SubjectPickerModal({
+  tutor,
+  selectedSubject,
+  onSelect,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  tutor: Tutor;
+  selectedSubject: string;
+  onSelect: (subject: string) => void;
+  busy: boolean;
+  onConfirm: () => Promise<void>;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+        <h2 className="text-base font-semibold text-slate-950">What subject do you need help with?</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Choose the subject you want {tutor.name} to teach you.
+        </p>
+
+        <div className="mt-4 grid gap-2">
+          {tutor.subjects.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onSelect(s)}
+              className={`w-full rounded-2xl border px-4 py-2.5 text-left text-sm font-medium transition ${
+                selectedSubject === s
+                  ? 'border-slate-950 bg-slate-950 text-white'
+                  : 'border-slate-200 bg-white text-slate-800 hover:border-slate-400'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-5 flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!selectedSubject || busy}
+            onClick={() => void onConfirm()}
+            className="flex-1 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+          >
+            {busy ? 'Sending…' : 'Request match'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function getLatestRequestForTutor(
   requests: TrialSessionRequest[],

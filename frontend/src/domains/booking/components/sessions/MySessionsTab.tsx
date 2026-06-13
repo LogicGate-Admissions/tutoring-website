@@ -171,7 +171,9 @@ export function MySessionsTab({
           <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm text-slate-500">No upcoming sessions scheduled.</p>
             <p className="mt-2 text-xs text-slate-400">
-              Book a session from a tutor or student card, or from your message thread.
+              {role === 'tutor'
+                ? 'Book a session from a student card, or from your message thread.'
+                : 'Book a session from a tutor card, or from your message thread.'}
             </p>
           </div>
         ) : (
@@ -320,6 +322,15 @@ type PointerDragState = {
   active: boolean;
 };
 
+function getNowInfo(): { percent: number; label: string } | null {
+  const now = new Date();
+  const minutes = (now.getHours() - HOUR_START) * 60 + now.getMinutes();
+  const total = TOTAL_HOURS * 60;
+  if (minutes < 0 || minutes > total) return null;
+  const label = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return { percent: (minutes / total) * 100, label };
+}
+
 function WeeklyCalendar({
   sessions,
   getOtherPartyName,
@@ -334,6 +345,12 @@ function WeeklyCalendar({
   const [weekOffset, setWeekOffset] = useState(0);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragPreview, setDragPreview] = useState<{ colIdx: number; topPercent: number } | null>(null);
+  const [nowInfo, setNowInfo] = useState<{ percent: number; label: string } | null>(getNowInfo);
+
+  useEffect(() => {
+    const id = setInterval(() => setNowInfo(getNowInfo()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const columnRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const dragBookingRef = useRef<BookingRequest | null>(null);
@@ -491,12 +508,15 @@ function WeeklyCalendar({
 
       <div className="grid grid-cols-[3rem_repeat(7,minmax(5rem,1fr))] border-b border-slate-200">
         <div className="border-r border-slate-100 py-3" />
-        {weekDays.map((day, i) => (
-          <div key={i} className="border-r border-slate-100 px-2 py-3 last:border-r-0">
-            <p className="text-center text-xs font-semibold text-slate-700">{DAY_LABELS[i]}</p>
-            <p className="mt-0.5 text-center text-[0.65rem] text-slate-400">{formatDayLabel(day)}</p>
-          </div>
-        ))}
+        {weekDays.map((day, i) => {
+          const isToday = isSameDay(day, new Date());
+          return (
+            <div key={i} className={cn('border-r border-slate-100 px-2 py-3 last:border-r-0', isToday && 'bg-indigo-50')}>
+              <p className={cn('text-center text-xs font-semibold', isToday ? 'text-indigo-700' : 'text-slate-700')}>{DAY_LABELS[i]}</p>
+              <p className={cn('mt-0.5 text-center text-[0.65rem]', isToday ? 'font-semibold text-indigo-500' : 'text-slate-400')}>{formatDayLabel(day)}</p>
+            </div>
+          );
+        })}
       </div>
 
       <div
@@ -522,6 +542,7 @@ function WeeklyCalendar({
             isSameDay(s.date.toDate(), day)
           );
           const isDraggingHere = draggingBooking && dragPreview?.colIdx === colIdx;
+          const isToday = isSameDay(day, new Date());
 
           return (
             <div
@@ -530,7 +551,7 @@ function WeeklyCalendar({
                 if (el) columnRefs.current.set(colIdx, el);
                 else columnRefs.current.delete(colIdx);
               }}
-              className="relative border-r border-slate-100 last:border-r-0"
+              className={cn('relative border-r border-slate-100 last:border-r-0')}
             >
               {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
                 <div
@@ -539,17 +560,28 @@ function WeeklyCalendar({
                   style={{ top: `${(i / TOTAL_HOURS) * 100}%` }}
                 />
               ))}
+              {isToday && nowInfo !== null && (
+                <div
+                  className="absolute inset-x-0 z-10 flex cursor-default items-center"
+                  style={{ top: `${nowInfo.percent}%` }}
+                  title={nowInfo.label}
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500" />
+                  <div className="h-px flex-1 bg-red-500" />
+                </div>
+              )}
 
               {daySessions.map((s) => {
                 if (draggingId === s.id) return null;
 
                 const start = s.date.toDate();
+                const end = new Date(start.getTime() + s.durationMinutes * 60_000);
                 const top = sessionTopPercent(start);
                 const height = sessionHeightPercent(s.durationMinutes);
-                const timeLabel = start.toLocaleTimeString('en-GB', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                });
+                const fmt = (d: Date) =>
+                  d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                const timeRange = `${fmt(start)}–${fmt(end)}`;
+                const personName = getOtherPartyName(s);
                 const isPast = start <= new Date();
                 const draggable = isDraggableSession(s);
 
@@ -560,20 +592,32 @@ function WeeklyCalendar({
                     onClick={() => handleSessionClick(s)}
                     onPointerDown={(e) => handlePointerDown(s, e)}
                     className={cn(
-                      'absolute inset-x-0.5 overflow-hidden rounded-xl px-2 py-1 text-left transition',
+                      'absolute inset-x-0.5 overflow-hidden rounded-xl px-2 py-1.5 text-left transition',
                       isPast
-                        ? 'bg-slate-300 opacity-70'
+                        ? 'bg-slate-200 opacity-75'
                         : 'bg-slate-900 hover:bg-slate-800',
                       draggable && 'cursor-grab active:cursor-grabbing'
                     )}
-                    style={{ top: `${top}%`, height: `${height}%`, minHeight: '1.5rem' }}
+                    style={{ top: `${top}%`, height: `${height}%`, minHeight: '2rem' }}
                     title={draggable ? 'Click for details, drag to reschedule' : 'Click for details'}
                   >
-                    <p className="truncate text-[0.6rem] font-semibold leading-tight text-white">
+                    <p className={cn(
+                      'truncate text-[0.65rem] font-bold leading-tight',
+                      isPast ? 'text-slate-700' : 'text-white'
+                    )}>
                       {s.subject}
                     </p>
-                    <p className="truncate text-[0.55rem] leading-tight text-slate-300">
-                      {timeLabel} · {getOtherPartyName(s)}
+                    <p className={cn(
+                      'truncate text-[0.6rem] leading-snug',
+                      isPast ? 'text-slate-500' : 'text-slate-300'
+                    )}>
+                      {personName}
+                    </p>
+                    <p className={cn(
+                      'truncate text-[0.6rem] leading-snug',
+                      isPast ? 'text-slate-400' : 'text-indigo-300'
+                    )}>
+                      {timeRange}
                     </p>
                   </button>
                 );
@@ -588,11 +632,14 @@ function WeeklyCalendar({
                     minHeight: '1.5rem',
                   }}
                 >
-                  <p className="truncate text-[0.6rem] font-semibold leading-tight text-indigo-950">
+                  <p className="truncate text-[0.65rem] font-bold leading-tight text-indigo-950">
                     {draggingBooking.subject}
                   </p>
-                  <p className="truncate text-[0.55rem] leading-tight text-indigo-800">
-                    New time
+                  <p className="truncate text-[0.6rem] leading-snug text-indigo-700">
+                    {getOtherPartyName(draggingBooking)}
+                  </p>
+                  <p className="truncate text-[0.6rem] leading-snug text-indigo-600">
+                    Moving…
                   </p>
                 </div>
               ) : null}

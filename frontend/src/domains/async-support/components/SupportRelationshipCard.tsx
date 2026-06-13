@@ -173,6 +173,7 @@ export function SupportRelationshipCard({
           counterpartyName={otherPersonName}
           initiatedBy={viewerRole}
           currentUserId={currentUserId}
+          subject={relationship.subject}
         />
       ) : null}
 
