@@ -20,6 +20,7 @@ type BookSessionModalProps = {
     subject: string;
     durationMinutes: number;
   };
+  subject?: string;
 };
 
 export function BookSessionModal({
@@ -32,6 +33,7 @@ export function BookSessionModal({
   currentUserId,
   mode = 'create',
   existingBooking,
+  subject,
 }: BookSessionModalProps) {
   const [studentAvailabilityBlocks, setStudentAvailabilityBlocks] = useState<TimeBlock[]>([]);
 
@@ -78,6 +80,7 @@ export function BookSessionModal({
           onCancel={onClose}
           mode={mode}
           existingBooking={existingBooking}
+          prefilledSubject={subject}
         />
       </div>
     </div>,

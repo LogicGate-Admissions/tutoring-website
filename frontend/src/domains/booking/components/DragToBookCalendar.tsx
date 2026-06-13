@@ -100,6 +100,8 @@ export type DragToBookCalendarProps = {
     subject: string;
     durationMinutes: number;
   };
+  /** Pre-fills and hides the subject field (used when booking from a matched relationship). */
+  prefilledSubject?: string;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -114,6 +116,7 @@ export function DragToBookCalendar({
   onCancel,
   mode = 'create',
   existingBooking,
+  prefilledSubject,
 }: DragToBookCalendarProps) {
   const isReschedule = mode === 'reschedule';
   const [tutorAvailBlocks, setTutorAvailBlocks] = useState<TimeBlock[]>([]);
@@ -125,7 +128,14 @@ export function DragToBookCalendar({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [bookingDraft, setBookingDraft] = useState<BookingDraft | null>(null);
 
-  const [subject, setSubject] = useState(existingBooking?.subject ?? '');
+  const [subject, setSubject] = useState(prefilledSubject ?? existingBooking?.subject ?? '');
+  const [nowInfo, setNowInfo] = useState<{ top: number; label: string }>(() => {
+    const now = new Date();
+    return {
+      top: ((now.getHours() * 60 + now.getMinutes()) / 30) * SLOT_HEIGHT,
+      label: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+    };
+  });
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -205,6 +215,19 @@ export function DragToBookCalendar({
     }
   }, []);
 
+  // Current-time line: update every 60 s
+  useEffect(() => {
+    function computeNowInfo() {
+      const now = new Date();
+      return {
+        top: ((now.getHours() * 60 + now.getMinutes()) / 30) * SLOT_HEIGHT,
+        label: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+      };
+    }
+    const id = setInterval(() => setNowInfo(computeNowInfo()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
 
   const today = useMemo(() => {
@@ -251,7 +274,8 @@ export function DragToBookCalendar({
   async function handleSubmit() {
     if (!bookingDraft) return;
     setFormError(null);
-    if (!subject) { setFormError('Please select a subject.'); return; }
+    if (!subject && !prefilledSubject) { setFormError('Please select a subject.'); return; }
+    const effectiveSubject = prefilledSubject ?? subject;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -273,7 +297,7 @@ export function DragToBookCalendar({
           tutorId,
           studentId,
           initiatedBy,
-          subject,
+          subject: effectiveSubject,
           date: sessionDate,
           durationMinutes,
           notes: notes.trim() || undefined,
@@ -394,6 +418,8 @@ export function DragToBookCalendar({
             // Fake TimeBlock for getBlockStyle (day field unused by getBlockStyle)
             const draftDay = dayOfWeek(date);
 
+            const isToday = toDateStr(date) === toDateStr(new Date());
+
             return (
               <div
                 key={dateStr}
@@ -416,6 +442,18 @@ export function DragToBookCalendar({
                     className={cn('pointer-events-none border-b', slot.endsWith(':00') ? 'border-slate-200' : 'border-slate-100')}
                   />
                 ))}
+
+                {/* Current-time indicator */}
+                {isToday && (
+                  <div
+                    className="absolute inset-x-0 z-10 flex cursor-default items-center"
+                    style={{ top: nowInfo.top }}
+                    title={nowInfo.label}
+                  >
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500" />
+                    <div className="h-px flex-1 bg-red-500" />
+                  </div>
+                )}
 
                 {/* Tutor availability (gray) */}
                 {tutorDay.map((b) => (
@@ -487,37 +525,39 @@ export function DragToBookCalendar({
 
       {/* Booking form - shown after a drag selection is made */}
       {bookingDraft ? (
-        <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <h3 className="text-sm font-semibold text-slate-950">Selected time</h3>
           <p className="mt-0.5 text-sm text-slate-600">
             {formatDraftSummary(bookingDraft.date, bookingDraft.from, bookingDraft.to)}
           </p>
 
           <div className="mt-4 grid gap-4">
-            <div>
-              <label htmlFor="dtbc-subject" className="block text-sm font-medium text-slate-700">
-                Subject / Topic
-              </label>
-              {isReschedule ? (
-                <p className="mt-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900">
-                  {subject}
-                </p>
-              ) : (
-                <select
-                  id="dtbc-subject"
-                  value={subject}
-                  onChange={(e) => { setSubject(e.target.value); setFormError(null); }}
-                  className={cn(
-                    'mt-1.5 w-full rounded-2xl border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 focus:ring-slate-900 focus:ring-offset-2',
-                    formError ? 'border-rose-400' : 'border-slate-300'
-                  )}
-                >
-                  <option value="">Select a subject…</option>
-                  {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              )}
-              {formError ? <p className="mt-1 text-xs text-rose-600">{formError}</p> : null}
-            </div>
+            {!prefilledSubject && (
+              <div>
+                <label htmlFor="dtbc-subject" className="block text-sm font-medium text-slate-700">
+                  Subject / Topic
+                </label>
+                {isReschedule ? (
+                  <p className="mt-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900">
+                    {subject}
+                  </p>
+                ) : (
+                  <select
+                    id="dtbc-subject"
+                    value={subject}
+                    onChange={(e) => { setSubject(e.target.value); setFormError(null); }}
+                    className={cn(
+                      'mt-1.5 w-full rounded-2xl border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 focus:ring-slate-900 focus:ring-offset-2',
+                      formError ? 'border-rose-400' : 'border-slate-300'
+                    )}
+                  >
+                    <option value="">Select a subject…</option>
+                    {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                )}
+                {formError ? <p className="mt-1 text-xs text-rose-600">{formError}</p> : null}
+              </div>
+            )}
 
             {!isReschedule ? (
               <div>

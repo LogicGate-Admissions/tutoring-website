@@ -16,6 +16,7 @@ import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 import type { AuthUser } from '@/domains/auth/types/auth';
 import { MySessionsTab } from '@/domains/booking/components/sessions/MySessionsTab';
 import type { BookingRequest } from '@/domains/booking/types/booking';
+import { useBookings } from '@/domains/booking/hooks/useBookings';
 import { PreBookingMessageModal } from '@/domains/sessions/trial-sessions/components/PreBookingMessageModal';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import {
@@ -100,6 +101,16 @@ export function TutorDashboard() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const { relationships, isLoading, error } = useRelationshipSummaries('tutor');
   const [supportModal, setSupportModal] = useState<ActiveSupportModal>(null);
+  const { upcomingSessions } = useBookings(currentUser?.id ?? '', 'tutor');
+  const todayUpcomingCount = upcomingSessions.filter((b) => {
+    const d = b.date.toDate();
+    const today = new Date();
+    return (
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate()
+    );
+  }).length;
 
   function setActiveSection(section: Section) {
     router.replace(`/tutor/dashboard?section=${section}`, { scroll: false });
@@ -119,6 +130,7 @@ export function TutorDashboard() {
           tabs={tabs}
           activeTab={activeSection}
           onChange={setActiveSection}
+          badgeCounts={{ 'my-sessions': todayUpcomingCount }}
         />
 
         <main className="min-w-0">
@@ -743,37 +755,49 @@ function SideTabs<T extends string>({
   tabs,
   activeTab,
   onChange,
+  badgeCounts,
 }: {
   tabs: Array<{ id: T; label: string; description: string }>;
   activeTab: T;
   onChange: (tab: T) => void;
+  badgeCounts?: Partial<Record<T, number>>;
 }) {
   return (
     <aside className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
       <div className="grid gap-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onChange(tab.id)}
-            className={cn(
-              'rounded-2xl px-4 py-3 text-left transition',
-              activeTab === tab.id
-                ? 'bg-slate-950 text-white'
-                : 'text-slate-700 hover:bg-slate-50'
-            )}
-          >
-            <span className="block text-sm font-semibold">{tab.label}</span>
-            <span
+        {tabs.map((tab) => {
+          const badge = badgeCounts?.[tab.id];
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onChange(tab.id)}
               className={cn(
-                'mt-1 block text-xs leading-5',
-                activeTab === tab.id ? 'text-slate-300' : 'text-slate-500'
+                'rounded-2xl px-4 py-3 text-left transition',
+                activeTab === tab.id
+                  ? 'bg-slate-950 text-white'
+                  : 'text-slate-700 hover:bg-slate-50'
               )}
             >
-              {tab.description}
-            </span>
-          </button>
-        ))}
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold">{tab.label}</span>
+                {badge ? (
+                  <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1 text-[0.6rem] font-bold text-white">
+                    {badge}
+                  </span>
+                ) : null}
+              </span>
+              <span
+                className={cn(
+                  'mt-1 block text-xs leading-5',
+                  activeTab === tab.id ? 'text-slate-300' : 'text-slate-500'
+                )}
+              >
+                {tab.description}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </aside>
   );
