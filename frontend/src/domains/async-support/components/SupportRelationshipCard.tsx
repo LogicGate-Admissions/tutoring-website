@@ -18,10 +18,12 @@ import type { BookingRequest } from '@/domains/booking/types/booking';
 import type {
   AsyncSupportRole,
   RelationshipSupportSummary,
+  RelationshipTutoringSubject,
 } from '@/domains/async-support/types/asyncSupport';
 import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
 import { getTutorProfile } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
+import type { BookingSubjectOption } from '@/domains/booking/components/DragToBookCalendar';
 import { StudentProfileModal } from '@/domains/students/learning-profile/components/StudentProfileModal';
 import { getStudentLearningProfileById } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
@@ -111,6 +113,12 @@ export function SupportRelationshipCard({
     return [...withoutBookSession, bookSessionAction];
   }, [actions]);
 
+  const relationshipSubjectLabel = getRelationshipSubjectLabel(relationship);
+  const relationshipBookingSubjectOptions = useMemo(
+    () => getRelationshipBookingSubjectOptions(relationship),
+    [relationship]
+  );
+
   return (
     <>
       <Card className="grid gap-4">
@@ -135,7 +143,7 @@ export function SupportRelationshipCard({
             )}
 
             <p className="mt-1 text-sm text-slate-600">
-              {relationship.level} {relationship.subject}
+              {relationshipSubjectLabel}
             </p>
 
             <LatestMessageSummary relationship={relationship} />
@@ -173,7 +181,8 @@ export function SupportRelationshipCard({
           counterpartyName={otherPersonName}
           initiatedBy={viewerRole}
           currentUserId={currentUserId}
-          subject={relationship.subject}
+          subject={relationshipBookingSubjectOptions.length === 1 ? relationshipBookingSubjectOptions[0].label : undefined}
+          subjectOptions={relationshipBookingSubjectOptions}
         />
       ) : null}
 
@@ -194,6 +203,45 @@ export function SupportRelationshipCard({
       ) : null}
     </>
   );
+}
+
+
+function getRelationshipSubjectLabel(relationship: RelationshipSupportSummary) {
+  const requestedSubjects = relationship.requestedSubjects ?? [];
+
+  if (requestedSubjects.length > 0) {
+    return requestedSubjects.map((subject) => subject.label).join(', ');
+  }
+
+  return [relationship.level, relationship.subject].filter(Boolean).join(' ') || 'Subject not specified';
+}
+
+function getRelationshipBookingSubjectOptions(
+  relationship: RelationshipSupportSummary
+): BookingSubjectOption[] {
+  const requestedSubjects = relationship.requestedSubjects ?? [];
+
+  if (requestedSubjects.length > 0) {
+    return requestedSubjects.map(subjectToBookingOption);
+  }
+
+  const label = [relationship.level, relationship.subject].filter(Boolean).join(' ') || relationship.subject;
+
+  return label
+    ? [{
+        level: relationship.level,
+        subject: relationship.subject || label,
+        label,
+      }]
+    : [];
+}
+
+function subjectToBookingOption(subject: RelationshipTutoringSubject): BookingSubjectOption {
+  return {
+    level: subject.level,
+    subject: subject.subject,
+    label: subject.label || [subject.level, subject.subject].filter(Boolean).join(' ') || subject.subject,
+  };
 }
 
 function ProfileNameButton({

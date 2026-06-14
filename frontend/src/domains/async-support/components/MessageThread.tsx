@@ -56,7 +56,7 @@ import { Card } from "@/shared/components/Card";
 import { PdfFirstPagePreview } from "@/domains/async-support/components/PdfFirstPagePreview";
 import { cn } from "@/shared/utils/cn";
 import { getFilesFromClipboard } from "@/shared/utils/clipboardFiles";
-import { DragToBookCalendar } from "@/domains/booking/components/DragToBookCalendar";
+import { DragToBookCalendar, type BookingSubjectOption } from "@/domains/booking/components/DragToBookCalendar";
 import { useRelationshipBookings } from "@/domains/booking/hooks/useRelationshipBookings";
 import type { BookingRequest } from "@/domains/booking/types/booking";
 import { StudentAvailabilityGrid } from "@/domains/students/learning-profile/components/StudentAvailabilityGrid";
@@ -734,7 +734,7 @@ export function MessageThread({
               </p>
               <p className="mt-1">
                 <span className="font-semibold">Subject:</span>{" "}
-                {relationship.level} {relationship.subject}
+                {getRelationshipSubjectLabel(relationship)}
               </p>
             </div>
           ) : null}
@@ -1110,6 +1110,7 @@ export function MessageThread({
                   }
                   onSuccess={handleCloseSchedule}
                   onCancel={handleCloseSchedule}
+                  relationshipSubjectOptions={getRelationshipBookingSubjectOptions(relationship)}
                 />
               </div>
             ) : null}
@@ -1119,6 +1120,45 @@ export function MessageThread({
       ) : null}
     </div>
   );
+}
+
+
+function getRelationshipSubjectLabel(relationship: StudentTutorRelationship) {
+  const requestedSubjects = relationship.requestedSubjects ?? [];
+
+  if (requestedSubjects.length > 0) {
+    return requestedSubjects.map((subject) => subject.label).join(', ');
+  }
+
+  return [relationship.level, relationship.subject].filter(Boolean).join(' ') || 'Subject not specified';
+}
+
+function getRelationshipBookingSubjectOptions(
+  relationship: StudentTutorRelationship | null
+): BookingSubjectOption[] {
+  if (!relationship) {
+    return [];
+  }
+
+  const requestedSubjects = relationship.requestedSubjects ?? [];
+
+  if (requestedSubjects.length > 0) {
+    return requestedSubjects.map((subject) => ({
+      level: subject.level,
+      subject: subject.subject,
+      label: subject.label || [subject.level, subject.subject].filter(Boolean).join(' ') || subject.subject,
+    }));
+  }
+
+  const label = [relationship.level, relationship.subject].filter(Boolean).join(' ') || relationship.subject;
+
+  return label
+    ? [{
+        level: relationship.level,
+        subject: relationship.subject || label,
+        label,
+      }]
+    : [];
 }
 
 function UrgentToggle({

@@ -29,6 +29,7 @@ import type {
   StudentTutorRelationship,
   StudentTutorRelationshipStatus,
   PreBookingMessage,
+  RelationshipTutoringSubject,
 } from '@/domains/async-support/types/asyncSupport';
 
 const RELATIONSHIPS_COLLECTION = 'studentTutorRelationships';
@@ -45,6 +46,7 @@ export type CreateStudentTutorRelationshipInput = {
 
   subject: string;
   level: string;
+  requestedSubjects?: RelationshipTutoringSubject[];
   preBookingMessages?: PreBookingMessage[];
 };
 
@@ -99,6 +101,7 @@ export async function createStudentTutorRelationship(
     tutorEmail: input.tutorEmail,
     subject: input.subject,
     level: input.level,
+    requestedSubjects: normaliseRequestedSubjects(input.requestedSubjects),
     status: 'active',
     preBookingMessages: input.preBookingMessages ?? [],
     createdAt: now,
@@ -118,6 +121,7 @@ export async function createStudentTutorRelationship(
     ...(relationship.tutorEmail ? { tutorEmail: relationship.tutorEmail } : {}),
     subject: relationship.subject,
     level: relationship.level,
+    requestedSubjects: relationship.requestedSubjects ?? [],
     status: relationship.status,
     preBookingMessages: relationship.preBookingMessages ?? [],
     createdAt: relationship.createdAt,
@@ -279,6 +283,7 @@ function mapRelationshipSnapshot(
     tutorEmail: optionalString(data.tutorEmail),
     subject: String(data.subject ?? ''),
     level: String(data.level ?? ''),
+    requestedSubjects: normaliseRequestedSubjects(data.requestedSubjects),
     status: normaliseRelationshipStatus(data.status),
     preBookingMessages: normalisePreBookingMessages(data.preBookingMessages),
     miroBoardId: optionalString(data.miroBoardId),
@@ -377,6 +382,30 @@ function normaliseMessageUrgency(value: unknown) {
   return value === 'urgent' ? 'urgent' : undefined;
 }
 
+
+
+function normaliseRequestedSubjects(value: unknown): RelationshipTutoringSubject[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    const data = item as Record<string, unknown>;
+    const subject = String(data.subject ?? '').trim();
+    const level = String(data.level ?? '').trim();
+    const label = String(data.label ?? [level, subject].filter(Boolean).join(' ')).trim();
+
+    if (!subject && !label) {
+      return [];
+    }
+
+    return [{
+      level,
+      subject: subject || label,
+      label: label || subject,
+    } satisfies RelationshipTutoringSubject];
+  });
+}
 
 function normalisePreBookingMessages(value: unknown): PreBookingMessage[] {
   if (!Array.isArray(value)) {

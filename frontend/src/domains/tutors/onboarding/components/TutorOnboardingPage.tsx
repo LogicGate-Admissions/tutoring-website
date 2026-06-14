@@ -280,8 +280,7 @@ export function TutorOnboardingPage() {
     return null;
   }
 
-  async function finishTutorOnboarding(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
+  async function finishTutorOnboarding() {
     setError(null);
 
     if (!currentTutor) {
@@ -308,6 +307,21 @@ export function TutorOnboardingPage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+
+  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const nextTab = getNextTab(activeTab);
+
+    if (nextTab) {
+      setError(null);
+      setActiveTab(nextTab);
+      return;
+    }
+
+    void finishTutorOnboarding();
   }
 
   function goBack() {
@@ -380,7 +394,7 @@ export function TutorOnboardingPage() {
       />
 
       <Container className="py-10 pb-28">
-        <form onSubmit={finishTutorOnboarding} className="grid gap-8">
+        <form onSubmit={handleFormSubmit} className="grid gap-8">
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
             <div className="grid gap-2 md:grid-cols-4">
               {TUTOR_ONBOARDING_TABS.map((tab) => {

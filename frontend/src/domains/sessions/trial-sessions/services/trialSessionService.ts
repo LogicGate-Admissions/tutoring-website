@@ -250,6 +250,7 @@ export async function acceptTrialSessionRequest(request: TrialSessionRequest) {
     tutorEmail: getCurrentFirebaseUser()?.email ?? '',
     subject: request.subject,
     level: request.level,
+    requestedSubjects: request.requestedSubjects ?? [],
     preBookingMessages: request.preBookingMessages ?? [],
   });
 

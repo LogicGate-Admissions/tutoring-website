@@ -84,11 +84,59 @@ async function assertTutorOffersSubject(
     throw new SlotUnavailableError('Tutor profile not found.');
   }
 
-  const subjects: string[] = tutorSnap.data().subjects ?? [];
+  const data = tutorSnap.data();
+  const requestedSubject = normaliseSubjectLabel(subject);
+  const allowedSubjects = getAllowedTutorSubjectLabels(data as Record<string, unknown>);
 
-  if (!subjects.includes(subject)) {
+  if (!allowedSubjects.some((allowedSubject) => allowedSubject === requestedSubject)) {
     throw new SlotUnavailableError('The requested subject is not offered by this tutor.');
   }
+}
+
+function normaliseSubjectLabel(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function getAllowedTutorSubjectLabels(data: Record<string, unknown>) {
+  const labels = new Set<string>();
+
+  const add = (value: unknown) => {
+    const label = normaliseSubjectLabel(String(value ?? ''));
+    if (label) labels.add(label);
+  };
+
+  const subjects = Array.isArray(data.subjects) ? data.subjects : [];
+  subjects.forEach(add);
+
+  const subjectRates = Array.isArray(data.subjectRates) ? data.subjectRates : [];
+  subjectRates.forEach((item) => {
+    const rate = item as Record<string, unknown>;
+    const level = String(rate.qualification ?? '').trim();
+    const subject = String(rate.subject ?? '').trim();
+
+    add(subject);
+    add([level, subject].filter(Boolean).join(' '));
+  });
+
+  const subjectSelections = Array.isArray(data.subjectSelections)
+    ? data.subjectSelections
+    : [];
+
+  subjectSelections.forEach((item) => {
+    const selection = item as Record<string, unknown>;
+    const level = String(selection.category ?? '').trim();
+    const selectionSubjects = Array.isArray(selection.subjects)
+      ? selection.subjects
+      : [];
+
+    selectionSubjects.forEach((selectionSubject) => {
+      const subject = String(selectionSubject ?? '').trim();
+      add(subject);
+      add([level, subject].filter(Boolean).join(' '));
+    });
+  });
+
+  return Array.from(labels);
 }
 
 // ─── Conflict detection ───────────────────────────────────────────────────────
