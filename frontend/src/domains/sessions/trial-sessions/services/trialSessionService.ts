@@ -127,40 +127,41 @@ export async function addMatchRequestToPreBookingConversation({
   requestId,
   senderId,
   senderName,
-  body,
+  body = '',
 }: {
   requestId: string;
   senderId: string;
   senderName: string;
-  body: string;
+  /** Optional note from the student. Empty match requests should not create an automatic message. */
+  body?: string;
 }) {
   const trimmedBody = body.trim();
-
-  if (!trimmedBody) {
-    return;
-  }
-
-  const message: PreBookingMessage = {
-    id: crypto.randomUUID(),
-    senderId,
-    senderRole: 'student',
-    senderName,
-    body: trimmedBody,
-    createdAt: new Date().toISOString(),
-  };
-
   const requestRef = doc(
     db,
     FIRESTORE_COLLECTIONS.trialSessionRequests,
     requestId
   );
 
-  await updateDoc(requestRef, {
-    preBookingMessages: arrayUnion(message),
+  const updatePayload: Record<string, unknown> = {
     pendingReasons: arrayUnion('requested'),
-    message: trimmedBody,
     updatedAt: serverTimestamp(),
-  });
+  };
+
+  if (trimmedBody) {
+    const message: PreBookingMessage = {
+      id: crypto.randomUUID(),
+      senderId,
+      senderRole: 'student',
+      senderName,
+      body: trimmedBody,
+      createdAt: new Date().toISOString(),
+    };
+
+    updatePayload.preBookingMessages = arrayUnion(message);
+    updatePayload.message = trimmedBody;
+  }
+
+  await updateDoc(requestRef, updatePayload);
 }
 
 /** Adds a text-only clarifying message to a pending match request. */

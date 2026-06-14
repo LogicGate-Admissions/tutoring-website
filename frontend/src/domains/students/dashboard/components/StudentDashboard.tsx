@@ -527,9 +527,6 @@ function PendingTutorsPanel({
     }
 
     const existingRequest = getLatestRequestForTutor(requests, tutor.id);
-    const body =
-      'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.';
-
     if (existingRequest) {
       if (existingRequest.status === 'rejected') {
         await updateTrialSessionStatus(existingRequest.id, 'pending');
@@ -537,7 +534,6 @@ function PendingTutorsPanel({
           requestId: existingRequest.id,
           senderId: currentStudent.id,
           senderName: currentStudent.name,
-          body: 'I would like to request the match again. I still think this tutor could be a good fit.',
         });
         setNotice(`Match request sent again to ${tutor.name}.`);
         return;
@@ -567,7 +563,6 @@ function PendingTutorsPanel({
         requestId: existingRequest.id,
         senderId: currentStudent.id,
         senderName: currentStudent.name,
-        body,
       });
       setNotice(`Match request sent to ${tutor.name}.`);
       return;
@@ -590,18 +585,9 @@ function PendingTutorsPanel({
       preferredTime:
         profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
         tutor.availability,
-      message: body,
+      message: '',
       pendingReasons: ['requested'],
-      preBookingMessages: [
-        {
-          id: crypto.randomUUID(),
-          senderId: currentStudent.id,
-          senderRole: 'student',
-          senderName: currentStudent.name,
-          body,
-          createdAt: new Date().toISOString(),
-        },
-      ],
+      preBookingMessages: [],
     });
 
     setNotice(`Match request sent to ${tutor.name}.`);

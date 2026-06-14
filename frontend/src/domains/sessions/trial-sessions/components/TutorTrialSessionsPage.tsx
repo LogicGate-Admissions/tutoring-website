@@ -141,14 +141,16 @@ export function TutorTrialSessionsPage() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge>{request.subject}</Badge>
-                      <Badge>{request.level}</Badge>
+                      <Badge>{formatRequestedSubjects(request)}</Badge>
+                      {request.level ? <Badge>{request.level}</Badge> : null}
                       <Badge>{request.learningStyle}</Badge>
                     </div>
 
-                    <p className="mt-5 max-w-3xl leading-7 text-slate-600">
-                      {request.message}
-                    </p>
+                    {request.message ? (
+                      <p className="mt-5 max-w-3xl leading-7 text-slate-600">
+                        {request.message}
+                      </p>
+                    ) : null}
 
                     <p className="mt-4 text-sm font-medium text-slate-700">
                       Preferred time: {request.preferredTime}
@@ -189,4 +191,13 @@ export function TutorTrialSessionsPage() {
       </DashboardShell>
     </main>
   );
+}
+
+
+function formatRequestedSubjects(request: TrialSessionRequest) {
+  if (request.requestedSubjects && request.requestedSubjects.length > 0) {
+    return request.requestedSubjects.map((subject) => subject.label).join(', ');
+  }
+
+  return [request.level, request.subject].filter(Boolean).join(' ') || 'Subject not set';
 }

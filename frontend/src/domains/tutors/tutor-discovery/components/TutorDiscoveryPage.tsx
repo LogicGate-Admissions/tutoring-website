@@ -31,7 +31,10 @@ import {
   subscribeToStudentTrialSessions,
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
-import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import type {
+  RequestedTutoringSubject,
+  TrialSessionRequest,
+} from '@/domains/sessions/trial-sessions/types/trialSession';
 import {
   getTrialRequestDisplayPriority,
   hasRequestedMatch,
@@ -82,7 +85,7 @@ export function TutorDiscoveryPage() {
   const [messageTutorId, setMessageTutorId] = useState<string | null>(null);
   const [isCreatingPreBookingRequest, setIsCreatingPreBookingRequest] = useState(false);
   const [subjectPickerTutor, setSubjectPickerTutor] = useState<Tutor | null>(null);
-  const [pickerSelectedSubject, setPickerSelectedSubject] = useState('');
+  const [pickerSelectedSubjectKeys, setPickerSelectedSubjectKeys] = useState<string[]>([]);
   const [pickerBusy, setPickerBusy] = useState(false);
 
   useEffect(() => {
@@ -218,7 +221,7 @@ export function TutorDiscoveryPage() {
   const selectedTutor = tutors.find((tutor) => tutor.id === selectedTutorId) ?? null;
 
   const selectedTutorRequest = selectedTutor
-    ? findExistingRequest(selectedTutor.id)
+    ? getRequestForProfile(findExistingRequest(selectedTutor.id), confirmedTutorIds.has(selectedTutor.id))
     : undefined;
 
   const messageTutor = tutors.find((tutor) => tutor.id === messageTutorId) ?? null;
@@ -357,7 +360,7 @@ export function TutorDiscoveryPage() {
     });
   }
 
-  async function requestTrial(tutor: Tutor, subjectOverride?: string) {
+  async function requestTrial(tutor: Tutor, subjectChoices: SubjectPickerChoice[] = []) {
     if (!currentStudent) {
       setNotice('Please log in again before requesting a match.');
       return;
@@ -372,8 +375,6 @@ export function TutorDiscoveryPage() {
           requestId: existingRequest.id,
           senderId: currentStudent.id,
           senderName: currentStudent.name,
-          body:
-            'I would like to request the match again. I still think this tutor could be a good fit.',
         });
         setNotice(`Match request sent again to ${tutor.name}.`);
         return;
@@ -388,33 +389,27 @@ export function TutorDiscoveryPage() {
         requestId: existingRequest.id,
         senderId: currentStudent.id,
         senderName: currentStudent.name,
-        body:
-          'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
       });
       setNotice(`Match request sent to ${tutor.name}.`);
       return;
     }
 
     const profile = studentProfile ?? (await getStoredLearningProfile());
-
+    const selectedSubjects = normaliseRequestedSubjects(
+      subjectChoices.length > 0
+        ? subjectChoices
+        : getFallbackSubjectChoices(tutor, profile, filters)
+    );
+    const subjectLabel = selectedSubjects.map((subject) => subject.label).join(', ');
     await createTrialSessionRequest({
       tutorId: tutor.id,
       tutorName: tutor.name,
       studentId: currentStudent.id,
       studentName: currentStudent.name,
       studentEmail: currentStudent.email,
-      subject:
-        subjectOverride ||
-        filters.subjects[0]?.subject ||
-        profile.subjectSelections[0]?.subjects[0] ||
-        tutor.subjects[0] ||
-        'Not specified',
-      level:
-        filters.subjects[0]?.level ||
-        filters.levels[0] ||
-        profile.subjectSelections[0]?.category ||
-        tutor.levels[0] ||
-        'Not specified',
+      subject: subjectLabel || 'Not specified',
+      level: '',
+      requestedSubjects: selectedSubjects,
       learningStyle:
         filters.learningStyles[0] ||
         profile.learningStyles[0] ||
@@ -423,20 +418,9 @@ export function TutorDiscoveryPage() {
       preferredTime:
         profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
         tutor.availability,
-      message:
-        'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
+      message: '',
       pendingReasons: ['requested'],
-      preBookingMessages: [
-        {
-          id: crypto.randomUUID(),
-          senderId: currentStudent.id,
-          senderRole: 'student',
-          senderName: currentStudent.name,
-          body:
-            'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.',
-          createdAt: new Date().toISOString(),
-        },
-      ],
+      preBookingMessages: [],
     });
 
     setNotice(`Match request sent to ${tutor.name}.`);
@@ -506,7 +490,7 @@ export function TutorDiscoveryPage() {
           onToggleShortlist={toggleShortlist}
           onRequestTrial={(tutor) => {
             setSubjectPickerTutor(tutor);
-            setPickerSelectedSubject('');
+            setPickerSelectedSubjectKeys([]);
           }}
         />
       )}
@@ -514,23 +498,34 @@ export function TutorDiscoveryPage() {
       {subjectPickerTutor && (
         <SubjectPickerModal
           tutor={subjectPickerTutor}
-          selectedSubject={pickerSelectedSubject}
-          onSelect={setPickerSelectedSubject}
+          selectedSubjectKeys={pickerSelectedSubjectKeys}
+          onToggle={(key) =>
+            setPickerSelectedSubjectKeys((currentKeys) =>
+              currentKeys.includes(key)
+                ? currentKeys.filter((currentKey) => currentKey !== key)
+                : [...currentKeys, key]
+            )
+          }
           busy={pickerBusy}
           onConfirm={async () => {
-            if (!pickerSelectedSubject) return;
+            if (pickerSelectedSubjectKeys.length === 0) return;
             setPickerBusy(true);
             try {
-              await requestTrial(subjectPickerTutor, pickerSelectedSubject);
+              await requestTrial(
+                subjectPickerTutor,
+                getSubjectPickerChoices(subjectPickerTutor).filter((choice) =>
+                  pickerSelectedSubjectKeys.includes(choice.key)
+                )
+              );
             } finally {
               setPickerBusy(false);
               setSubjectPickerTutor(null);
-              setPickerSelectedSubject('');
+              setPickerSelectedSubjectKeys([]);
             }
           }}
           onCancel={() => {
             setSubjectPickerTutor(null);
-            setPickerSelectedSubject('');
+            setPickerSelectedSubjectKeys([]);
           }}
         />
       )}
@@ -550,44 +545,60 @@ export function TutorDiscoveryPage() {
 }
 
 
+type SubjectPickerChoice = RequestedTutoringSubject & {
+  key: string;
+  pricePerHour?: number;
+};
+
 function SubjectPickerModal({
   tutor,
-  selectedSubject,
-  onSelect,
+  selectedSubjectKeys,
+  onToggle,
   busy,
   onConfirm,
   onCancel,
 }: {
   tutor: Tutor;
-  selectedSubject: string;
-  onSelect: (subject: string) => void;
+  selectedSubjectKeys: string[];
+  onToggle: (key: string) => void;
   busy: boolean;
   onConfirm: () => Promise<void>;
   onCancel: () => void;
 }) {
+  const choices = getSubjectPickerChoices(tutor);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
-        <h2 className="text-base font-semibold text-slate-950">What subject do you need help with?</h2>
+      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+        <h2 className="text-base font-semibold text-slate-950">What subjects do you need help with?</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Choose the subject you want {tutor.name} to teach you.
+          Choose one or more subjects you want {tutor.name} to teach you. Each option includes the level.
         </p>
 
-        <div className="mt-4 grid gap-2">
-          {tutor.subjects.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => onSelect(s)}
-              className={`w-full rounded-2xl border px-4 py-2.5 text-left text-sm font-medium transition ${
-                selectedSubject === s
-                  ? 'border-slate-950 bg-slate-950 text-white'
-                  : 'border-slate-200 bg-white text-slate-800 hover:border-slate-400'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
+        <div className="mt-4 grid max-h-72 gap-2 overflow-y-auto pr-1">
+          {choices.map((choice) => {
+            const isSelected = selectedSubjectKeys.includes(choice.key);
+
+            return (
+              <button
+                key={choice.key}
+                type="button"
+                onClick={() => onToggle(choice.key)}
+                className={`w-full rounded-2xl border px-4 py-2.5 text-left text-sm font-medium transition ${
+                  isSelected
+                    ? 'border-slate-950 bg-slate-950 text-white'
+                    : 'border-slate-200 bg-white text-slate-800 hover:border-slate-400'
+                }`}
+              >
+                <span>{choice.label}</span>
+                {typeof choice.pricePerHour === 'number' ? (
+                  <span className={`ml-2 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
+                    £{choice.pricePerHour}/hr
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
 
         <div className="mt-5 flex gap-3">
@@ -600,7 +611,7 @@ function SubjectPickerModal({
           </button>
           <button
             type="button"
-            disabled={!selectedSubject || busy}
+            disabled={selectedSubjectKeys.length === 0 || busy}
             onClick={() => void onConfirm()}
             className="flex-1 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
           >
@@ -610,6 +621,98 @@ function SubjectPickerModal({
       </div>
     </div>
   );
+}
+
+function getSubjectPickerChoices(tutor: Tutor): SubjectPickerChoice[] {
+  const subjectRates = tutor.subjectRates ?? [];
+
+  if (subjectRates.length > 0) {
+    return dedupeSubjectChoices(
+      subjectRates.map((rate) => ({
+        key: `${rate.qualification}:${rate.subject}`,
+        level: rate.qualification,
+        subject: rate.subject,
+        label: `${rate.qualification} ${rate.subject}`,
+        pricePerHour: rate.pricePerHour,
+      }))
+    );
+  }
+
+  const levels = tutor.levels.length > 0 ? tutor.levels : [''];
+  const subjects = tutor.subjects.length > 0 ? tutor.subjects : ['Not specified'];
+
+  return dedupeSubjectChoices(
+    levels.flatMap((level) =>
+      subjects.map((subject) => ({
+        key: `${level || 'level'}:${subject}`,
+        level,
+        subject,
+        label: [level, subject].filter(Boolean).join(' ') || subject,
+      }))
+    )
+  );
+}
+
+function getFallbackSubjectChoices(
+  tutor: Tutor,
+  profile: StudentLearningProfile,
+  filters: TutorFilters
+): SubjectPickerChoice[] {
+  const choices = getSubjectPickerChoices(tutor);
+  const preferred = [
+    ...filters.subjects.map((selection) => ({
+      level: selection.level,
+      subject: selection.subject,
+    })),
+    ...profile.subjectSelections.flatMap((selection) =>
+      selection.subjects.map((subject) => ({
+        level: selection.category,
+        subject,
+      }))
+    ),
+  ];
+
+  const matchingChoice = choices.find((choice) =>
+    preferred.some(
+      (selection) =>
+        selection.level === choice.level &&
+        selection.subject.toLowerCase() === choice.subject.toLowerCase()
+    )
+  );
+
+  return matchingChoice ? [matchingChoice] : choices.slice(0, 1);
+}
+
+function dedupeSubjectChoices(choices: SubjectPickerChoice[]) {
+  const seen = new Set<string>();
+
+  return choices.filter((choice) => {
+    const key = `${choice.level}:${choice.subject}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function normaliseRequestedSubjects(
+  choices: SubjectPickerChoice[]
+): RequestedTutoringSubject[] {
+  return choices.map(({ level, subject, label }) => ({ level, subject, label }));
+}
+
+
+function getRequestForProfile(
+  request: TrialSessionRequest | undefined,
+  hasAcceptedRelationship: boolean
+) {
+  if (!request || !hasAcceptedRelationship || request.status === 'accepted') {
+    return request;
+  }
+
+  return {
+    ...request,
+    status: 'accepted',
+  } satisfies TrialSessionRequest;
 }
 
 function getLatestRequestForTutor(

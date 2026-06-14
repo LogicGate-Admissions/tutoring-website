@@ -505,7 +505,7 @@ function PendingStudentCard({
           />
 
           <p className="mt-1 text-sm text-slate-600">
-            {request.level} {request.subject}
+            {formatTrialRequestSubject(request)}
           </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
@@ -850,4 +850,13 @@ function getTutorRelationshipActions(
       href: `${baseHref}/workspace`,
     },
   ];
+}
+
+
+function formatTrialRequestSubject(request: TrialSessionRequest) {
+  if (request.requestedSubjects && request.requestedSubjects.length > 0) {
+    return request.requestedSubjects.map((subject) => subject.label).join(', ');
+  }
+
+  return [request.level, request.subject].filter(Boolean).join(' ') || 'Subject not set';
 }
