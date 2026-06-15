@@ -34,8 +34,8 @@ const TARGET_EMAILS = [
   "test-tutor-1@gmail.com",
 
   // Final presentation accounts, in case they already exist from testing
-  "leo.walter08@gmail.com",
-  "sarah.sylvester06@gmail.com",
+  "leo.walter2008@gmail.com",
+  "sarah.sylvester2006@gmail.com",
 ];
 
 const deletedPaths = new Set();
@@ -143,8 +143,8 @@ async function main() {
 
   console.log("\nDone.");
   console.log("Now sign up again through the app with:");
-  console.log("- leo.walter08@gmail.com");
-  console.log("- sarah.sylvester06@gmail.com");
+  console.log("- leo.walter2008@gmail.com");
+  console.log("- sarah.sylvester2006@gmail.com");
 }
 
 main().catch((error) => {
