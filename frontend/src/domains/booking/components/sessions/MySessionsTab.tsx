@@ -20,8 +20,8 @@ import { cn } from '@/shared/utils/cn';
 
 const MAX_VISIBLE = 4;
 
-const HOUR_START = 7;
-const HOUR_END = 22;
+const HOUR_START = 0;
+const HOUR_END = 24;
 const TOTAL_HOURS = HOUR_END - HOUR_START;
 const SLOT_HEIGHT_REM = 3.5;
 
@@ -300,7 +300,10 @@ function sessionHeightPercent(durationMinutes: number): number {
 function topPercentToDate(day: Date, topPercent: number): Date {
   const totalMinutes = TOTAL_HOURS * 60;
   const startMinute = (topPercent / 100) * totalMinutes;
-  const snapped = Math.round(startMinute / 15) * 15;
+  const snapped = Math.min(
+    totalMinutes - 15,
+    Math.max(0, Math.round(startMinute / 15) * 15)
+  );
   const hours = HOUR_START + Math.floor(snapped / 60);
   const minutes = snapped % 60;
   const d = new Date(day);

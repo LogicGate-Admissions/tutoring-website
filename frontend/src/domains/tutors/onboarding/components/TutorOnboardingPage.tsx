@@ -285,6 +285,11 @@ export function TutorOnboardingPage() {
   async function finishTutorOnboarding() {
     setError(null);
 
+    if (activeTab !== 'profile') {
+      setActiveTab('profile');
+      return;
+    }
+
     if (!currentTutor) {
       setError('Please log in again before saving your tutor profile.');
       return;
