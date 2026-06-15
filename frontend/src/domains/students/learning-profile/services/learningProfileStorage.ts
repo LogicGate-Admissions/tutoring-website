@@ -18,6 +18,10 @@ function studentProfileDocumentRef(studentId: string) {
   return doc(db, FIRESTORE_COLLECTIONS.studentProfiles, studentId);
 }
 
+function userDocumentRef(userId: string) {
+  return doc(db, FIRESTORE_COLLECTIONS.users, userId);
+}
+
 /** Ensure callers do not silently save data without a Firebase user. */
 function requireCurrentUserId() {
   const user = getCurrentFirebaseUser();
@@ -65,6 +69,18 @@ export async function saveLearningProfile(profile: StudentLearningProfile) {
     {
       ...profile,
       ownerId: studentId,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  const displayName = profile.displayName?.trim();
+
+  await setDoc(
+    userDocumentRef(studentId),
+    {
+      ...(displayName ? { name: displayName } : {}),
+      ...(profile.photoUrl !== undefined ? { photoUrl: profile.photoUrl } : {}),
       updatedAt: serverTimestamp(),
     },
     { merge: true }

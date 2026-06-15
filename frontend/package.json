@@ -10,7 +10,9 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "google:refresh-token": "node scripts/get-google-refresh-token.mjs"
+    "google:refresh-token": "node scripts/get-google-refresh-token.mjs",
+    "demo:seed": "node scripts/seed-demo.cjs",
+    "demo:reset": "node scripts/reset-leo-sarah.cjs"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

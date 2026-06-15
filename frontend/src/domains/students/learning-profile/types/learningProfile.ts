@@ -39,6 +39,10 @@ export type StudentLearningProfile = {
   subjectSelections: QualificationSubjectSelection[];
   learningStyles: string[];
   preferredUniversities: string[];
+  /** Public display name shown to tutors in requests, dashboards, and messages. */
+  displayName: string;
+  /** Public face photo used in messages, dashboards, and tutor views. */
+  photoUrl?: string;
   /** Short free-text note from the student about how they learn and what they need help with. */
   bio: string;
   availability: TimeBlock[];

@@ -6,7 +6,7 @@ import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import {
   createBookingRequest,
-  rescheduleBookingRequest,
+  proposeReschedule,
 } from '@/domains/booking/services/bookingService';
 import { BookingConflictError, SlotUnavailableError } from '@/domains/booking/types/booking';
 import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
@@ -20,6 +20,7 @@ import {
 } from '@/domains/students/learning-profile/utils/availabilityGridMath';
 import { TimeLabels } from '@/domains/students/learning-profile/components/availability/AvailabilityGridLayout';
 import { cn } from '@/shared/utils/cn';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -84,6 +85,82 @@ function formatDraftSummary(date: Date, from: string, to: string): string {
 type DragState = { dateStr: string; startMinutes: number; endMinutes: number };
 type BookingDraft = { date: Date; from: string; to: string };
 
+export type BookingSubjectOption = {
+  label: string;
+  subject: string;
+  level?: string;
+};
+
+function normaliseText(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function normaliseSubjectOptions(options: BookingSubjectOption[]) {
+  const seen = new Set<string>();
+
+  return options
+    .map((option) => ({
+      label: normaliseText(formatStoredSubjectLabel(option)),
+      subject: normaliseText(option.subject || option.label),
+      level: normaliseText(option.level ?? ''),
+    }))
+    .filter((option) => option.label && option.subject)
+    .filter((option) => {
+      const key = `${option.level}:${option.subject}:${option.label}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function subjectOptionsFromTutorProfile(data: Record<string, unknown>) {
+  const subjectRates = Array.isArray(data.subjectRates) ? data.subjectRates : [];
+  const rateOptions = subjectRates.flatMap((item): BookingSubjectOption[] => {
+    const rate = item as Record<string, unknown>;
+    const level = String(rate.qualification ?? '').trim();
+    const subject = String(rate.subject ?? '').trim();
+
+    if (!subject) return [];
+
+    return [{
+      level,
+      subject,
+      label: formatStoredSubjectLabel({ level, subject }),
+    }];
+  });
+
+  if (rateOptions.length > 0) {
+    return normaliseSubjectOptions(rateOptions);
+  }
+
+  const subjects = Array.isArray(data.subjects) ? data.subjects.map(String) : [];
+
+  return normaliseSubjectOptions(
+    subjects.map((subject) => ({
+      subject,
+      label: subject,
+    }))
+  );
+}
+
+function getInitialSubject({
+  relationshipSubjectOptions,
+  prefilledSubject,
+  existingSubject,
+}: {
+  relationshipSubjectOptions?: BookingSubjectOption[];
+  prefilledSubject?: string;
+  existingSubject?: string;
+}) {
+  const relationshipOptions = normaliseSubjectOptions(relationshipSubjectOptions ?? []);
+
+  if (existingSubject) return existingSubject;
+  if (relationshipOptions.length === 1) return relationshipOptions[0].label;
+  if (prefilledSubject) return prefilledSubject;
+
+  return '';
+}
+
 export type DragToBookCalendarProps = {
   tutorId: string;
   studentId: string;
@@ -100,8 +177,10 @@ export type DragToBookCalendarProps = {
     subject: string;
     durationMinutes: number;
   };
-  /** Pre-fills and hides the subject field (used when booking from a matched relationship). */
+  /** Legacy single subject fallback. */
   prefilledSubject?: string;
+  /** Subjects agreed in the accepted match. One option is auto-selected; multiple options are shown as a dropdown. */
+  relationshipSubjectOptions?: BookingSubjectOption[];
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -117,10 +196,11 @@ export function DragToBookCalendar({
   mode = 'create',
   existingBooking,
   prefilledSubject,
+  relationshipSubjectOptions,
 }: DragToBookCalendarProps) {
   const isReschedule = mode === 'reschedule';
   const [tutorAvailBlocks, setTutorAvailBlocks] = useState<TimeBlock[]>([]);
-  const [subjects, setSubjects] = useState<string[]>([]);
+  const [tutorSubjectOptions, setTutorSubjectOptions] = useState<BookingSubjectOption[]>([]);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -128,7 +208,13 @@ export function DragToBookCalendar({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [bookingDraft, setBookingDraft] = useState<BookingDraft | null>(null);
 
-  const [subject, setSubject] = useState(prefilledSubject ?? existingBooking?.subject ?? '');
+  const [subject, setSubject] = useState(() =>
+    getInitialSubject({
+      relationshipSubjectOptions,
+      prefilledSubject,
+      existingSubject: existingBooking?.subject,
+    })
+  );
   const [nowInfo, setNowInfo] = useState<{ top: number; label: string }>(() => {
     const now = new Date();
     return {
@@ -162,8 +248,8 @@ export function DragToBookCalendar({
           setProfileLoading(false);
           return;
         }
-        const data = snap.data();
-        setSubjects((data.subjects as string[]) ?? []);
+        const data = snap.data() as Record<string, unknown>;
+        setTutorSubjectOptions(subjectOptionsFromTutorProfile(data));
         setTutorAvailBlocks((data.availabilityBlocks as TimeBlock[]) ?? []);
         setProfileLoading(false);
       })
@@ -175,6 +261,27 @@ export function DragToBookCalendar({
       });
     return () => { cancelled = true; };
   }, [tutorId]);
+
+  const relationshipOptions = useMemo(
+    () => normaliseSubjectOptions(relationshipSubjectOptions ?? []),
+    [relationshipSubjectOptions]
+  );
+
+  const effectiveSubjectOptions = relationshipOptions.length > 0
+    ? relationshipOptions
+    : tutorSubjectOptions;
+
+  const shouldShowSubjectPicker = !isReschedule && effectiveSubjectOptions.length !== 1;
+  const shouldShowFixedSubject = !isReschedule && effectiveSubjectOptions.length === 1;
+
+  const autoSelectedSubject = !isReschedule && effectiveSubjectOptions.length === 1
+    ? effectiveSubjectOptions[0].label
+    : '';
+
+  function getResolvedSubject() {
+    if (isReschedule) return existingBooking?.subject || subject;
+    return subject || autoSelectedSubject || prefilledSubject || '';
+  }
 
   // Document-level mouse handlers - registered once, read state via ref
   useEffect(() => {
@@ -274,8 +381,8 @@ export function DragToBookCalendar({
   async function handleSubmit() {
     if (!bookingDraft) return;
     setFormError(null);
-    if (!subject && !prefilledSubject) { setFormError('Please select a subject.'); return; }
-    const effectiveSubject = prefilledSubject ?? subject;
+    const effectiveSubject = getResolvedSubject();
+    if (!effectiveSubject) { setFormError('Please select a subject.'); return; }
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -285,13 +392,13 @@ export function DragToBookCalendar({
       const durationMinutes = timeToMinutes(to) - timeToMinutes(from);
 
       if (isReschedule && existingBooking) {
-        await rescheduleBookingRequest(
+        await proposeReschedule(
           existingBooking.id,
           sessionDate,
           durationMinutes,
           initiatedBy
         );
-        setToast('Session rescheduled');
+        setToast('Reschedule proposed — waiting for confirmation');
       } else {
         await createBookingRequest({
           tutorId,
@@ -532,32 +639,38 @@ export function DragToBookCalendar({
           </p>
 
           <div className="mt-4 grid gap-4">
-            {!prefilledSubject && (
-              <div>
-                <label htmlFor="dtbc-subject" className="block text-sm font-medium text-slate-700">
-                  Subject / Topic
-                </label>
-                {isReschedule ? (
-                  <p className="mt-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900">
-                    {subject}
-                  </p>
-                ) : (
-                  <select
-                    id="dtbc-subject"
-                    value={subject}
-                    onChange={(e) => { setSubject(e.target.value); setFormError(null); }}
-                    className={cn(
-                      'mt-1.5 w-full rounded-2xl border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 focus:ring-slate-900 focus:ring-offset-2',
-                      formError ? 'border-rose-400' : 'border-slate-300'
-                    )}
-                  >
-                    <option value="">Select a subject…</option>
-                    {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                )}
-                {formError ? <p className="mt-1 text-xs text-rose-600">{formError}</p> : null}
-              </div>
-            )}
+            <div>
+              <label htmlFor="dtbc-subject" className="block text-sm font-medium text-slate-700">
+                Subject
+              </label>
+              {isReschedule || shouldShowFixedSubject ? (
+                <p className="mt-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900">
+                  {getResolvedSubject() || existingBooking?.subject || 'Subject not selected'}
+                </p>
+              ) : shouldShowSubjectPicker ? (
+                <select
+                  id="dtbc-subject"
+                  value={subject}
+                  onChange={(e) => { setSubject(e.target.value); setFormError(null); }}
+                  className={cn(
+                    'mt-1.5 w-full rounded-2xl border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 focus:ring-slate-900 focus:ring-offset-2',
+                    formError ? 'border-rose-400' : 'border-slate-300'
+                  )}
+                >
+                  <option value="">Select a subject…</option>
+                  {effectiveSubjectOptions.map((option) => (
+                    <option key={`${option.level}:${option.subject}:${option.label}`} value={option.label}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="mt-1.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+                  No subjects are available for this tutor yet.
+                </p>
+              )}
+              {formError ? <p className="mt-1 text-xs text-rose-600">{formError}</p> : null}
+            </div>
 
             {!isReschedule ? (
               <div>

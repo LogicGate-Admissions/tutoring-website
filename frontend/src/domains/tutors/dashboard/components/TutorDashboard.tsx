@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { MathRenderer } from '@/domains/async-support/components/MathRenderer';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
 import { RelationshipSupportModal } from '@/domains/async-support/components/RelationshipSupportModal';
@@ -25,6 +26,7 @@ import {
   ensureTutorStudentLink,
   markPreBookingMessagesSeen,
   subscribeToTutorTrialSessions,
+  unlockPreBookingMessaging,
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
@@ -35,8 +37,10 @@ import type { StudentLearningProfile } from '@/domains/students/learning-profile
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
+import { ProfileAvatar } from '@/shared/components/ProfileAvatar';
 import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 type Section = 'my-students' | 'pending-students' | 'my-sessions' | 'tutor-profile';
 type ActiveSupportModal = {
@@ -264,7 +268,7 @@ function PendingStudentsPanel({
   const [activeFilters, setActiveFilters] = useState<PendingFilter[]>(
     pendingFilters.map((filter) => filter.id)
   );
-  const [messageRequest, setMessageRequest] = useState<TrialSessionRequest | null>(null);
+  const [messageRequestId, setMessageRequestId] = useState<string | null>(null);
   const [studentProfileForModal, setStudentProfileForModal] = useState<{
     studentName: string;
     profile: StudentLearningProfile;
@@ -314,7 +318,7 @@ function PendingStudentsPanel({
   }
 
   async function openPendingStudentMessage(request: TrialSessionRequest) {
-    setMessageRequest(request);
+    setMessageRequestId(request.id);
     await markPreBookingMessagesSeen(request.id, 'tutor');
   }
 
@@ -440,17 +444,22 @@ function PendingStudentsPanel({
         </div>
       )}
 
-      {messageRequest ? (
-        <PreBookingMessageModal
-          recipientName={messageRequest.studentName}
-          request={messageRequest}
-          currentUserId={currentTutor?.id}
-          viewerRole="tutor"
-          isCreatingRequest={busyRequestId === messageRequest.id}
-          onClose={() => setMessageRequest(null)}
-          onSend={(body) => handleTutorPreBookingMessage(messageRequest, body)}
-        />
-      ) : null}
+      {messageRequestId ? (() => {
+        const liveRequest = requests.find((r) => r.id === messageRequestId);
+        if (!liveRequest) return null;
+        return (
+          <PreBookingMessageModal
+            recipientName={liveRequest.studentName}
+            request={liveRequest}
+            currentUserId={currentTutor?.id}
+            viewerRole="tutor"
+            isCreatingRequest={busyRequestId === liveRequest.id}
+            onClose={() => setMessageRequestId(null)}
+            onSend={(body) => handleTutorPreBookingMessage(liveRequest, body)}
+            onAllowMessaging={() => void unlockPreBookingMessaging(liveRequest.id)}
+          />
+        );
+      })() : null}
 
       {studentProfileForModal ? (
         <StudentProfileModal
@@ -493,20 +502,27 @@ function PendingStudentCard({
   return (
     <Card className="grid gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Student
-          </p>
-
-          <ProfileNameButton
-            label={isLoadingProfile ? 'Loading...' : request.studentName || 'Unnamed'}
-            disabled={isLoadingProfile}
-            onClick={onViewProfile}
+        <div className="flex min-w-0 flex-1 gap-4">
+          <ProfileAvatar
+            name={request.studentName || 'Student'}
+            photoUrl={request.studentPhotoUrl}
+            size="lg"
           />
 
-          <p className="mt-1 text-sm text-slate-600">
-            {request.level} {request.subject}
-          </p>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Student
+            </p>
+
+            <ProfileNameButton
+              label={isLoadingProfile ? 'Loading...' : request.studentName || 'Unnamed'}
+              disabled={isLoadingProfile}
+              onClick={onViewProfile}
+            />
+
+            <p className="mt-1 text-sm text-slate-600">
+              {formatTrialRequestSubject(request)}
+            </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
             <TrialStatusBadge status={request.status} />
@@ -521,7 +537,8 @@ function PendingStudentCard({
             Preferred time: {request.preferredTime}
           </p>
 
-          <PendingLatestMessageSummary latestMessage={latestMessage} />
+            <PendingLatestMessageSummary latestMessage={latestMessage} />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -541,16 +558,16 @@ function PendingStudentCard({
           <Button disabled={disabled} onClick={onMoveBackToPending}>
             {disabled ? 'Saving...' : 'Move to pending'}
           </Button>
-        ) : (
+        ) : hasRequestedMatch(request) ? (
           <>
             <Button disabled={disabled} onClick={onAccept}>
-              {disabled ? 'Saving...' : 'Accept'}
+              {disabled ? 'Saving...' : 'Accept Match'}
             </Button>
             <Button variant="secondary" disabled={disabled} onClick={onReject}>
-              Reject
+              Reject Match
             </Button>
           </>
-        )}
+        ) : null}
       </div>
     </Card>
   );
@@ -630,7 +647,7 @@ function PendingLatestMessageSummary({
         <span className="font-semibold text-slate-900">
           {latestMessage.senderName || 'Unknown user'}:
         </span>{' '}
-        {latestMessage.body}
+        <MathRenderer value={latestMessage.body} />
       </p>
       <p className="mt-1 text-xs text-slate-500">
         {formatPendingCardTime(latestMessage.createdAt)}
@@ -850,4 +867,13 @@ function getTutorRelationshipActions(
       href: `${baseHref}/workspace`,
     },
   ];
+}
+
+
+function formatTrialRequestSubject(request: TrialSessionRequest) {
+  if (request.requestedSubjects && request.requestedSubjects.length > 0) {
+    return request.requestedSubjects.map((subject) => formatStoredSubjectLabel(subject)).join(', ');
+  }
+
+  return formatStoredSubjectLabel(request) || 'Subject not set';
 }

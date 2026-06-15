@@ -8,6 +8,13 @@
 export type TrialSessionStatus = 'pending' | 'accepted' | 'rejected';
 export type PendingTutorReason = 'messaged' | 'requested';
 
+/** One subject/level pair selected when a student requests a match. */
+export type RequestedTutoringSubject = {
+  level: string;
+  subject: string;
+  label: string;
+};
+
 /**
  * Lightweight message used before a student/tutor relationship has been accepted.
  *
@@ -31,16 +38,20 @@ export type TrialSessionRequest = {
   id: string;
   tutorId: string;
   tutorName: string;
+  tutorPhotoUrl?: string;
   studentId: string;
   studentName: string;
+  studentPhotoUrl?: string;
   studentEmail?: string;
   subject: string;
   level: string;
+  requestedSubjects?: RequestedTutoringSubject[];
   learningStyle: string;
   preferredTime: string;
   message: string;
   preBookingMessages?: PreBookingMessage[];
   pendingReasons?: PendingTutorReason[];
+  messagingUnlocked?: boolean;
   status: TrialSessionStatus;
   createdAt?: unknown;
   updatedAt?: unknown;

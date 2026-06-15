@@ -23,12 +23,14 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 import type {
   AsyncSupportRole,
   RelationshipSupportSummary,
   StudentTutorRelationship,
   StudentTutorRelationshipStatus,
   PreBookingMessage,
+  RelationshipTutoringSubject,
 } from '@/domains/async-support/types/asyncSupport';
 
 const RELATIONSHIPS_COLLECTION = 'studentTutorRelationships';
@@ -40,11 +42,14 @@ export type CreateStudentTutorRelationshipInput = {
 
   studentName: string;
   tutorName: string;
+  studentPhotoUrl?: string;
+  tutorPhotoUrl?: string;
   studentEmail?: string;
   tutorEmail?: string;
 
   subject: string;
   level: string;
+  requestedSubjects?: RelationshipTutoringSubject[];
   preBookingMessages?: PreBookingMessage[];
 };
 
@@ -95,10 +100,13 @@ export async function createStudentTutorRelationship(
     tutorId: input.tutorId,
     studentName: input.studentName,
     tutorName: input.tutorName,
+    studentPhotoUrl: input.studentPhotoUrl,
+    tutorPhotoUrl: input.tutorPhotoUrl,
     studentEmail: input.studentEmail,
     tutorEmail: input.tutorEmail,
     subject: input.subject,
     level: input.level,
+    requestedSubjects: normaliseRequestedSubjects(input.requestedSubjects),
     status: 'active',
     preBookingMessages: input.preBookingMessages ?? [],
     createdAt: now,
@@ -114,10 +122,13 @@ export async function createStudentTutorRelationship(
     tutorId: relationship.tutorId,
     studentName: relationship.studentName,
     tutorName: relationship.tutorName,
+    ...(relationship.studentPhotoUrl ? { studentPhotoUrl: relationship.studentPhotoUrl } : {}),
+    ...(relationship.tutorPhotoUrl ? { tutorPhotoUrl: relationship.tutorPhotoUrl } : {}),
     ...(relationship.studentEmail ? { studentEmail: relationship.studentEmail } : {}),
     ...(relationship.tutorEmail ? { tutorEmail: relationship.tutorEmail } : {}),
     subject: relationship.subject,
     level: relationship.level,
+    requestedSubjects: relationship.requestedSubjects ?? [],
     status: relationship.status,
     preBookingMessages: relationship.preBookingMessages ?? [],
     createdAt: relationship.createdAt,
@@ -275,10 +286,13 @@ function mapRelationshipSnapshot(
     tutorId: String(data.tutorId ?? ''),
     studentName: String(data.studentName ?? ''),
     tutorName: String(data.tutorName ?? ''),
+    studentPhotoUrl: optionalString(data.studentPhotoUrl),
+    tutorPhotoUrl: optionalString(data.tutorPhotoUrl),
     studentEmail: optionalString(data.studentEmail),
     tutorEmail: optionalString(data.tutorEmail),
     subject: String(data.subject ?? ''),
     level: String(data.level ?? ''),
+    requestedSubjects: normaliseRequestedSubjects(data.requestedSubjects),
     status: normaliseRelationshipStatus(data.status),
     preBookingMessages: normalisePreBookingMessages(data.preBookingMessages),
     miroBoardId: optionalString(data.miroBoardId),
@@ -377,6 +391,30 @@ function normaliseMessageUrgency(value: unknown) {
   return value === 'urgent' ? 'urgent' : undefined;
 }
 
+
+
+function normaliseRequestedSubjects(value: unknown): RelationshipTutoringSubject[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    const data = item as Record<string, unknown>;
+    const subject = String(data.subject ?? '').trim();
+    const level = String(data.level ?? '').trim();
+    const label = formatStoredSubjectLabel({ level, subject, label: String(data.label ?? '') });
+
+    if (!subject && !label) {
+      return [];
+    }
+
+    return [{
+      level,
+      subject: subject || label,
+      label: label || subject,
+    } satisfies RelationshipTutoringSubject];
+  });
+}
 
 function normalisePreBookingMessages(value: unknown): PreBookingMessage[] {
   if (!Array.isArray(value)) {

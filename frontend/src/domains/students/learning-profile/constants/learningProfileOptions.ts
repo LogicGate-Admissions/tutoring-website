@@ -126,6 +126,8 @@ export const DEFAULT_LEARNING_PROFILE = {
   subjectSelections: [],
   learningStyles: [],
   preferredUniversities: [],
+  displayName: '',
+  photoUrl: '',
   bio: '',
   availability: [],
 } satisfies import('@/domains/students/learning-profile/types/learningProfile').StudentLearningProfile;

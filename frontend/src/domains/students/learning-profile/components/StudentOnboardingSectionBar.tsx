@@ -17,7 +17,7 @@ import {
 } from '@/domains/auth/services/authService';
 import { cn } from '@/shared/utils/cn';
 
-type OnboardingStep = 'subjects' | 'preferences' | 'availability';
+type OnboardingStep = 'subjects' | 'preferences' | 'availability' | 'profile';
 
 type StudentOnboardingNavigationProps = {
   /** Current onboarding section used to highlight the active tab. */
@@ -25,6 +25,9 @@ type StudentOnboardingNavigationProps = {
 
   /** Save hook called before moving away from the current onboarding page. */
   onBeforeNavigate?: () => void;
+
+  /** Optional guard used by the final profile step before completing onboarding. */
+  onFinishGuard?: () => boolean | Promise<boolean>;
 };
 
 type OnboardingTab = {
@@ -54,9 +57,15 @@ const ONBOARDING_TABS: OnboardingTab[] = [
     description: 'When you are free',
     href: ROUTES.studentOnboardingAvailability,
   },
+  {
+    id: 'profile',
+    label: 'Profile',
+    description: 'What tutors see',
+    href: ROUTES.studentOnboardingProfile,
+  },
 ];
 
-const STEP_ORDER: OnboardingStep[] = ['subjects', 'preferences', 'availability'];
+const STEP_ORDER: OnboardingStep[] = ['subjects', 'preferences', 'availability', 'profile'];
 
 function getStepIndex(step: OnboardingStep) {
   return STEP_ORDER.indexOf(step);
@@ -73,7 +82,8 @@ function getNextStep(step: OnboardingStep) {
 function hrefForStep(step: OnboardingStep) {
   if (step === 'subjects') return ROUTES.studentOnboardingSubjects;
   if (step === 'preferences') return ROUTES.studentOnboardingPreferences;
-  return ROUTES.studentOnboardingAvailability;
+  if (step === 'availability') return ROUTES.studentOnboardingAvailability;
+  return ROUTES.studentOnboardingProfile;
 }
 
 /** Save the current step, mark onboarding complete, then send the student home. */
@@ -103,7 +113,7 @@ export function StudentOnboardingSectionBar({
   return (
     <Container className="pt-10">
       <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
-        <div className="grid gap-2 md:grid-cols-3">
+        <div className="grid gap-2 md:grid-cols-4">
           {ONBOARDING_TABS.map((tab) => {
             const isActive = tab.id === currentStep;
 
@@ -141,6 +151,7 @@ export function StudentOnboardingSectionBar({
 export function StudentOnboardingFlowControls({
   currentStep,
   onBeforeNavigate,
+  onFinishGuard,
 }: StudentOnboardingNavigationProps) {
   const router = useRouter();
   const previousStep = getPreviousStep(currentStep);
@@ -160,6 +171,10 @@ export function StudentOnboardingFlowControls({
       router.push(hrefForStep(nextStep));
       return;
     }
+
+    const canFinish = onFinishGuard ? await onFinishGuard() : true;
+
+    if (!canFinish) return;
 
     await finishStudentOnboarding(onBeforeNavigate);
     router.push(ROUTES.studentDashboard);

@@ -34,8 +34,6 @@ import {
 export function StudentPreferencesStep() {
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [preferredUniversities, setPreferredUniversities] = useState<string[]>([]);
-  const [bio, setBio] = useState('');
-
   useEffect(() => {
     /**
      * Load saved preferences from Firestore after Firebase Auth is ready.
@@ -50,7 +48,6 @@ export function StudentPreferencesStep() {
 
       setSelectedStyles(profile.learningStyles);
       setPreferredUniversities(profile.preferredUniversities);
-      setBio(profile.bio);
     }
 
     void loadProfile();
@@ -86,7 +83,6 @@ export function StudentPreferencesStep() {
     void updateStoredLearningProfile({
       learningStyles: selectedStyles,
       preferredUniversities,
-      bio,
     });
   }
 
@@ -95,7 +91,7 @@ export function StudentPreferencesStep() {
       <PageHeader
         eyebrow="Student onboarding"
         title="What kind of tutor fits you?"
-        description="Choose how you prefer to learn, add a short learning note, and tell us whether you have a tutor university preference."
+        description="Choose how you prefer to learn and tell us whether you have a tutor university preference."
       />
 
       <StudentOnboardingSectionBar
@@ -104,38 +100,10 @@ export function StudentPreferencesStep() {
       />
 
       <Container className="grid gap-6 py-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="grid gap-6">
-          <LearningStyleSection
-            selectedStyles={selectedStyles}
-            onToggleStyle={toggleStyle}
-          />
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              About your learning
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-              What should a tutor know about you?
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Add a short note about what you find difficult, how you like explanations, or what you want sessions to focus on.
-            </p>
-
-            <label className="mt-5 grid gap-2 text-sm font-medium text-slate-800" htmlFor="student-bio">
-              About me
-              <textarea
-                id="student-bio"
-                value={bio}
-                onChange={(event) => setBio(event.target.value)}
-                rows={5}
-                maxLength={700}
-                placeholder="Example: I understand visual explanations best, but I struggle to know where to start on longer exam questions. I want a tutor who can break questions down step by step."
-                className="min-h-32 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-normal leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-950 focus:ring-2 focus:ring-slate-200"
-              />
-            </label>
-            <p className="mt-2 text-xs text-slate-500">{bio.length}/700 characters</p>
-          </section>
-        </div>
+        <LearningStyleSection
+          selectedStyles={selectedStyles}
+          onToggleStyle={toggleStyle}
+        />
 
         <PreferredUniversitiesSection
           preferredUniversities={preferredUniversities}

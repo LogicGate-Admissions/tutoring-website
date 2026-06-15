@@ -39,6 +39,13 @@ function toBookingRequest(id: string, data: Record<string, unknown>): BookingReq
     confirmedAt: data.confirmedAt as Timestamp | undefined,
     cancelledByRole: data.cancelledByRole as 'tutor' | 'student' | undefined,
     rescheduledByRole: data.rescheduledByRole as 'tutor' | 'student' | undefined,
+    rescheduleProposal: data.rescheduleProposal
+      ? {
+          proposedDate: (data.rescheduleProposal as Record<string, unknown>).proposedDate as Timestamp,
+          proposedDurationMinutes: (data.rescheduleProposal as Record<string, unknown>).proposedDurationMinutes as number,
+          proposedByRole: (data.rescheduleProposal as Record<string, unknown>).proposedByRole as 'tutor' | 'student',
+        }
+      : undefined,
     meetingLink: data.meetingLink as string | undefined,
     calendarEventId: data.calendarEventId as string | undefined,
     meetingLinkStatus: data.meetingLinkStatus as BookingRequest['meetingLinkStatus'],
@@ -71,6 +78,8 @@ type UseBookingsResult = {
   pendingRequests: BookingRequest[];
   /** Requests this user sent that are still awaiting the other party's response. */
   sentRequests: BookingRequest[];
+  /** Confirmed sessions where the other party proposed a reschedule that needs a response. */
+  rescheduleRequests: BookingRequest[];
   upcomingSessions: BookingRequest[];
   pastSessions: BookingRequest[];
   allSessions: BookingRequest[];
@@ -140,15 +149,28 @@ export function useBookings(
     [allBookings, role]
   );
 
+  const rescheduleRequests = useMemo(
+    () =>
+      allBookings.filter(
+        (b) => b.rescheduleProposal && b.rescheduleProposal.proposedByRole !== role
+      ),
+    [allBookings, role]
+  );
+
   const allSessions = useMemo(
     () => allBookings.filter((b) => b.status === 'confirmed'),
     [allBookings]
   );
 
   const upcomingSessions = useMemo(
-    () => allSessions.filter((b) => b.date.toDate() > now),
+    () =>
+      allSessions.filter(
+        (b) =>
+          b.date.toDate() > now &&
+          !(b.rescheduleProposal && b.rescheduleProposal.proposedByRole !== role)
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allSessions]
+    [allSessions, role]
   );
 
   const pastSessions = useMemo(
@@ -157,5 +179,5 @@ export function useBookings(
     [allSessions]
   );
 
-  return { pendingRequests, sentRequests, upcomingSessions, pastSessions, allSessions, loading, error };
+  return { pendingRequests, sentRequests, rescheduleRequests, upcomingSessions, pastSessions, allSessions, loading, error };
 }

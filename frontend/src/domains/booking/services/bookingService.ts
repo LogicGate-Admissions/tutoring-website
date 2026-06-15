@@ -10,6 +10,7 @@ import {
   Timestamp,
   addDoc,
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -49,6 +50,13 @@ function castBooking(id: string, data: Record<string, unknown>): BookingRequest 
     confirmedAt: data.confirmedAt as Timestamp | undefined,
     cancelledByRole: data.cancelledByRole as 'tutor' | 'student' | undefined,
     rescheduledByRole: data.rescheduledByRole as 'tutor' | 'student' | undefined,
+    rescheduleProposal: data.rescheduleProposal
+      ? {
+          proposedDate: (data.rescheduleProposal as Record<string, unknown>).proposedDate as Timestamp,
+          proposedDurationMinutes: (data.rescheduleProposal as Record<string, unknown>).proposedDurationMinutes as number,
+          proposedByRole: (data.rescheduleProposal as Record<string, unknown>).proposedByRole as 'tutor' | 'student',
+        }
+      : undefined,
     meetingLink: data.meetingLink as string | undefined,
     calendarEventId: data.calendarEventId as string | undefined,
     meetingLinkStatus: data.meetingLinkStatus as BookingRequest['meetingLinkStatus'],
@@ -84,11 +92,62 @@ async function assertTutorOffersSubject(
     throw new SlotUnavailableError('Tutor profile not found.');
   }
 
-  const subjects: string[] = tutorSnap.data().subjects ?? [];
+  const data = tutorSnap.data();
+  const requestedSubject = normaliseSubjectLabel(subject);
+  const allowedSubjects = getAllowedTutorSubjectLabels(data as Record<string, unknown>);
 
-  if (!subjects.includes(subject)) {
+  if (!allowedSubjects.some((allowedSubject) => allowedSubject === requestedSubject)) {
     throw new SlotUnavailableError('The requested subject is not offered by this tutor.');
   }
+}
+
+function normaliseSubjectLabel(value: string) {
+  return value.trim().toLowerCase().replace(/\s*·\s*/g, ' ').replace(/\s+/g, ' ');
+}
+
+function getAllowedTutorSubjectLabels(data: Record<string, unknown>) {
+  const labels = new Set<string>();
+
+  const add = (value: unknown) => {
+    const label = normaliseSubjectLabel(String(value ?? ''));
+    if (label) labels.add(label);
+  };
+
+  const subjects = Array.isArray(data.subjects) ? data.subjects : [];
+  subjects.forEach(add);
+
+  const subjectRates = Array.isArray(data.subjectRates) ? data.subjectRates : [];
+  subjectRates.forEach((item) => {
+    const rate = item as Record<string, unknown>;
+    const level = String(rate.qualification ?? '').trim();
+    const subject = String(rate.subject ?? '').trim();
+
+    add(subject);
+    add([level, subject].filter(Boolean).join(' '));
+    add([level, subject].filter(Boolean).join(' · '));
+  });
+
+  const subjectSelections = Array.isArray(data.subjectSelections)
+    ? data.subjectSelections
+    : [];
+
+  subjectSelections.forEach((item) => {
+    const selection = item as Record<string, unknown>;
+    const level = String(selection.category ?? '').trim();
+    const selectionSubjects = Array.isArray(selection.subjects)
+      ? selection.subjects
+      : [];
+
+    selectionSubjects.forEach((selectionSubject) => {
+      const subject = String(selectionSubject ?? '').trim();
+      add(subject);
+      add([level, subject].filter(Boolean).join(' '));
+      add([level, subject].filter(Boolean).join(' · '));
+    add([level, subject].filter(Boolean).join(' · '));
+    });
+  });
+
+  return Array.from(labels);
 }
 
 // ─── Conflict detection ───────────────────────────────────────────────────────
@@ -359,14 +418,14 @@ export async function cancelBookingRequest(
 }
 
 /**
- * Reschedule a confirmed or pending future session to a new date/time.
- * Checks for overlapping confirmed sessions before updating.
+ * Proposes a reschedule to the counterparty. The date is NOT changed until
+ * the counterparty calls acceptRescheduleProposal.
  */
-export async function rescheduleBookingRequest(
+export async function proposeReschedule(
   bookingId: string,
   newDate: Date,
   durationMinutes: number,
-  rescheduledByRole: 'tutor' | 'student'
+  proposedByRole: 'tutor' | 'student'
 ): Promise<void> {
   const bookingRef = doc(db, FIRESTORE_COLLECTIONS.bookingRequests, bookingId);
   const snap = await getDoc(bookingRef);
@@ -387,24 +446,6 @@ export async function rescheduleBookingRequest(
     throw new Error('Past sessions cannot be rescheduled.');
   }
 
-  if (booking.status === 'confirmed') {
-    await assertNoConflict(
-      booking.tutorId,
-      newDate,
-      durationMinutes,
-      bookingId
-    );
-  }
-
-  const oldDateStr = booking.date.toDate().toLocaleDateString('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-  const oldTimeStr = booking.date.toDate().toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
   const newDateStr = newDate.toLocaleDateString('en-GB', {
     weekday: 'short',
     day: 'numeric',
@@ -415,23 +456,111 @@ export async function rescheduleBookingRequest(
     minute: '2-digit',
   });
 
-  await runTransaction(db, async (transaction) => {
-    transaction.update(bookingRef, {
-      date: Timestamp.fromDate(newDate),
-      durationMinutes,
-      rescheduledByRole,
-      updatedAt: Timestamp.now(),
-    });
+  await updateDoc(bookingRef, {
+    rescheduleProposal: {
+      proposedDate: Timestamp.fromDate(newDate),
+      proposedDurationMinutes: durationMinutes,
+      proposedByRole,
+    },
+    updatedAt: Timestamp.now(),
   });
 
   const otherUserId =
-    rescheduledByRole === 'tutor' ? booking.studentId : booking.tutorId;
+    proposedByRole === 'tutor' ? booking.studentId : booking.tutorId;
 
   await createBookingNotification(
     otherUserId,
     bookingId,
+    'reschedule_proposed',
+    `${booking.subject} reschedule proposed to ${newDateStr} at ${newTimeStr}`
+  );
+}
+
+/** Accepts a pending reschedule proposal, applying the new date to the booking. */
+export async function acceptRescheduleProposal(
+  bookingId: string,
+): Promise<void> {
+  const bookingRef = doc(db, FIRESTORE_COLLECTIONS.bookingRequests, bookingId);
+  const snap = await getDoc(bookingRef);
+  if (!snap.exists()) throw new Error('Booking not found.');
+
+  const booking = castBooking(snap.id, snap.data());
+  if (!booking.rescheduleProposal) throw new Error('No reschedule proposal found.');
+
+  const { proposedDate, proposedDurationMinutes, proposedByRole } = booking.rescheduleProposal;
+
+  if (booking.status === 'confirmed') {
+    await assertNoConflict(
+      booking.tutorId,
+      proposedDate.toDate(),
+      proposedDurationMinutes,
+      bookingId
+    );
+  }
+
+  const newDateStr = proposedDate.toDate().toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  const newTimeStr = proposedDate.toDate().toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  await updateDoc(bookingRef, {
+    date: proposedDate,
+    durationMinutes: proposedDurationMinutes,
+    rescheduledByRole: proposedByRole,
+    rescheduleProposal: deleteField(),
+    updatedAt: Timestamp.now(),
+  });
+
+  const proposerUserId =
+    proposedByRole === 'tutor' ? booking.tutorId : booking.studentId;
+
+  await createBookingNotification(
+    proposerUserId,
+    bookingId,
     'booking_rescheduled',
-    `${booking.subject} session moved from ${oldDateStr} ${oldTimeStr} to ${newDateStr} ${newTimeStr}`
+    `${booking.subject} reschedule to ${newDateStr} at ${newTimeStr} was accepted`
+  );
+}
+
+/** Declines a pending reschedule proposal. The booking date remains unchanged. */
+export async function declineRescheduleProposal(
+  bookingId: string,
+): Promise<void> {
+  const bookingRef = doc(db, FIRESTORE_COLLECTIONS.bookingRequests, bookingId);
+  const snap = await getDoc(bookingRef);
+  if (!snap.exists()) throw new Error('Booking not found.');
+
+  const booking = castBooking(snap.id, snap.data());
+  if (!booking.rescheduleProposal) throw new Error('No reschedule proposal found.');
+
+  const { proposedByRole } = booking.rescheduleProposal;
+
+  await updateDoc(bookingRef, {
+    rescheduleProposal: deleteField(),
+    updatedAt: Timestamp.now(),
+  });
+
+  const proposerUserId =
+    proposedByRole === 'tutor' ? booking.tutorId : booking.studentId;
+
+  await createBookingNotification(
+    proposerUserId,
+    bookingId,
+    'reschedule_declined',
+    `${booking.subject} reschedule proposal was declined`
+  );
+}
+
+/** Withdraws a reschedule proposal made by the current user. */
+export async function withdrawRescheduleProposal(bookingId: string): Promise<void> {
+  await updateDoc(
+    doc(db, FIRESTORE_COLLECTIONS.bookingRequests, bookingId),
+    { rescheduleProposal: deleteField(), updatedAt: Timestamp.now() }
   );
 }
 

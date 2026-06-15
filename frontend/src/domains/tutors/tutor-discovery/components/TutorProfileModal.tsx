@@ -12,7 +12,7 @@ import {
 } from '@/domains/sessions/trial-sessions/utils/trialRequestState';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
-import { tutorInitials } from '@/domains/tutors/tutor-discovery/utils/tutorDisplay';
+import { ProfileAvatar } from '@/shared/components/ProfileAvatar';
 import { TutorAvailabilityDisplay } from '@/domains/tutors/tutor-discovery/components/TutorAvailabilityDisplay';
 
 type TutorProfileModalProps = {
@@ -52,9 +52,12 @@ export function TutorProfileModal({
         {/* Phase 1: identify who this tutor is before showing detailed stats. */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-slate-950 text-2xl font-semibold text-white">
-              {tutorInitials(tutor.name)}
-            </div>
+            <ProfileAvatar
+              name={tutor.name}
+              photoUrl={tutor.photoUrl}
+              size="xl"
+              className="rounded-3xl"
+            />
 
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">

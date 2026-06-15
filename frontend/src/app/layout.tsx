@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Script from 'next/script';
 import { LiveCallProvider } from '@/domains/lesson-workspace/context/LiveCallContext';
+import { PresentationDimmer } from '@/shared/components/PresentationDimmer';
 
 export const metadata: Metadata = {
   title: 'LogicGate',
@@ -44,6 +45,7 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col">
         <LiveCallProvider>
           {children}
+          <PresentationDimmer />
         </LiveCallProvider>
       </body>
     </html>

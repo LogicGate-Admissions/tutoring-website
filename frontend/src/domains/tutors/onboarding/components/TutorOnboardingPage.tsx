@@ -7,7 +7,7 @@
  * navigation, while Back / Next / Finish buttons provide a guided flow.
  */
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
 import { Container } from '@/shared/components/Container';
@@ -181,9 +181,11 @@ export function TutorOnboardingPage() {
   }, [loadTutorProfile]);
 
   function updateTextField(
-    field: 'displayName' | 'headline' | 'university' | 'degree' | 'bio',
+    field: 'displayName' | 'headline' | 'university' | 'degree' | 'bio' | 'photoUrl',
     value: string
   ) {
+    if (error) setError(null);
+
     setProfile((currentProfile) => ({
       ...currentProfile,
       [field]: value,
@@ -280,9 +282,13 @@ export function TutorOnboardingPage() {
     return null;
   }
 
-  async function finishTutorOnboarding(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
+  async function finishTutorOnboarding() {
     setError(null);
+
+    if (activeTab !== 'profile') {
+      setActiveTab('profile');
+      return;
+    }
 
     if (!currentTutor) {
       setError('Please log in again before saving your tutor profile.');
@@ -310,16 +316,27 @@ export function TutorOnboardingPage() {
     }
   }
 
+
+  /**
+   * Tutor onboarding intentionally does not use a form-level submit handler.
+   * The Availability step contains several nested controls, so keeping Back,
+   * Next and Finish as explicit button actions prevents the browser from
+   * treating a Next click as a premature final submit.
+   */
+
   function goBack() {
     const previousTab = getPreviousTab(activeTab);
-    if (previousTab) setActiveTab(previousTab);
+
+    if (previousTab) {
+      setError(null);
+      setActiveTab(previousTab);
+    }
   }
 
   function goForward() {
-    const nextTab = getNextTab(activeTab);
-
-    if (nextTab) {
-      setActiveTab(nextTab);
+    if (activeTab !== 'profile') {
+      setError(null);
+      setActiveTab(getNextTab(activeTab) ?? 'profile');
       return;
     }
 
@@ -363,6 +380,7 @@ export function TutorOnboardingPage() {
     return (
       <TutorProfileBasicsSection
         profile={profile}
+        userId={currentTutor?.id}
         onChangeTextField={updateTextField}
       />
     );
@@ -380,7 +398,7 @@ export function TutorOnboardingPage() {
       />
 
       <Container className="py-10 pb-28">
-        <form onSubmit={finishTutorOnboarding} className="grid gap-8">
+        <div className="grid gap-8">
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
             <div className="grid gap-2 md:grid-cols-4">
               {TUTOR_ONBOARDING_TABS.map((tab) => {
@@ -390,7 +408,10 @@ export function TutorOnboardingPage() {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      setError(null);
+                      setActiveTab(tab.id);
+                    }}
                     className={cn(
                       'rounded-2xl px-4 py-3 text-left transition',
                       isActive
@@ -437,7 +458,11 @@ export function TutorOnboardingPage() {
             )}
 
             {isFinalTab ? (
-              <Button type="submit" disabled={isSaving || isLoadingProfile}>
+              <Button
+                type="button"
+                disabled={isSaving || isLoadingProfile}
+                onClick={() => void finishTutorOnboarding()}
+              >
                 {isSaving ? 'Saving...' : 'Finish'}
               </Button>
             ) : (
@@ -446,7 +471,7 @@ export function TutorOnboardingPage() {
               </Button>
             )}
           </div>
-        </form>
+        </div>
       </Container>
     </main>
   );

@@ -39,6 +39,13 @@ export type StudentTutorRelationshipStatus = 'active' | 'ended';
 /** Urgency level for messages that need extra tutor attention. */
 export type MessageUrgency = 'normal' | 'urgent';
 
+/** One subject/level pair agreed when a student and tutor match. */
+export type RelationshipTutoringSubject = {
+  level: string;
+  subject: string;
+  label: string;
+};
+
 /** Text-only messages sent before a tutor accepts a match request. */
 export type PreBookingMessage = {
   id: string;
@@ -81,15 +88,20 @@ export type StudentTutorRelationship = {
 
   studentName: string;
   tutorName: string;
+  studentPhotoUrl?: string;
+  tutorPhotoUrl?: string;
 
   /** Stored for future student-side email/notification flows. */
   studentEmail?: string;
 
-  /** Used by the urgent message flow to open an email draft for tutors. */
+  /** Used by the urgent message flow to email tutors automatically. */
   tutorEmail?: string;
 
   subject: string;
   level: string;
+
+  /** Full subject list for multi-subject matches, e.g. A-level Maths and A-level Physics. */
+  requestedSubjects?: RelationshipTutoringSubject[];
 
   status: StudentTutorRelationshipStatus;
 

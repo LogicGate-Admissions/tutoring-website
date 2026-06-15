@@ -15,6 +15,7 @@ import {
   subscribeToRelationshipSummaries,
 } from '@/domains/async-support/services/relationshipsService';
 import type { AsyncSupportRole } from '@/domains/async-support/types/asyncSupport';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 import {
   markPreBookingMessagesSeen,
   markTrialSessionRequestSeen,
@@ -99,6 +100,10 @@ export function useNotifications(
                     ? relationship.tutorName
                     : relationship.studentName),
                 messagePreview: relationship.latestMessagePreview || '',
+                photoUrl:
+                  relationship.latestMessageSenderRole === 'student'
+                    ? relationship.studentPhotoUrl
+                    : relationship.tutorPhotoUrl,
                 subject: relationship.subject,
                 level: relationship.level,
                 createdAt: relationship.latestMessageAt || relationship.updatedAt,
@@ -165,6 +170,7 @@ function buildMessageNotification({
   viewerRole,
   senderName,
   messagePreview,
+  photoUrl,
   subject,
   level,
   createdAt,
@@ -174,6 +180,7 @@ function buildMessageNotification({
   viewerRole: AsyncSupportRole;
   senderName: string;
   messagePreview: string;
+  photoUrl?: string;
   subject: string;
   level: string;
   createdAt: string;
@@ -190,7 +197,8 @@ function buildMessageNotification({
     description: isUrgent
       ? messagePreview || 'This student marked a message as urgent.'
       : messagePreview || 'Open the thread to view this message.',
-    meta: `${level} ${subject}`.trim(),
+    meta: formatStoredSubjectLabel({ level, subject }) || subject,
+    photoUrl,
     href: `/${dashboardRoot}/dashboard/support/${relationshipId}/messages`,
     createdAt,
     tone: isUrgent ? 'urgent' : 'default',
@@ -215,7 +223,8 @@ function buildTutorTrialNotifications(
         type: 'message',
         title: `New message from ${request.studentName}`,
         description: unreadMessage.body || 'Open Pending students to reply.',
-        meta: `${request.level} ${request.subject}`.trim(),
+        meta: getTrialRequestSubjectLabel(request),
+        photoUrl: request.studentPhotoUrl,
         href: '/tutor/dashboard?section=pending-students',
         createdAt:
           unreadMessage.createdAt ||
@@ -240,7 +249,8 @@ function buildTutorTrialNotifications(
       type: 'trial-request',
       title: `New pending student: ${request.studentName}`,
       description: request.message || 'A student has requested a match.',
-      meta: `${request.level} ${request.subject}`.trim(),
+      meta: getTrialRequestSubjectLabel(request),
+      photoUrl: request.studentPhotoUrl,
       href: '/tutor/dashboard?section=pending-students',
       createdAt,
       onOpen: () => markTrialSessionRequestSeen(request.id),
@@ -265,7 +275,8 @@ function buildStudentTrialNotifications(
           type: 'message',
           title: `New message from ${request.tutorName}`,
           description: unreadMessage.body || 'Open Pending tutors to reply.',
-          meta: `${request.level} ${request.subject}`.trim(),
+          meta: getTrialRequestSubjectLabel(request),
+          photoUrl: request.tutorPhotoUrl,
           href: '/student/dashboard?section=pending-tutors',
           createdAt:
             unreadMessage.createdAt ||
@@ -302,7 +313,8 @@ function buildStudentTrialNotifications(
         request.status === 'accepted'
           ? 'You can now open your dashboard to use the support space.'
           : 'You can browse other tutors and request a different trial.',
-      meta: `${request.level} ${request.subject}`.trim(),
+      meta: getTrialRequestSubjectLabel(request),
+      photoUrl: request.tutorPhotoUrl,
       href: request.status === 'accepted' ? '/student/dashboard' : '/student/tutors',
       createdAt: updatedAt,
       onOpen: () => markTrialSessionStatusSeen(request.id),
@@ -310,6 +322,20 @@ function buildStudentTrialNotifications(
   }
 
   return notifications;
+}
+
+
+function getTrialRequestSubjectLabel(request: TrialSessionRequest) {
+  const requestedSubjects = request.requestedSubjects ?? [];
+
+  if (requestedSubjects.length > 0) {
+    return requestedSubjects
+      .map((subject) => formatStoredSubjectLabel(subject))
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  return formatStoredSubjectLabel(request) || request.subject;
 }
 
 function getLatestUnreadPreBookingMessage(

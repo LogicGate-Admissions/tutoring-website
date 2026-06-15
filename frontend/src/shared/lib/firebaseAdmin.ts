@@ -8,6 +8,7 @@
 
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
 type FirebaseServiceAccount = {
   project_id: string;
@@ -30,18 +31,26 @@ function getServiceAccount(): FirebaseServiceAccount {
   };
 }
 
+function ensureFirebaseAdminApp() {
+  if (getApps().length > 0) return;
+
+  const serviceAccount = getServiceAccount();
+
+  initializeApp({
+    credential: cert({
+      projectId: serviceAccount.project_id,
+      clientEmail: serviceAccount.client_email,
+      privateKey: serviceAccount.private_key,
+    }),
+  });
+}
+
 export function getFirebaseAdminDb() {
-  if (getApps().length === 0) {
-    const serviceAccount = getServiceAccount();
-
-    initializeApp({
-      credential: cert({
-        projectId: serviceAccount.project_id,
-        clientEmail: serviceAccount.client_email,
-        privateKey: serviceAccount.private_key,
-      }),
-    });
-  }
-
+  ensureFirebaseAdminApp();
   return getFirestore();
+}
+
+export function getFirebaseAdminAuth() {
+  ensureFirebaseAdminApp();
+  return getAuth();
 }

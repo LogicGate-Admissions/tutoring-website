@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { DragToBookCalendar } from '@/domains/booking/components/DragToBookCalendar';
+import { DragToBookCalendar, type BookingSubjectOption } from '@/domains/booking/components/DragToBookCalendar';
 import { getStudentAvailabilityById } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import type { TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
 
@@ -21,6 +21,7 @@ type BookSessionModalProps = {
     durationMinutes: number;
   };
   subject?: string;
+  subjectOptions?: BookingSubjectOption[];
 };
 
 export function BookSessionModal({
@@ -34,6 +35,7 @@ export function BookSessionModal({
   mode = 'create',
   existingBooking,
   subject,
+  subjectOptions,
 }: BookSessionModalProps) {
   const [studentAvailabilityBlocks, setStudentAvailabilityBlocks] = useState<TimeBlock[]>([]);
 
@@ -81,6 +83,7 @@ export function BookSessionModal({
           mode={mode}
           existingBooking={existingBooking}
           prefilledSubject={subject}
+          relationshipSubjectOptions={subjectOptions}
         />
       </div>
     </div>,

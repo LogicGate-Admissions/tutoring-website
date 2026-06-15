@@ -13,15 +13,15 @@ import { useBookings } from '@/domains/booking/hooks/useBookings';
 import { BookingRequestCard } from '@/domains/booking/components/BookingRequestCard';
 import { createPortal } from 'react-dom';
 import { SessionDetailModal } from '@/domains/booking/components/SessionDetailModal';
-import { rescheduleBookingRequest } from '@/domains/booking/services/bookingService';
+import { proposeReschedule } from '@/domains/booking/services/bookingService';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { BookingConflictError } from '@/domains/booking/types/booking';
 import { cn } from '@/shared/utils/cn';
 
 const MAX_VISIBLE = 4;
 
-const HOUR_START = 7;
-const HOUR_END = 22;
+const HOUR_START = 0;
+const HOUR_END = 24;
 const TOTAL_HOURS = HOUR_END - HOUR_START;
 const SLOT_HEIGHT_REM = 3.5;
 
@@ -40,7 +40,7 @@ type MySessionsTabProps = {
   getWorkspaceHref?: (booking: BookingRequest) => string | undefined;
 };
 
-type ModalSection = 'pending' | 'sent' | 'upcoming' | 'past' | null;
+type ModalSection = 'pending' | 'sent' | 'reschedule' | 'upcoming' | 'past' | null;
 
 export function MySessionsTab({
   userId,
@@ -48,7 +48,7 @@ export function MySessionsTab({
   getOtherPartyName,
   getWorkspaceHref,
 }: MySessionsTabProps) {
-  const { pendingRequests, sentRequests, upcomingSessions, pastSessions, allSessions, loading, error } =
+  const { pendingRequests, sentRequests, rescheduleRequests, upcomingSessions, pastSessions, allSessions, loading, error } =
     useBookings(userId, role);
 
   const [modalSection, setModalSection] = useState<ModalSection>(null);
@@ -65,7 +65,7 @@ export function MySessionsTab({
     setRescheduleBusy(true);
     setRescheduleError(null);
     try {
-      await rescheduleBookingRequest(
+      await proposeReschedule(
         pendingReschedule.booking.id,
         pendingReschedule.newDate,
         pendingReschedule.booking.durationMinutes,
@@ -102,10 +102,11 @@ export function MySessionsTab({
   }
 
   const MODAL_DATA: Record<NonNullable<ModalSection>, { title: string; bookings: BookingRequest[]; isPast?: boolean }> = {
-    pending:  { title: 'Pending Requests',  bookings: pendingRequests },
-    sent:     { title: 'Sent Requests',     bookings: sentRequests },
-    upcoming: { title: 'Upcoming Sessions', bookings: upcomingSessions },
-    past:     { title: 'Past Sessions',     bookings: pastSessions, isPast: true },
+    pending:    { title: 'Pending Requests',    bookings: pendingRequests },
+    sent:       { title: 'Sent Requests',       bookings: sentRequests },
+    reschedule: { title: 'Reschedule Requests', bookings: rescheduleRequests },
+    upcoming:   { title: 'Upcoming Sessions',   bookings: upcomingSessions },
+    past:       { title: 'Past Sessions',       bookings: pastSessions, isPast: true },
   };
 
   return (
@@ -160,6 +161,29 @@ export function MySessionsTab({
             ))}
             {sentRequests.length > MAX_VISIBLE && (
               <SeeAllLink count={sentRequests.length} onClick={() => setModalSection('sent')} />
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {rescheduleRequests.length > 0 ? (
+        <section>
+          <SectionHeading>Reschedule Requests</SectionHeading>
+          <p className="mt-1 text-sm text-slate-500">
+            The other party has proposed a new time — accept or decline below.
+          </p>
+          <div className="mt-4 grid gap-4">
+            {rescheduleRequests.slice(0, MAX_VISIBLE).map((b) => (
+              <BookingRequestCard
+                key={b.id}
+                booking={b}
+                viewerRole={role}
+                viewerId={userId}
+                otherPartyName={getOtherPartyName(b)}
+              />
+            ))}
+            {rescheduleRequests.length > MAX_VISIBLE && (
+              <SeeAllLink count={rescheduleRequests.length} onClick={() => setModalSection('reschedule')} />
             )}
           </div>
         </section>
@@ -300,7 +324,10 @@ function sessionHeightPercent(durationMinutes: number): number {
 function topPercentToDate(day: Date, topPercent: number): Date {
   const totalMinutes = TOTAL_HOURS * 60;
   const startMinute = (topPercent / 100) * totalMinutes;
-  const snapped = Math.round(startMinute / 15) * 15;
+  const snapped = Math.min(
+    totalMinutes - 15,
+    Math.max(0, Math.round(startMinute / 15) * 15)
+  );
   const hours = HOUR_START + Math.floor(snapped / 60);
   const minutes = snapped % 60;
   const d = new Date(day);
@@ -691,9 +718,9 @@ function RescheduleConfirmDialog({
         className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-slate-950">Reschedule session?</h3>
+        <h3 className="text-base font-semibold text-slate-950">Propose reschedule?</h3>
         <p className="mt-2 text-sm text-slate-600">
-          Move <strong>{booking.subject}</strong> to{' '}
+          Propose moving <strong>{booking.subject}</strong> to{' '}
           {newDate.toLocaleDateString('en-GB', {
             weekday: 'long',
             day: 'numeric',
@@ -704,7 +731,7 @@ function RescheduleConfirmDialog({
             hour: '2-digit',
             minute: '2-digit',
           })}
-          ? The other party will be notified.
+          ? The other party must confirm before the date changes.
         </p>
         {error ? (
           <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</p>
@@ -716,7 +743,7 @@ function RescheduleConfirmDialog({
             onClick={onConfirm}
             className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
           >
-            {busy ? 'Rescheduling…' : 'Yes, reschedule'}
+            {busy ? 'Proposing…' : 'Send proposal'}
           </button>
           <button
             type="button"

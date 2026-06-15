@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { MathRenderer } from '@/domains/async-support/components/MathRenderer';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
 import { RelationshipSupportModal } from '@/domains/async-support/components/RelationshipSupportModal';
@@ -18,9 +19,15 @@ import { MySessionsTab } from '@/domains/booking/components/sessions/MySessionsT
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { useBookings } from '@/domains/booking/hooks/useBookings';
 import { PreBookingMessageModal } from '@/domains/sessions/trial-sessions/components/PreBookingMessageModal';
+import {
+  SubjectPickerModal,
+  getSubjectPickerChoices,
+  normaliseRequestedSubjects,
+} from '@/domains/sessions/trial-sessions/components/SubjectPickerModal';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import {
   addMatchRequestToPreBookingConversation,
+  addMatchRequestWithSubjects,
   addPreBookingMessage,
   cancelTrialSessionRequest,
   withdrawMatchRequestFromPreBookingConversation,
@@ -42,8 +49,10 @@ import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
+import { ProfileAvatar } from '@/shared/components/ProfileAvatar';
 import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 type Section =
   | 'my-tutors'
@@ -304,6 +313,9 @@ function PendingTutorsPanel({
   const [messageTutorId, setMessageTutorId] = useState<string | null>(null);
   const [isCreatingRequest, setIsCreatingRequest] = useState(false);
   const [notice, setNotice] = useState('');
+  const [subjectPickerTutor, setSubjectPickerTutor] = useState<Tutor | null>(null);
+  const [pickerSelectedSubjectKeys, setPickerSelectedSubjectKeys] = useState<string[]>([]);
+  const [pickerBusy, setPickerBusy] = useState(false);
 
   useEffect(() => {
     if (!currentStudent) return undefined;
@@ -478,22 +490,33 @@ function PendingTutorsPanel({
 
     try {
       const profile = await getStoredLearningProfile();
+      const studentDisplayName = profile.displayName.trim() || currentStudent.name;
       const now = new Date().toISOString();
+
+      const allChoices = getSubjectPickerChoices(tutor);
+      const studentSubjects = profile.subjectSelections.flatMap((sel) =>
+        sel.subjects.map((sub) => ({ level: sel.category, subject: sub }))
+      );
+      const intersectionChoices = allChoices.filter((choice) =>
+        studentSubjects.some(
+          (s) => s.subject.toLowerCase() === choice.subject.toLowerCase()
+        )
+      );
+      const resolvedChoices = intersectionChoices.length > 0 ? intersectionChoices : allChoices.slice(0, 1);
+      const resolvedSubjects = normaliseRequestedSubjects(resolvedChoices);
+      const subjectLabel = resolvedSubjects.map((s) => s.label).join(', ') || 'Not specified';
 
       await createTrialSessionRequest({
         tutorId: tutor.id,
         tutorName: tutor.name,
+        tutorPhotoUrl: tutor.photoUrl,
         studentId: currentStudent.id,
-        studentName: currentStudent.name,
+        studentName: studentDisplayName,
+        studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
         studentEmail: currentStudent.email,
-        subject:
-          profile.subjectSelections[0]?.subjects[0] ||
-          tutor.subjects[0] ||
-          'Not specified',
-        level:
-          profile.subjectSelections[0]?.category ||
-          tutor.levels[0] ||
-          'Not specified',
+        subject: subjectLabel,
+        level: '',
+        requestedSubjects: resolvedSubjects,
         learningStyle:
           profile.learningStyles[0] || tutor.learningStyles[0] || 'Not specified',
         preferredTime:
@@ -527,9 +550,6 @@ function PendingTutorsPanel({
     }
 
     const existingRequest = getLatestRequestForTutor(requests, tutor.id);
-    const body =
-      'I would like to request a match. I want help identifying weak points and getting clearer resources before sessions.';
-
     if (existingRequest) {
       if (existingRequest.status === 'rejected') {
         await updateTrialSessionStatus(existingRequest.id, 'pending');
@@ -537,7 +557,6 @@ function PendingTutorsPanel({
           requestId: existingRequest.id,
           senderId: currentStudent.id,
           senderName: currentStudent.name,
-          body: 'I would like to request the match again. I still think this tutor could be a good fit.',
         });
         setNotice(`Match request sent again to ${tutor.name}.`);
         return;
@@ -567,44 +586,67 @@ function PendingTutorsPanel({
         requestId: existingRequest.id,
         senderId: currentStudent.id,
         senderName: currentStudent.name,
-        body,
       });
       setNotice(`Match request sent to ${tutor.name}.`);
       return;
     }
 
-    const profile = await getStoredLearningProfile();
+    setSubjectPickerTutor(tutor);
+    setPickerSelectedSubjectKeys([]);
+  }
 
-    await createTrialSessionRequest({
-      tutorId: tutor.id,
-      tutorName: tutor.name,
-      studentId: currentStudent.id,
-      studentName: currentStudent.name,
-      studentEmail: currentStudent.email,
-      subject:
-        profile.subjectSelections[0]?.subjects[0] || tutor.subjects[0] || 'Not specified',
-      level:
-        profile.subjectSelections[0]?.category || tutor.levels[0] || 'Not specified',
-      learningStyle:
-        profile.learningStyles[0] || tutor.learningStyles[0] || 'Not specified',
-      preferredTime:
-        profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
-        tutor.availability,
-      message: body,
-      pendingReasons: ['requested'],
-      preBookingMessages: [
-        {
-          id: crypto.randomUUID(),
-          senderId: currentStudent.id,
-          senderRole: 'student',
-          senderName: currentStudent.name,
-          body,
-          createdAt: new Date().toISOString(),
-        },
-      ],
-    });
+  async function submitMatchWithSubjects() {
+    if (!currentStudent || !subjectPickerTutor || pickerSelectedSubjectKeys.length === 0) return;
 
-    setNotice(`Match request sent to ${tutor.name}.`);
+    const tutor = subjectPickerTutor;
+    setPickerBusy(true);
+
+    try {
+      const allChoices = getSubjectPickerChoices(tutor);
+      const selectedChoices = allChoices.filter((c) => pickerSelectedSubjectKeys.includes(c.key));
+      const selectedSubjects = normaliseRequestedSubjects(selectedChoices);
+      const subjectLabel = selectedSubjects.map((s) => s.label).join(', ') || 'Not specified';
+
+      const existingRequest = getLatestRequestForTutor(requests, tutor.id);
+
+      if (existingRequest && existingRequest.status !== 'rejected') {
+        await addMatchRequestWithSubjects({
+          requestId: existingRequest.id,
+          requestedSubjects: selectedSubjects,
+          subject: subjectLabel,
+        });
+      } else {
+        const profile = await getStoredLearningProfile();
+        const studentDisplayName = profile.displayName.trim() || currentStudent.name;
+
+        await createTrialSessionRequest({
+          tutorId: tutor.id,
+          tutorName: tutor.name,
+          tutorPhotoUrl: tutor.photoUrl,
+          studentId: currentStudent.id,
+          studentName: studentDisplayName,
+          studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
+          studentEmail: currentStudent.email,
+          subject: subjectLabel,
+          level: '',
+          requestedSubjects: selectedSubjects,
+          learningStyle:
+            profile.learningStyles[0] || tutor.learningStyles[0] || 'Not specified',
+          preferredTime:
+            profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
+            tutor.availability,
+          message: '',
+          pendingReasons: ['requested'],
+          preBookingMessages: [],
+        });
+      }
+
+      setNotice(`Match request sent to ${tutor.name}.`);
+    } finally {
+      setPickerBusy(false);
+      setSubjectPickerTutor(null);
+      setPickerSelectedSubjectKeys([]);
+    }
   }
 
   return (
@@ -682,6 +724,28 @@ function PendingTutorsPanel({
           isCreatingRequest={isCreatingRequest}
           onClose={() => setMessageTutorId(null)}
           onSend={(body) => sendPreBookingMessage(messageTutor, body)}
+          onRequestMatch={() => {
+            setSubjectPickerTutor(messageTutor);
+            setPickerSelectedSubjectKeys([]);
+          }}
+        />
+      ) : null}
+
+      {subjectPickerTutor ? (
+        <SubjectPickerModal
+          tutor={subjectPickerTutor}
+          selectedSubjectKeys={pickerSelectedSubjectKeys}
+          onToggle={(key) =>
+            setPickerSelectedSubjectKeys((prev) =>
+              prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+            )
+          }
+          busy={pickerBusy}
+          onConfirm={submitMatchWithSubjects}
+          onCancel={() => {
+            setSubjectPickerTutor(null);
+            setPickerSelectedSubjectKeys([]);
+          }}
         />
       ) : null}
     </div>
@@ -718,16 +782,32 @@ function PendingTutorCard({
   return (
     <Card className="grid gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Tutor
-          </p>
+        <div className="flex min-w-0 flex-1 gap-4">
+          <ProfileAvatar
+            name={item.tutor.name || 'Tutor'}
+            photoUrl={item.tutor.photoUrl}
+            size="lg"
+          />
 
-          <ProfileNameButton label={item.tutor.name || 'Unnamed'} onClick={onViewProfile} />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Tutor
+            </p>
 
-          <p className="mt-1 text-sm text-slate-600">
-            {item.tutor.levels[0] ?? 'Level not set'} {item.tutor.subjects[0] ?? 'Subject not set'}
-          </p>
+            <ProfileNameButton label={item.tutor.name || 'Unnamed'} onClick={onViewProfile} />
+
+            {item.request?.requestedSubjects && item.request.requestedSubjects.length > 0 ? (
+              <p className="mt-1 text-sm text-slate-600">
+                <span className="font-medium text-slate-400">For: </span>
+                {item.request.requestedSubjects.map((s) => formatStoredSubjectLabel(s)).join(', ')}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-slate-600">
+                {item.request?.subject ||
+                  formatStoredSubjectLabel({ level: item.tutor.levels[0], subject: item.tutor.subjects[0] }) ||
+                  'Subject not set'}
+              </p>
+            )}
 
           <div className="mt-3 flex flex-wrap gap-2">
             {item.reasons.map((reason) => (
@@ -746,7 +826,8 @@ function PendingTutorCard({
             ) : null}
           </div>
 
-          <PendingLatestMessageSummary latestMessage={latestMessage} />
+            <PendingLatestMessageSummary latestMessage={latestMessage} />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -854,7 +935,7 @@ function PendingLatestMessageSummary({
         <span className="font-semibold text-slate-900">
           {latestMessage.senderName || 'Unknown user'}:
         </span>{' '}
-        {latestMessage.body}
+        <MathRenderer value={latestMessage.body} />
       </p>
       <p className="mt-1 text-xs text-slate-500">
         {formatPendingCardTime(latestMessage.createdAt)}

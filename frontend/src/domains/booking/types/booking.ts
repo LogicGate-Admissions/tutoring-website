@@ -47,6 +47,12 @@ export type BookingRequest = {
   confirmedAt?: Timestamp;
   cancelledByRole?: 'tutor' | 'student';
   rescheduledByRole?: 'tutor' | 'student';
+  /** A pending reschedule proposal that must be accepted by the counterparty. */
+  rescheduleProposal?: {
+    proposedDate: Timestamp;
+    proposedDurationMinutes: number;
+    proposedByRole: 'tutor' | 'student';
+  };
   /** Optional external call URL retained for older session records. */
   meetingLink?: string;
   /** Optional external calendar event ID retained for older session records. */

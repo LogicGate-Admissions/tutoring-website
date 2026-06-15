@@ -272,7 +272,7 @@ export function BookingRequestForm({
             htmlFor="booking-subject"
             className="block text-sm font-medium text-slate-700"
           >
-            Subject / Topic
+            Subject
           </label>
           <select
             id="booking-subject"

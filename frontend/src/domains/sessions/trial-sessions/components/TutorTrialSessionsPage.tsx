@@ -26,6 +26,7 @@ import {
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 export function TutorTrialSessionsPage() {
   const [currentTutor, setCurrentTutor] = useState<AuthUser | null>(null);
@@ -141,14 +142,16 @@ export function TutorTrialSessionsPage() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge>{request.subject}</Badge>
-                      <Badge>{request.level}</Badge>
+                      <Badge>{formatRequestedSubjects(request)}</Badge>
+                      {request.level ? <Badge>{request.level}</Badge> : null}
                       <Badge>{request.learningStyle}</Badge>
                     </div>
 
-                    <p className="mt-5 max-w-3xl leading-7 text-slate-600">
-                      {request.message}
-                    </p>
+                    {request.message ? (
+                      <p className="mt-5 max-w-3xl leading-7 text-slate-600">
+                        {request.message}
+                      </p>
+                    ) : null}
 
                     <p className="mt-4 text-sm font-medium text-slate-700">
                       Preferred time: {request.preferredTime}
@@ -189,4 +192,13 @@ export function TutorTrialSessionsPage() {
       </DashboardShell>
     </main>
   );
+}
+
+
+function formatRequestedSubjects(request: TrialSessionRequest) {
+  if (request.requestedSubjects && request.requestedSubjects.length > 0) {
+    return request.requestedSubjects.map((subject) => formatStoredSubjectLabel(subject)).join(', ');
+  }
+
+  return formatStoredSubjectLabel(request) || 'Subject not set';
 }

@@ -23,6 +23,7 @@ import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import type {
   CreateTrialSessionRequestInput,
   PreBookingMessage,
+  RequestedTutoringSubject,
   TrialSessionRequest,
   TrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/types/trialSession';
@@ -127,38 +128,57 @@ export async function addMatchRequestToPreBookingConversation({
   requestId,
   senderId,
   senderName,
-  body,
+  body = '',
 }: {
   requestId: string;
   senderId: string;
   senderName: string;
-  body: string;
+  /** Optional note from the student. Empty match requests should not create an automatic message. */
+  body?: string;
 }) {
   const trimmedBody = body.trim();
-
-  if (!trimmedBody) {
-    return;
-  }
-
-  const message: PreBookingMessage = {
-    id: crypto.randomUUID(),
-    senderId,
-    senderRole: 'student',
-    senderName,
-    body: trimmedBody,
-    createdAt: new Date().toISOString(),
-  };
-
   const requestRef = doc(
     db,
     FIRESTORE_COLLECTIONS.trialSessionRequests,
     requestId
   );
 
-  await updateDoc(requestRef, {
-    preBookingMessages: arrayUnion(message),
+  const updatePayload: Record<string, unknown> = {
     pendingReasons: arrayUnion('requested'),
-    message: trimmedBody,
+    updatedAt: serverTimestamp(),
+  };
+
+  if (trimmedBody) {
+    const message: PreBookingMessage = {
+      id: crypto.randomUUID(),
+      senderId,
+      senderRole: 'student',
+      senderName,
+      body: trimmedBody,
+      createdAt: new Date().toISOString(),
+    };
+
+    updatePayload.preBookingMessages = arrayUnion(message);
+    updatePayload.message = trimmedBody;
+  }
+
+  await updateDoc(requestRef, updatePayload);
+}
+
+/** Updates an existing request to add a match request with selected subjects. */
+export async function addMatchRequestWithSubjects({
+  requestId,
+  requestedSubjects,
+  subject,
+}: {
+  requestId: string;
+  requestedSubjects: RequestedTutoringSubject[];
+  subject: string;
+}) {
+  await updateDoc(doc(db, FIRESTORE_COLLECTIONS.trialSessionRequests, requestId), {
+    pendingReasons: arrayUnion('requested'),
+    requestedSubjects,
+    subject,
     updatedAt: serverTimestamp(),
   });
 }
@@ -190,6 +210,20 @@ export async function addPreBookingMessage(input: AddPreBookingMessageInput) {
     preBookingMessages: arrayUnion(message),
     pendingReasons: arrayUnion('messaged'),
     message: trimmedBody,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Allows the student to continue messaging beyond the 5-message pre-match limit. */
+export async function unlockPreBookingMessaging(requestId: string) {
+  const requestRef = doc(
+    db,
+    FIRESTORE_COLLECTIONS.trialSessionRequests,
+    requestId
+  );
+
+  await updateDoc(requestRef, {
+    messagingUnlocked: true,
     updatedAt: serverTimestamp(),
   });
 }
@@ -245,10 +279,13 @@ export async function acceptTrialSessionRequest(request: TrialSessionRequest) {
     tutorId: request.tutorId,
     studentName: request.studentName,
     tutorName: request.tutorName,
+    studentPhotoUrl: request.studentPhotoUrl,
+    tutorPhotoUrl: request.tutorPhotoUrl,
     studentEmail: request.studentEmail,
     tutorEmail: getCurrentFirebaseUser()?.email ?? '',
     subject: request.subject,
     level: request.level,
+    requestedSubjects: request.requestedSubjects ?? [],
     preBookingMessages: request.preBookingMessages ?? [],
   });
 

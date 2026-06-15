@@ -11,8 +11,11 @@
 import { useState } from 'react';
 import {
   acceptBookingRequest,
+  acceptRescheduleProposal,
   cancelBookingRequest,
   declineBookingRequest,
+  declineRescheduleProposal,
+  withdrawRescheduleProposal,
 } from '@/domains/booking/services/bookingService';
 import { BookSessionModal } from '@/domains/booking/components/BookSessionModal';
 import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
@@ -107,6 +110,7 @@ export function BookingRequestCard({
   const canReschedule =
     !isPast &&
     !isTerminal &&
+    !booking.rescheduleProposal &&
     (booking.status === 'confirmed' ||
       booking.status === 'pending_receiver' ||
       booking.status === 'pending_requester');
@@ -142,6 +146,18 @@ export function BookingRequestCard({
       return;
     }
     void runAction(() => cancelBookingRequest(booking.id, viewerRole));
+  }
+
+  function handleAcceptReschedule() {
+    void runAction(() => acceptRescheduleProposal(booking.id));
+  }
+
+  function handleDeclineReschedule() {
+    void runAction(() => declineRescheduleProposal(booking.id));
+  }
+
+  function handleWithdrawProposal() {
+    void runAction(() => withdrawRescheduleProposal(booking.id));
   }
 
   return (
@@ -209,6 +225,52 @@ export function BookingRequestCard({
         <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-xs text-rose-600">
           {actionError}
         </p>
+      ) : null}
+
+      {/* Pending reschedule proposal */}
+      {booking.rescheduleProposal && !isTerminal ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          {booking.rescheduleProposal.proposedByRole === viewerRole ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                Reschedule proposed
+              </p>
+              <p className="mt-1 text-sm text-amber-900">
+                {booking.rescheduleProposal.proposedDate.toDate().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}{' '}
+                at {booking.rescheduleProposal.proposedDate.toDate().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}{' '}
+                ({booking.rescheduleProposal.proposedDurationMinutes} min)
+              </p>
+              <p className="mt-1 text-xs text-amber-700">
+                Waiting for {otherPartyName} to confirm.
+              </p>
+              <div className="mt-3">
+                <ActionButton onClick={handleWithdrawProposal} busy={busy} variant="ghost">
+                  Withdraw proposal
+                </ActionButton>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                Reschedule proposed
+              </p>
+              <p className="mt-1 text-sm text-amber-900">
+                {otherPartyName} proposed{' '}
+                {booking.rescheduleProposal.proposedDate.toDate().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}{' '}
+                at {booking.rescheduleProposal.proposedDate.toDate().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}{' '}
+                ({booking.rescheduleProposal.proposedDurationMinutes} min)
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <ActionButton onClick={handleAcceptReschedule} busy={busy} variant="primary">
+                  Accept reschedule
+                </ActionButton>
+                <ActionButton onClick={handleDeclineReschedule} busy={busy} variant="ghost">
+                  Decline
+                </ActionButton>
+              </div>
+            </div>
+          )}
+        </div>
       ) : null}
 
       {/* Actions */}

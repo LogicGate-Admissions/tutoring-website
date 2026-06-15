@@ -30,7 +30,7 @@ import {
 import { uploadAttachments } from "@/domains/attachments/services/attachmentUploadService";
 import {
   canEmailTutorForUrgentMessage,
-  openUrgentMessageEmailDraft,
+  sendUrgentMessageEmail,
 } from "@/domains/async-support/services/urgentMessageEmailService";
 import { subscribeToCurrentUser } from "@/domains/auth/services/authService";
 import {
@@ -52,11 +52,13 @@ import type {
   SupportMessage,
 } from "@/domains/async-support/types/asyncSupport";
 import { Button } from "@/shared/components/Button";
+import { ProfileAvatar } from "@/shared/components/ProfileAvatar";
 import { Card } from "@/shared/components/Card";
 import { PdfFirstPagePreview } from "@/domains/async-support/components/PdfFirstPagePreview";
 import { cn } from "@/shared/utils/cn";
+import { formatStoredSubjectLabel } from "@/shared/utils/subjectLabels";
 import { getFilesFromClipboard } from "@/shared/utils/clipboardFiles";
-import { DragToBookCalendar } from "@/domains/booking/components/DragToBookCalendar";
+import { DragToBookCalendar, type BookingSubjectOption } from "@/domains/booking/components/DragToBookCalendar";
 import { useRelationshipBookings } from "@/domains/booking/hooks/useRelationshipBookings";
 import type { BookingRequest } from "@/domains/booking/types/booking";
 import { StudentAvailabilityGrid } from "@/domains/students/learning-profile/components/StudentAvailabilityGrid";
@@ -414,7 +416,7 @@ export function MessageThread({
             })
           : [];
 
-      await createSupportMessage({
+      const sentMessage = await createSupportMessage({
         relationshipId,
         senderId: currentUser.id,
         senderRole: currentUser.role,
@@ -426,11 +428,9 @@ export function MessageThread({
       });
 
       if (isUrgent && currentUser.role === "student") {
-        openUrgentEmailDraftOrShowFallback({
+        await sendUrgentEmailOrShowFallback({
           relationship,
-          studentName: currentUser.name,
-          messageBody: trimmedMessage,
-          attachmentCount: attachments.length,
+          messageId: sentMessage.id,
         });
       }
 
@@ -553,11 +553,9 @@ export function MessageThread({
       });
 
       if (urgency === "urgent" && currentUser?.role === "student") {
-        openUrgentEmailDraftOrShowFallback({
+        await sendUrgentEmailOrShowFallback({
           relationship,
-          studentName: currentUser.name,
-          messageBody: message.body,
-          attachmentCount: message.attachments.length,
+          messageId: message.id,
         });
       }
     } catch (caughtError) {
@@ -734,7 +732,7 @@ export function MessageThread({
               </p>
               <p className="mt-1">
                 <span className="font-semibold">Subject:</span>{" "}
-                {relationship.level} {relationship.subject}
+                {getRelationshipSubjectLabel(relationship)}
               </p>
             </div>
           ) : null}
@@ -797,6 +795,7 @@ export function MessageThread({
                         ? () => void handleTutorNameClick()
                         : () => void handleStudentNameClick()
                     }
+                    senderPhotoUrl={getMessageSenderPhotoUrl(message, relationship)}
                     isMine={isMine}
                     isEditing={editingMessageId === message.id}
                     isHighlighted={highlightedMessageId === message.id}
@@ -1110,6 +1109,7 @@ export function MessageThread({
                   }
                   onSuccess={handleCloseSchedule}
                   onCancel={handleCloseSchedule}
+                  relationshipSubjectOptions={getRelationshipBookingSubjectOptions(relationship)}
                 />
               </div>
             ) : null}
@@ -1119,6 +1119,45 @@ export function MessageThread({
       ) : null}
     </div>
   );
+}
+
+
+function getRelationshipSubjectLabel(relationship: StudentTutorRelationship) {
+  const requestedSubjects = relationship.requestedSubjects ?? [];
+
+  if (requestedSubjects.length > 0) {
+    return requestedSubjects.map((subject) => formatStoredSubjectLabel(subject)).join(', ');
+  }
+
+  return formatStoredSubjectLabel(relationship) || 'Subject not specified';
+}
+
+function getRelationshipBookingSubjectOptions(
+  relationship: StudentTutorRelationship | null
+): BookingSubjectOption[] {
+  if (!relationship) {
+    return [];
+  }
+
+  const requestedSubjects = relationship.requestedSubjects ?? [];
+
+  if (requestedSubjects.length > 0) {
+    return requestedSubjects.map((subject) => ({
+      level: subject.level,
+      subject: subject.subject,
+      label: formatStoredSubjectLabel(subject) || subject.subject,
+    }));
+  }
+
+  const label = formatStoredSubjectLabel(relationship) || relationship.subject;
+
+  return label
+    ? [{
+        level: relationship.level,
+        subject: relationship.subject || label,
+        label,
+      }]
+    : [];
 }
 
 function UrgentToggle({
@@ -1141,13 +1180,13 @@ function UrgentToggle({
       <span>
         <span className="block font-semibold">Mark as urgent</span>
         <span className="mt-1 block leading-5 text-red-800">
-          This flags the message for your tutor and opens a pre-filled email
-          draft addressed to them after sending.
+          This flags the message for your tutor and sends them an automatic
+          email after you send it.
         </span>
         {!canEmailTutor ? (
           <span className="mt-1 block text-xs font-medium text-red-700">
             Tutor email is missing for this relationship, so the in-app urgent
-            flag will still save but the email draft may not open.
+            flag will still save but the email cannot be sent automatically.
           </span>
         ) : null}
       </span>
@@ -1155,36 +1194,43 @@ function UrgentToggle({
   );
 }
 
-function openUrgentEmailDraftOrShowFallback({
+async function sendUrgentEmailOrShowFallback({
   relationship,
-  studentName,
-  messageBody,
-  attachmentCount,
+  messageId,
 }: {
   relationship: StudentTutorRelationship | null;
-  studentName: string;
-  messageBody: string;
-  attachmentCount: number;
+  messageId: string;
 }) {
   if (!relationship) {
     window.alert(
-      "Urgent flag saved, but relationship details could not be loaded for the email draft.",
+      "Urgent flag saved, but relationship details could not be loaded for the email.",
     );
     return;
   }
 
   try {
-    openUrgentMessageEmailDraft({
-      relationship,
-      studentName,
-      messageBody,
-      attachmentCount,
+    await sendUrgentMessageEmail({
+      relationshipId: relationship.id,
+      messageId,
     });
-  } catch {
+  } catch (error) {
     window.alert(
-      "Urgent flag saved, but the tutor email is missing for this relationship.",
+      error instanceof Error
+        ? `Urgent flag saved, but the email could not be sent automatically: ${error.message}`
+        : "Urgent flag saved, but the email could not be sent automatically.",
     );
   }
+}
+
+
+function getMessageSenderPhotoUrl(
+  message: SupportMessage,
+  relationship: StudentTutorRelationship | null,
+) {
+  if (!relationship) return undefined;
+  return message.senderRole === 'student'
+    ? relationship.studentPhotoUrl
+    : relationship.tutorPhotoUrl;
 }
 
 function MessageBubble({
@@ -1207,9 +1253,11 @@ function MessageBubble({
   onRegisterElement,
   onJumpToMessage,
   onSenderNameClick,
+  senderPhotoUrl,
 }: {
   relationshipId: string;
   message: SupportMessage;
+  senderPhotoUrl?: string;
   onSenderNameClick?: () => void;
   isMine: boolean;
   isEditing: boolean;
@@ -1235,8 +1283,20 @@ function MessageBubble({
 
   return (
     <div
-      className={cn("flex min-w-0", isMine ? "justify-end" : "justify-start")}
+      className={cn(
+        "flex min-w-0 items-end gap-2",
+        isMine ? "justify-end" : "justify-start",
+      )}
     >
+      {!isMine ? (
+        <ProfileAvatar
+          name={message.senderName || 'User'}
+          photoUrl={senderPhotoUrl}
+          size="sm"
+          rounded="full"
+        />
+      ) : null}
+
       <div
         ref={(element) => onRegisterElement(message.id, element)}
         className={cn(
@@ -1334,6 +1394,15 @@ function MessageBubble({
           </>
         )}
       </div>
+
+      {isMine ? (
+        <ProfileAvatar
+          name={message.senderName || 'You'}
+          photoUrl={senderPhotoUrl}
+          size="sm"
+          rounded="full"
+        />
+      ) : null}
     </div>
   );
 }

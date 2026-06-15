@@ -286,11 +286,11 @@ function JitsiCallSurface({
 
   return (
     <div
-      className="flex items-center justify-center overflow-hidden bg-slate-950"
+      className="logicgate-jitsi-frame flex items-center justify-center overflow-hidden"
       style={{ height }}
     >
       <div
-        className="overflow-hidden rounded-b-2xl bg-slate-950"
+        className="logicgate-jitsi-frame overflow-hidden rounded-b-2xl"
         style={{ width: scaledWidth, height: scaledHeight }}
       >
         <div

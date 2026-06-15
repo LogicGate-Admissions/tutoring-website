@@ -31,6 +31,7 @@ import type {
 /** Tutor onboarding draft edited by the tutor onboarding pages/tabs. */
 export type TutorProfileDraft = {
   displayName: string;
+  photoUrl?: string;
   headline: string;
   subjectSelections: QualificationSubjectSelection[];
   subjectRates: TutorSubjectRate[];
@@ -44,6 +45,7 @@ export type TutorProfileDraft = {
 /** Empty draft used by a new tutor before any Firestore profile exists. */
 export const EMPTY_TUTOR_PROFILE_DRAFT: TutorProfileDraft = {
   displayName: '',
+  photoUrl: '',
   headline: '',
   subjectSelections: [],
   subjectRates: [],
@@ -184,6 +186,7 @@ function mapTutorDocument(snapshot: { id: string; data: () => unknown }): Tutor 
   return {
     id: snapshot.id,
     name: data.name ?? 'Unnamed tutor',
+    photoUrl: typeof data.photoUrl === 'string' ? data.photoUrl : '',
     headline: data.headline ?? 'Tutor profile',
     university: data.university ?? 'University not added yet',
     degree: data.degree ?? 'Degree not added yet',
@@ -211,6 +214,7 @@ function tutorToDraft(
   return {
     ...EMPTY_TUTOR_PROFILE_DRAFT,
     displayName: tutor.name,
+    photoUrl: tutor.photoUrl ?? '',
     headline: tutor.headline,
     subjectSelections: tutor.subjectSelections ?? [],
     subjectRates: tutor.subjectRates ?? [],
@@ -281,6 +285,7 @@ export async function saveTutorProfileFromOnboarding(
 
   const profileDocument = {
     name: displayName,
+    photoUrl: profile.photoUrl ?? '',
     headline: profile.headline.trim() || 'Tutor profile',
     university: profile.university.trim() || 'University not added yet',
     degree: profile.degree.trim() || 'Degree not added yet',
@@ -306,4 +311,14 @@ export async function saveTutorProfileFromOnboarding(
   };
 
   await setDoc(profileRef, profileDocument, { merge: true });
+
+  await setDoc(
+    doc(db, FIRESTORE_COLLECTIONS.users, tutor.id),
+    {
+      name: displayName,
+      photoUrl: profile.photoUrl ?? '',
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
 }

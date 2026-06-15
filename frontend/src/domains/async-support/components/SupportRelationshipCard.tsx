@@ -18,13 +18,18 @@ import type { BookingRequest } from '@/domains/booking/types/booking';
 import type {
   AsyncSupportRole,
   RelationshipSupportSummary,
+  RelationshipTutoringSubject,
 } from '@/domains/async-support/types/asyncSupport';
 import { TutorProfileModal } from '@/domains/tutors/tutor-discovery/components/TutorProfileModal';
 import { getTutorProfile } from '@/domains/tutors/tutor-discovery/services/tutorProfileService';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
+import type { BookingSubjectOption } from '@/domains/booking/components/DragToBookCalendar';
 import { StudentProfileModal } from '@/domains/students/learning-profile/components/StudentProfileModal';
 import { getStudentLearningProfileById } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
+import { MathRenderer } from '@/domains/async-support/components/MathRenderer';
+import { ProfileAvatar } from '@/shared/components/ProfileAvatar';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 type SupportRelationshipAction = {
   label: string;
@@ -89,6 +94,8 @@ export function SupportRelationshipCard({
     viewerRole === 'tutor' ? relationship.studentName : relationship.tutorName;
 
   const otherPersonLabel = viewerRole === 'tutor' ? 'Student' : 'Tutor';
+  const otherPersonPhotoUrl =
+    viewerRole === 'tutor' ? relationship.studentPhotoUrl : relationship.tutorPhotoUrl;
 
   const actionsWithBooking = useMemo(() => {
     const withoutBookSession = actions.filter((action) => action.label !== 'Book session');
@@ -111,35 +118,49 @@ export function SupportRelationshipCard({
     return [...withoutBookSession, bookSessionAction];
   }, [actions]);
 
+  const relationshipSubjectLabel = getRelationshipSubjectLabel(relationship);
+  const relationshipBookingSubjectOptions = useMemo(
+    () => getRelationshipBookingSubjectOptions(relationship),
+    [relationship]
+  );
+
   return (
     <>
       <Card className="grid gap-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              {otherPersonLabel}
-            </p>
+          <div className="flex min-w-0 gap-4">
+            <ProfileAvatar
+              name={otherPersonName || otherPersonLabel}
+              photoUrl={otherPersonPhotoUrl}
+              size="lg"
+            />
 
-            {viewerRole === 'student' ? (
-              <ProfileNameButton
-                label={isLoadingProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
-                disabled={isLoadingProfile}
-                onClick={() => void handleTutorNameClick()}
-              />
-            ) : (
-              <ProfileNameButton
-                label={isLoadingStudentProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
-                disabled={isLoadingStudentProfile}
-                onClick={() => void handleStudentNameClick()}
-              />
-            )}
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                {otherPersonLabel}
+              </p>
 
-            <p className="mt-1 text-sm text-slate-600">
-              {relationship.level} {relationship.subject}
-            </p>
+              {viewerRole === 'student' ? (
+                <ProfileNameButton
+                  label={isLoadingProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
+                  disabled={isLoadingProfile}
+                  onClick={() => void handleTutorNameClick()}
+                />
+              ) : (
+                <ProfileNameButton
+                  label={isLoadingStudentProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
+                  disabled={isLoadingStudentProfile}
+                  onClick={() => void handleStudentNameClick()}
+                />
+              )}
 
-            <LatestMessageSummary relationship={relationship} />
-            <NextLessonSummary booking={upcomingSession} />
+              <p className="mt-1 text-sm text-slate-600">
+                {relationshipSubjectLabel}
+              </p>
+
+              <LatestMessageSummary relationship={relationship} />
+              <NextLessonSummary booking={upcomingSession} />
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -173,7 +194,8 @@ export function SupportRelationshipCard({
           counterpartyName={otherPersonName}
           initiatedBy={viewerRole}
           currentUserId={currentUserId}
-          subject={relationship.subject}
+          subject={relationshipBookingSubjectOptions.length === 1 ? relationshipBookingSubjectOptions[0].label : undefined}
+          subjectOptions={relationshipBookingSubjectOptions}
         />
       ) : null}
 
@@ -194,6 +216,45 @@ export function SupportRelationshipCard({
       ) : null}
     </>
   );
+}
+
+
+function getRelationshipSubjectLabel(relationship: RelationshipSupportSummary) {
+  const requestedSubjects = relationship.requestedSubjects ?? [];
+
+  if (requestedSubjects.length > 0) {
+    return requestedSubjects.map((subject) => formatStoredSubjectLabel(subject)).join(', ');
+  }
+
+  return formatStoredSubjectLabel(relationship) || 'Subject not specified';
+}
+
+function getRelationshipBookingSubjectOptions(
+  relationship: RelationshipSupportSummary
+): BookingSubjectOption[] {
+  const requestedSubjects = relationship.requestedSubjects ?? [];
+
+  if (requestedSubjects.length > 0) {
+    return requestedSubjects.map(subjectToBookingOption);
+  }
+
+  const label = formatStoredSubjectLabel(relationship) || relationship.subject;
+
+  return label
+    ? [{
+        level: relationship.level,
+        subject: relationship.subject || label,
+        label,
+      }]
+    : [];
+}
+
+function subjectToBookingOption(subject: RelationshipTutoringSubject): BookingSubjectOption {
+  return {
+    level: subject.level,
+    subject: subject.subject,
+    label: formatStoredSubjectLabel(subject) || subject.subject,
+  };
 }
 
 function ProfileNameButton({
@@ -311,7 +372,7 @@ function LatestMessageSummary({
         <span className="font-semibold text-slate-900">
           {relationship.latestMessageSenderName || 'Unknown user'}:
         </span>{' '}
-        {relationship.latestMessagePreview}
+        <MathRenderer value={relationship.latestMessagePreview} />
       </p>
       <p className="mt-1 text-xs text-slate-500">
         {formatCardTime(relationship.latestMessageAt)}
