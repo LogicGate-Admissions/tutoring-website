@@ -3,7 +3,10 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  acceptRescheduleProposal,
   cancelBookingRequest,
+  declineRescheduleProposal,
+  withdrawRescheduleProposal,
 } from '@/domains/booking/services/bookingService';
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { BookSessionModal } from '@/domains/booking/components/BookSessionModal';
@@ -73,10 +76,23 @@ export function SessionDetailModal({
   const canReschedule =
     !isPast &&
     !isTerminal &&
+    !booking.rescheduleProposal &&
     (booking.status === 'confirmed' ||
       booking.status === 'pending_receiver' ||
       booking.status === 'pending_requester');
   const canCancel = !isTerminal && !isPast;
+
+  async function runAction(fn: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleCancel() {
     if (!confirmingCancel) {
@@ -181,6 +197,64 @@ export function SessionDetailModal({
                     <path d="M6 3l5 5-5 5" />
                   </svg>
                 </a>
+              </div>
+            ) : null}
+
+            {/* Pending reschedule proposal */}
+            {booking.rescheduleProposal && !isTerminal ? (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                {booking.rescheduleProposal.proposedByRole === viewerRole ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      Reschedule proposed
+                    </p>
+                    <p className="mt-1 text-sm text-amber-900">
+                      {booking.rescheduleProposal.proposedDate.toDate().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}{' '}
+                      at {booking.rescheduleProposal.proposedDate.toDate().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}{' '}
+                      ({booking.rescheduleProposal.proposedDurationMinutes} min)
+                    </p>
+                    <p className="mt-1 text-xs text-amber-700">
+                      Waiting for {otherPartyName} to confirm.
+                    </p>
+                    <div className="mt-3">
+                      <ModalButton
+                        onClick={() => void runAction(() => withdrawRescheduleProposal(booking.id))}
+                        variant="ghost"
+                        busy={busy}
+                      >
+                        Withdraw proposal
+                      </ModalButton>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      Reschedule proposed
+                    </p>
+                    <p className="mt-1 text-sm text-amber-900">
+                      {otherPartyName} proposed{' '}
+                      {booking.rescheduleProposal.proposedDate.toDate().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}{' '}
+                      at {booking.rescheduleProposal.proposedDate.toDate().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}{' '}
+                      ({booking.rescheduleProposal.proposedDurationMinutes} min)
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <ModalButton
+                        onClick={() => void runAction(() => acceptRescheduleProposal(booking.id))}
+                        variant="primary"
+                        busy={busy}
+                      >
+                        Accept reschedule
+                      </ModalButton>
+                      <ModalButton
+                        onClick={() => void runAction(() => declineRescheduleProposal(booking.id))}
+                        variant="ghost"
+                        busy={busy}
+                      >
+                        Decline
+                      </ModalButton>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : null}
 

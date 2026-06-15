@@ -79,6 +79,14 @@ function buildEmailContent(
       subject: `${booking.subject} session rescheduled`,
       body: `Your <strong>${booking.subject}</strong> session has been moved to ${dateStr} at ${timeStr}.`,
     },
+    reschedule_proposed: {
+      subject: `${booking.subject} reschedule proposed`,
+      body: `A reschedule has been proposed for your <strong>${booking.subject}</strong> session. Log in to accept or decline.`,
+    },
+    reschedule_declined: {
+      subject: `${booking.subject} reschedule declined`,
+      body: `Your reschedule proposal for <strong>${booking.subject}</strong> was declined. The session remains on ${dateStr} at ${timeStr}.`,
+    },
   };
 
   const content = eventMessages[eventType] ?? {

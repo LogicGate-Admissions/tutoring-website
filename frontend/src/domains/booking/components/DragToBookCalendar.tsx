@@ -6,7 +6,7 @@ import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import {
   createBookingRequest,
-  rescheduleBookingRequest,
+  proposeReschedule,
 } from '@/domains/booking/services/bookingService';
 import { BookingConflictError, SlotUnavailableError } from '@/domains/booking/types/booking';
 import type { Day, TimeBlock } from '@/domains/students/learning-profile/types/learningProfile';
@@ -392,13 +392,13 @@ export function DragToBookCalendar({
       const durationMinutes = timeToMinutes(to) - timeToMinutes(from);
 
       if (isReschedule && existingBooking) {
-        await rescheduleBookingRequest(
+        await proposeReschedule(
           existingBooking.id,
           sessionDate,
           durationMinutes,
           initiatedBy
         );
-        setToast('Session rescheduled');
+        setToast('Reschedule proposed — waiting for confirmation');
       } else {
         await createBookingRequest({
           tutorId,

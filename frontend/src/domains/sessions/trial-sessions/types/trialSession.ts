@@ -51,6 +51,7 @@ export type TrialSessionRequest = {
   message: string;
   preBookingMessages?: PreBookingMessage[];
   pendingReasons?: PendingTutorReason[];
+  messagingUnlocked?: boolean;
   status: TrialSessionStatus;
   createdAt?: unknown;
   updatedAt?: unknown;

@@ -47,7 +47,10 @@ function toAppNotification(
     id: `booking-${n.id}`,
     type: n.type,
     title: n.message,
-    description: 'Open My sessions to view or manage this booking.',
+    description:
+      n.type === 'reschedule_proposed'
+        ? 'Go to My Sessions → Reschedule Requests to accept or decline.'
+        : 'Open My sessions to view or manage this booking.',
     meta: 'Session booking',
     href: `/${dashboardRoot}/dashboard?section=my-sessions`,
     createdAt: n.createdAt.toDate().toISOString(),

@@ -23,6 +23,7 @@ import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
 import type {
   CreateTrialSessionRequestInput,
   PreBookingMessage,
+  RequestedTutoringSubject,
   TrialSessionRequest,
   TrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/types/trialSession';
@@ -164,6 +165,24 @@ export async function addMatchRequestToPreBookingConversation({
   await updateDoc(requestRef, updatePayload);
 }
 
+/** Updates an existing request to add a match request with selected subjects. */
+export async function addMatchRequestWithSubjects({
+  requestId,
+  requestedSubjects,
+  subject,
+}: {
+  requestId: string;
+  requestedSubjects: RequestedTutoringSubject[];
+  subject: string;
+}) {
+  await updateDoc(doc(db, FIRESTORE_COLLECTIONS.trialSessionRequests, requestId), {
+    pendingReasons: arrayUnion('requested'),
+    requestedSubjects,
+    subject,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 /** Adds a text-only clarifying message to a pending match request. */
 export async function addPreBookingMessage(input: AddPreBookingMessageInput) {
   const trimmedBody = input.body.trim();
@@ -191,6 +210,20 @@ export async function addPreBookingMessage(input: AddPreBookingMessageInput) {
     preBookingMessages: arrayUnion(message),
     pendingReasons: arrayUnion('messaged'),
     message: trimmedBody,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Allows the student to continue messaging beyond the 5-message pre-match limit. */
+export async function unlockPreBookingMessaging(requestId: string) {
+  const requestRef = doc(
+    db,
+    FIRESTORE_COLLECTIONS.trialSessionRequests,
+    requestId
+  );
+
+  await updateDoc(requestRef, {
+    messagingUnlocked: true,
     updatedAt: serverTimestamp(),
   });
 }

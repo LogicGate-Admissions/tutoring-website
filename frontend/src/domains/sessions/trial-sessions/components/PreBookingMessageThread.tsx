@@ -12,6 +12,7 @@ type PreBookingMessageThreadProps = {
   placeholder?: string;
   emptyText?: string;
   helperText?: string;
+  remainingMessages?: number;
   onSend: (body: string) => Promise<void> | void;
 };
 
@@ -29,6 +30,7 @@ export function PreBookingMessageThread({
   placeholder = 'Ask a clarifying question...',
   emptyText = 'No messages yet.',
   helperText = 'Text-only questions before the first booked session. Attachments, urgent flags, and maths tools unlock after the tutor accepts.',
+  remainingMessages,
   onSend,
 }: PreBookingMessageThreadProps) {
   const [draft, setDraft] = useState('');
@@ -92,7 +94,19 @@ export function PreBookingMessageThread({
         />
 
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">{draft.trim().length}/1000 characters</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs text-slate-500">{draft.trim().length}/1000 characters</p>
+            {remainingMessages !== undefined ? (
+              <p
+                className={cn(
+                  'text-xs font-medium',
+                  remainingMessages <= 1 ? 'text-amber-600' : 'text-slate-500'
+                )}
+              >
+                {remainingMessages} message{remainingMessages !== 1 ? 's' : ''} remaining
+              </p>
+            ) : null}
+          </div>
           <Button type="submit" disabled={!canSend}>
             {isSending ? 'Sending...' : 'Send message'}
           </Button>

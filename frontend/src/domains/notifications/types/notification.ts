@@ -14,7 +14,9 @@ export type AppNotificationType =
   | 'booking_accepted'
   | 'booking_declined'
   | 'booking_cancelled'
-  | 'booking_rescheduled';
+  | 'booking_rescheduled'
+  | 'reschedule_proposed'
+  | 'reschedule_declined';
 
 export type AppNotificationTone = 'default' | 'urgent';
 

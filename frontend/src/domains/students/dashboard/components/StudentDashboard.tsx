@@ -19,9 +19,15 @@ import { MySessionsTab } from '@/domains/booking/components/sessions/MySessionsT
 import type { BookingRequest } from '@/domains/booking/types/booking';
 import { useBookings } from '@/domains/booking/hooks/useBookings';
 import { PreBookingMessageModal } from '@/domains/sessions/trial-sessions/components/PreBookingMessageModal';
+import {
+  SubjectPickerModal,
+  getSubjectPickerChoices,
+  normaliseRequestedSubjects,
+} from '@/domains/sessions/trial-sessions/components/SubjectPickerModal';
 import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/TrialStatusBadge';
 import {
   addMatchRequestToPreBookingConversation,
+  addMatchRequestWithSubjects,
   addPreBookingMessage,
   cancelTrialSessionRequest,
   withdrawMatchRequestFromPreBookingConversation,
@@ -307,6 +313,9 @@ function PendingTutorsPanel({
   const [messageTutorId, setMessageTutorId] = useState<string | null>(null);
   const [isCreatingRequest, setIsCreatingRequest] = useState(false);
   const [notice, setNotice] = useState('');
+  const [subjectPickerTutor, setSubjectPickerTutor] = useState<Tutor | null>(null);
+  const [pickerSelectedSubjectKeys, setPickerSelectedSubjectKeys] = useState<string[]>([]);
+  const [pickerBusy, setPickerBusy] = useState(false);
 
   useEffect(() => {
     if (!currentStudent) return undefined;
@@ -484,6 +493,19 @@ function PendingTutorsPanel({
       const studentDisplayName = profile.displayName.trim() || currentStudent.name;
       const now = new Date().toISOString();
 
+      const allChoices = getSubjectPickerChoices(tutor);
+      const studentSubjects = profile.subjectSelections.flatMap((sel) =>
+        sel.subjects.map((sub) => ({ level: sel.category, subject: sub }))
+      );
+      const intersectionChoices = allChoices.filter((choice) =>
+        studentSubjects.some(
+          (s) => s.subject.toLowerCase() === choice.subject.toLowerCase()
+        )
+      );
+      const resolvedChoices = intersectionChoices.length > 0 ? intersectionChoices : allChoices.slice(0, 1);
+      const resolvedSubjects = normaliseRequestedSubjects(resolvedChoices);
+      const subjectLabel = resolvedSubjects.map((s) => s.label).join(', ') || 'Not specified';
+
       await createTrialSessionRequest({
         tutorId: tutor.id,
         tutorName: tutor.name,
@@ -492,14 +514,9 @@ function PendingTutorsPanel({
         studentName: studentDisplayName,
         studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
         studentEmail: currentStudent.email,
-        subject:
-          profile.subjectSelections[0]?.subjects[0] ||
-          tutor.subjects[0] ||
-          'Not specified',
-        level:
-          profile.subjectSelections[0]?.category ||
-          tutor.levels[0] ||
-          'Not specified',
+        subject: subjectLabel,
+        level: '',
+        requestedSubjects: resolvedSubjects,
         learningStyle:
           profile.learningStyles[0] || tutor.learningStyles[0] || 'Not specified',
         preferredTime:
@@ -574,32 +591,62 @@ function PendingTutorsPanel({
       return;
     }
 
-    const profile = await getStoredLearningProfile();
-    const studentDisplayName = profile.displayName.trim() || currentStudent.name;
+    setSubjectPickerTutor(tutor);
+    setPickerSelectedSubjectKeys([]);
+  }
 
-    await createTrialSessionRequest({
-      tutorId: tutor.id,
-      tutorName: tutor.name,
-      tutorPhotoUrl: tutor.photoUrl,
-      studentId: currentStudent.id,
-      studentName: studentDisplayName,
-      studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
-      studentEmail: currentStudent.email,
-      subject:
-        profile.subjectSelections[0]?.subjects[0] || tutor.subjects[0] || 'Not specified',
-      level:
-        profile.subjectSelections[0]?.category || tutor.levels[0] || 'Not specified',
-      learningStyle:
-        profile.learningStyles[0] || tutor.learningStyles[0] || 'Not specified',
-      preferredTime:
-        profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
-        tutor.availability,
-      message: '',
-      pendingReasons: ['requested'],
-      preBookingMessages: [],
-    });
+  async function submitMatchWithSubjects() {
+    if (!currentStudent || !subjectPickerTutor || pickerSelectedSubjectKeys.length === 0) return;
 
-    setNotice(`Match request sent to ${tutor.name}.`);
+    const tutor = subjectPickerTutor;
+    setPickerBusy(true);
+
+    try {
+      const allChoices = getSubjectPickerChoices(tutor);
+      const selectedChoices = allChoices.filter((c) => pickerSelectedSubjectKeys.includes(c.key));
+      const selectedSubjects = normaliseRequestedSubjects(selectedChoices);
+      const subjectLabel = selectedSubjects.map((s) => s.label).join(', ') || 'Not specified';
+
+      const existingRequest = getLatestRequestForTutor(requests, tutor.id);
+
+      if (existingRequest && existingRequest.status !== 'rejected') {
+        await addMatchRequestWithSubjects({
+          requestId: existingRequest.id,
+          requestedSubjects: selectedSubjects,
+          subject: subjectLabel,
+        });
+      } else {
+        const profile = await getStoredLearningProfile();
+        const studentDisplayName = profile.displayName.trim() || currentStudent.name;
+
+        await createTrialSessionRequest({
+          tutorId: tutor.id,
+          tutorName: tutor.name,
+          tutorPhotoUrl: tutor.photoUrl,
+          studentId: currentStudent.id,
+          studentName: studentDisplayName,
+          studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
+          studentEmail: currentStudent.email,
+          subject: subjectLabel,
+          level: '',
+          requestedSubjects: selectedSubjects,
+          learningStyle:
+            profile.learningStyles[0] || tutor.learningStyles[0] || 'Not specified',
+          preferredTime:
+            profile.availability.map(timeBlockLabel).slice(0, 3).join(', ') ||
+            tutor.availability,
+          message: '',
+          pendingReasons: ['requested'],
+          preBookingMessages: [],
+        });
+      }
+
+      setNotice(`Match request sent to ${tutor.name}.`);
+    } finally {
+      setPickerBusy(false);
+      setSubjectPickerTutor(null);
+      setPickerSelectedSubjectKeys([]);
+    }
   }
 
   return (
@@ -677,6 +724,28 @@ function PendingTutorsPanel({
           isCreatingRequest={isCreatingRequest}
           onClose={() => setMessageTutorId(null)}
           onSend={(body) => sendPreBookingMessage(messageTutor, body)}
+          onRequestMatch={() => {
+            setSubjectPickerTutor(messageTutor);
+            setPickerSelectedSubjectKeys([]);
+          }}
+        />
+      ) : null}
+
+      {subjectPickerTutor ? (
+        <SubjectPickerModal
+          tutor={subjectPickerTutor}
+          selectedSubjectKeys={pickerSelectedSubjectKeys}
+          onToggle={(key) =>
+            setPickerSelectedSubjectKeys((prev) =>
+              prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+            )
+          }
+          busy={pickerBusy}
+          onConfirm={submitMatchWithSubjects}
+          onCancel={() => {
+            setSubjectPickerTutor(null);
+            setPickerSelectedSubjectKeys([]);
+          }}
         />
       ) : null}
     </div>
@@ -727,9 +796,18 @@ function PendingTutorCard({
 
             <ProfileNameButton label={item.tutor.name || 'Unnamed'} onClick={onViewProfile} />
 
-            <p className="mt-1 text-sm text-slate-600">
-              {formatStoredSubjectLabel({ level: item.tutor.levels[0], subject: item.tutor.subjects[0] }) || 'Subject not set'}
-            </p>
+            {item.request?.requestedSubjects && item.request.requestedSubjects.length > 0 ? (
+              <p className="mt-1 text-sm text-slate-600">
+                <span className="font-medium text-slate-400">For: </span>
+                {item.request.requestedSubjects.map((s) => formatStoredSubjectLabel(s)).join(', ')}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-slate-600">
+                {item.request?.subject ||
+                  formatStoredSubjectLabel({ level: item.tutor.levels[0], subject: item.tutor.subjects[0] }) ||
+                  'Subject not set'}
+              </p>
+            )}
 
           <div className="mt-3 flex flex-wrap gap-2">
             {item.reasons.map((reason) => (

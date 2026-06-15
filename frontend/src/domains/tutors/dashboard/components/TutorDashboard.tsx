@@ -26,6 +26,7 @@ import {
   ensureTutorStudentLink,
   markPreBookingMessagesSeen,
   subscribeToTutorTrialSessions,
+  unlockPreBookingMessaging,
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
@@ -267,7 +268,7 @@ function PendingStudentsPanel({
   const [activeFilters, setActiveFilters] = useState<PendingFilter[]>(
     pendingFilters.map((filter) => filter.id)
   );
-  const [messageRequest, setMessageRequest] = useState<TrialSessionRequest | null>(null);
+  const [messageRequestId, setMessageRequestId] = useState<string | null>(null);
   const [studentProfileForModal, setStudentProfileForModal] = useState<{
     studentName: string;
     profile: StudentLearningProfile;
@@ -317,7 +318,7 @@ function PendingStudentsPanel({
   }
 
   async function openPendingStudentMessage(request: TrialSessionRequest) {
-    setMessageRequest(request);
+    setMessageRequestId(request.id);
     await markPreBookingMessagesSeen(request.id, 'tutor');
   }
 
@@ -443,17 +444,22 @@ function PendingStudentsPanel({
         </div>
       )}
 
-      {messageRequest ? (
-        <PreBookingMessageModal
-          recipientName={messageRequest.studentName}
-          request={messageRequest}
-          currentUserId={currentTutor?.id}
-          viewerRole="tutor"
-          isCreatingRequest={busyRequestId === messageRequest.id}
-          onClose={() => setMessageRequest(null)}
-          onSend={(body) => handleTutorPreBookingMessage(messageRequest, body)}
-        />
-      ) : null}
+      {messageRequestId ? (() => {
+        const liveRequest = requests.find((r) => r.id === messageRequestId);
+        if (!liveRequest) return null;
+        return (
+          <PreBookingMessageModal
+            recipientName={liveRequest.studentName}
+            request={liveRequest}
+            currentUserId={currentTutor?.id}
+            viewerRole="tutor"
+            isCreatingRequest={busyRequestId === liveRequest.id}
+            onClose={() => setMessageRequestId(null)}
+            onSend={(body) => handleTutorPreBookingMessage(liveRequest, body)}
+            onAllowMessaging={() => void unlockPreBookingMessaging(liveRequest.id)}
+          />
+        );
+      })() : null}
 
       {studentProfileForModal ? (
         <StudentProfileModal
@@ -552,16 +558,16 @@ function PendingStudentCard({
           <Button disabled={disabled} onClick={onMoveBackToPending}>
             {disabled ? 'Saving...' : 'Move to pending'}
           </Button>
-        ) : (
+        ) : hasRequestedMatch(request) ? (
           <>
             <Button disabled={disabled} onClick={onAccept}>
-              {disabled ? 'Saving...' : 'Accept'}
+              {disabled ? 'Saving...' : 'Accept Match'}
             </Button>
             <Button variant="secondary" disabled={disabled} onClick={onReject}>
-              Reject
+              Reject Match
             </Button>
           </>
-        )}
+        ) : null}
       </div>
     </Card>
   );
