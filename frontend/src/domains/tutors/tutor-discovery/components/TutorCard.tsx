@@ -9,7 +9,7 @@ import { TrialStatusBadge } from '@/domains/sessions/trial-sessions/components/T
 import { hasRequestedMatch } from '@/domains/sessions/trial-sessions/utils/trialRequestState';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
 import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
-import { tutorInitials } from '@/domains/tutors/tutor-discovery/utils/tutorDisplay';
+import { ProfileAvatar } from '@/shared/components/ProfileAvatar';
 
 type TutorCardProps = {
   tutor: Tutor;
@@ -33,9 +33,7 @@ export function TutorCard({
       <div>
         {/* Phase 1: identify the tutor with avatar, name, and institution. */}
         <div className="flex items-start gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-lg font-semibold text-white">
-            {tutorInitials(tutor.name)}
-          </div>
+          <ProfileAvatar name={tutor.name} photoUrl={tutor.photoUrl} size="lg" />
 
           <div className="min-w-0">
             <h2 className="text-xl font-semibold tracking-tight text-slate-950">

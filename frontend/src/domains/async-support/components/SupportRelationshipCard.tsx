@@ -28,6 +28,7 @@ import { StudentProfileModal } from '@/domains/students/learning-profile/compone
 import { getStudentLearningProfileById } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
 import { MathRenderer } from '@/domains/async-support/components/MathRenderer';
+import { ProfileAvatar } from '@/shared/components/ProfileAvatar';
 import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 type SupportRelationshipAction = {
@@ -93,6 +94,8 @@ export function SupportRelationshipCard({
     viewerRole === 'tutor' ? relationship.studentName : relationship.tutorName;
 
   const otherPersonLabel = viewerRole === 'tutor' ? 'Student' : 'Tutor';
+  const otherPersonPhotoUrl =
+    viewerRole === 'tutor' ? relationship.studentPhotoUrl : relationship.tutorPhotoUrl;
 
   const actionsWithBooking = useMemo(() => {
     const withoutBookSession = actions.filter((action) => action.label !== 'Book session');
@@ -125,31 +128,39 @@ export function SupportRelationshipCard({
     <>
       <Card className="grid gap-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              {otherPersonLabel}
-            </p>
+          <div className="flex min-w-0 gap-4">
+            <ProfileAvatar
+              name={otherPersonName || otherPersonLabel}
+              photoUrl={otherPersonPhotoUrl}
+              size="lg"
+            />
 
-            {viewerRole === 'student' ? (
-              <ProfileNameButton
-                label={isLoadingProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
-                disabled={isLoadingProfile}
-                onClick={() => void handleTutorNameClick()}
-              />
-            ) : (
-              <ProfileNameButton
-                label={isLoadingStudentProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
-                disabled={isLoadingStudentProfile}
-                onClick={() => void handleStudentNameClick()}
-              />
-            )}
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                {otherPersonLabel}
+              </p>
 
-            <p className="mt-1 text-sm text-slate-600">
-              {relationshipSubjectLabel}
-            </p>
+              {viewerRole === 'student' ? (
+                <ProfileNameButton
+                  label={isLoadingProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
+                  disabled={isLoadingProfile}
+                  onClick={() => void handleTutorNameClick()}
+                />
+              ) : (
+                <ProfileNameButton
+                  label={isLoadingStudentProfile ? 'Loading...' : (otherPersonName || 'Unnamed')}
+                  disabled={isLoadingStudentProfile}
+                  onClick={() => void handleStudentNameClick()}
+                />
+              )}
 
-            <LatestMessageSummary relationship={relationship} />
-            <NextLessonSummary booking={upcomingSession} />
+              <p className="mt-1 text-sm text-slate-600">
+                {relationshipSubjectLabel}
+              </p>
+
+              <LatestMessageSummary relationship={relationship} />
+              <NextLessonSummary booking={upcomingSession} />
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 sm:justify-end">

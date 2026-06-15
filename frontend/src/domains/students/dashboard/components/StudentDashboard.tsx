@@ -43,6 +43,7 @@ import type { Tutor } from '@/domains/tutors/tutor-discovery/types/tutor';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
+import { ProfileAvatar } from '@/shared/components/ProfileAvatar';
 import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
 import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
@@ -485,8 +486,10 @@ function PendingTutorsPanel({
       await createTrialSessionRequest({
         tutorId: tutor.id,
         tutorName: tutor.name,
+        tutorPhotoUrl: tutor.photoUrl,
         studentId: currentStudent.id,
         studentName: currentStudent.name,
+        studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
         studentEmail: currentStudent.email,
         subject:
           profile.subjectSelections[0]?.subjects[0] ||
@@ -575,8 +578,10 @@ function PendingTutorsPanel({
     await createTrialSessionRequest({
       tutorId: tutor.id,
       tutorName: tutor.name,
+      tutorPhotoUrl: tutor.photoUrl,
       studentId: currentStudent.id,
       studentName: currentStudent.name,
+      studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
       studentEmail: currentStudent.email,
       subject:
         profile.subjectSelections[0]?.subjects[0] || tutor.subjects[0] || 'Not specified',
@@ -706,16 +711,23 @@ function PendingTutorCard({
   return (
     <Card className="grid gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Tutor
-          </p>
+        <div className="flex min-w-0 flex-1 gap-4">
+          <ProfileAvatar
+            name={item.tutor.name || 'Tutor'}
+            photoUrl={item.tutor.photoUrl}
+            size="lg"
+          />
 
-          <ProfileNameButton label={item.tutor.name || 'Unnamed'} onClick={onViewProfile} />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Tutor
+            </p>
 
-          <p className="mt-1 text-sm text-slate-600">
-            {formatStoredSubjectLabel({ level: item.tutor.levels[0], subject: item.tutor.subjects[0] }) || 'Subject not set'}
-          </p>
+            <ProfileNameButton label={item.tutor.name || 'Unnamed'} onClick={onViewProfile} />
+
+            <p className="mt-1 text-sm text-slate-600">
+              {formatStoredSubjectLabel({ level: item.tutor.levels[0], subject: item.tutor.subjects[0] }) || 'Subject not set'}
+            </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
             {item.reasons.map((reason) => (
@@ -734,7 +746,8 @@ function PendingTutorCard({
             ) : null}
           </div>
 
-          <PendingLatestMessageSummary latestMessage={latestMessage} />
+            <PendingLatestMessageSummary latestMessage={latestMessage} />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 sm:justify-end">

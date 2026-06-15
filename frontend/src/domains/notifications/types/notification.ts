@@ -24,6 +24,7 @@ export type AppNotification = {
   title: string;
   description: string;
   meta: string;
+  photoUrl?: string;
   href: string;
   createdAt: string;
   tone?: AppNotificationTone;

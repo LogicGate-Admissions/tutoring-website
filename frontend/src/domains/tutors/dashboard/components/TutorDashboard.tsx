@@ -36,6 +36,7 @@ import type { StudentLearningProfile } from '@/domains/students/learning-profile
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
+import { ProfileAvatar } from '@/shared/components/ProfileAvatar';
 import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
 import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
@@ -495,20 +496,27 @@ function PendingStudentCard({
   return (
     <Card className="grid gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Student
-          </p>
-
-          <ProfileNameButton
-            label={isLoadingProfile ? 'Loading...' : request.studentName || 'Unnamed'}
-            disabled={isLoadingProfile}
-            onClick={onViewProfile}
+        <div className="flex min-w-0 flex-1 gap-4">
+          <ProfileAvatar
+            name={request.studentName || 'Student'}
+            photoUrl={request.studentPhotoUrl}
+            size="lg"
           />
 
-          <p className="mt-1 text-sm text-slate-600">
-            {formatTrialRequestSubject(request)}
-          </p>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Student
+            </p>
+
+            <ProfileNameButton
+              label={isLoadingProfile ? 'Loading...' : request.studentName || 'Unnamed'}
+              disabled={isLoadingProfile}
+              onClick={onViewProfile}
+            />
+
+            <p className="mt-1 text-sm text-slate-600">
+              {formatTrialRequestSubject(request)}
+            </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
             <TrialStatusBadge status={request.status} />
@@ -523,7 +531,8 @@ function PendingStudentCard({
             Preferred time: {request.preferredTime}
           </p>
 
-          <PendingLatestMessageSummary latestMessage={latestMessage} />
+            <PendingLatestMessageSummary latestMessage={latestMessage} />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 sm:justify-end">

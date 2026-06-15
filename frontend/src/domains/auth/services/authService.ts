@@ -28,6 +28,7 @@ type StoredUserDocument = {
   name: string;
   role: AuthRole;
   hasCompletedOnboarding: boolean;
+  photoUrl?: string;
 };
 
 /** Return the current Firebase Auth user if Firebase already knows one. */
@@ -48,6 +49,7 @@ function toAuthUser(firebaseUser: User, storedUser: StoredUserDocument): AuthUse
     name: storedUser.name,
     role: storedUser.role,
     hasCompletedOnboarding: storedUser.hasCompletedOnboarding,
+    photoUrl: storedUser.photoUrl,
   };
 }
 

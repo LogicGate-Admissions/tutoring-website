@@ -22,6 +22,7 @@ export type TutorSubjectRate = {
 export type Tutor = {
   id: string;
   name: string;
+  photoUrl?: string;
   headline: string;
   university: string;
   degree: string;

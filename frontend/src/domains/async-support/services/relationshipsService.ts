@@ -42,6 +42,8 @@ export type CreateStudentTutorRelationshipInput = {
 
   studentName: string;
   tutorName: string;
+  studentPhotoUrl?: string;
+  tutorPhotoUrl?: string;
   studentEmail?: string;
   tutorEmail?: string;
 
@@ -98,6 +100,8 @@ export async function createStudentTutorRelationship(
     tutorId: input.tutorId,
     studentName: input.studentName,
     tutorName: input.tutorName,
+    studentPhotoUrl: input.studentPhotoUrl,
+    tutorPhotoUrl: input.tutorPhotoUrl,
     studentEmail: input.studentEmail,
     tutorEmail: input.tutorEmail,
     subject: input.subject,
@@ -118,6 +122,8 @@ export async function createStudentTutorRelationship(
     tutorId: relationship.tutorId,
     studentName: relationship.studentName,
     tutorName: relationship.tutorName,
+    ...(relationship.studentPhotoUrl ? { studentPhotoUrl: relationship.studentPhotoUrl } : {}),
+    ...(relationship.tutorPhotoUrl ? { tutorPhotoUrl: relationship.tutorPhotoUrl } : {}),
     ...(relationship.studentEmail ? { studentEmail: relationship.studentEmail } : {}),
     ...(relationship.tutorEmail ? { tutorEmail: relationship.tutorEmail } : {}),
     subject: relationship.subject,
@@ -280,6 +286,8 @@ function mapRelationshipSnapshot(
     tutorId: String(data.tutorId ?? ''),
     studentName: String(data.studentName ?? ''),
     tutorName: String(data.tutorName ?? ''),
+    studentPhotoUrl: optionalString(data.studentPhotoUrl),
+    tutorPhotoUrl: optionalString(data.tutorPhotoUrl),
     studentEmail: optionalString(data.studentEmail),
     tutorEmail: optionalString(data.tutorEmail),
     subject: String(data.subject ?? ''),

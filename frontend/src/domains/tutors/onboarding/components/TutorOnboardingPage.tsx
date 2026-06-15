@@ -181,7 +181,7 @@ export function TutorOnboardingPage() {
   }, [loadTutorProfile]);
 
   function updateTextField(
-    field: 'displayName' | 'headline' | 'university' | 'degree' | 'bio',
+    field: 'displayName' | 'headline' | 'university' | 'degree' | 'bio' | 'photoUrl',
     value: string
   ) {
     if (error) setError(null);
@@ -389,6 +389,7 @@ export function TutorOnboardingPage() {
     return (
       <TutorProfileBasicsSection
         profile={profile}
+        userId={currentTutor?.id}
         onChangeTextField={updateTextField}
       />
     );

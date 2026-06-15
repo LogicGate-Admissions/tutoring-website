@@ -3,6 +3,7 @@
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { TutorAvailabilityDisplay } from '@/domains/tutors/tutor-discovery/components/TutorAvailabilityDisplay';
+import { ProfileAvatar } from '@/shared/components/ProfileAvatar';
 import type {
   QualificationSubjectSelection,
   StudentLearningProfile,
@@ -28,9 +29,12 @@ export function StudentProfileModal({
       <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-slate-950 text-2xl font-semibold text-white">
-              {studentInitials(studentName)}
-            </div>
+            <ProfileAvatar
+              name={studentName || 'Student'}
+              photoUrl={profile.photoUrl}
+              size="xl"
+              className="rounded-3xl"
+            />
 
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
@@ -172,16 +176,4 @@ function BadgeList({ values }: { values: string[] }) {
 
 function EmptyText({ children }: { children: string }) {
   return <p className="text-sm leading-6 text-slate-700">{children}</p>;
-}
-
-function studentInitials(name: string) {
-  const initials = name
-    .split(' ')
-    .map((part) => part[0])
-    .filter(Boolean)
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
-  return initials || 'S';
 }

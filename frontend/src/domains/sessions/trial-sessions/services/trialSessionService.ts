@@ -246,6 +246,8 @@ export async function acceptTrialSessionRequest(request: TrialSessionRequest) {
     tutorId: request.tutorId,
     studentName: request.studentName,
     tutorName: request.tutorName,
+    studentPhotoUrl: request.studentPhotoUrl,
+    tutorPhotoUrl: request.tutorPhotoUrl,
     studentEmail: request.studentEmail,
     tutorEmail: getCurrentFirebaseUser()?.email ?? '',
     subject: request.subject,

@@ -88,6 +88,8 @@ export type StudentTutorRelationship = {
 
   studentName: string;
   tutorName: string;
+  studentPhotoUrl?: string;
+  tutorPhotoUrl?: string;
 
   /** Stored for future student-side email/notification flows. */
   studentEmail?: string;

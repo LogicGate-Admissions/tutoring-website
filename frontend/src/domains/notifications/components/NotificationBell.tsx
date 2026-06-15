@@ -16,6 +16,7 @@ import type { AsyncSupportRole } from '@/domains/async-support/types/asyncSuppor
 import type { AppNotification } from '@/domains/notifications/types/notification';
 import { cn } from '@/shared/utils/cn';
 import { MathRenderer } from '@/domains/async-support/components/MathRenderer';
+import { ProfileAvatar } from '@/shared/components/ProfileAvatar';
 
 type NotificationBellProps = {
   userType: AsyncSupportRole;
@@ -147,11 +148,12 @@ function NotificationBellContent({
           )}
         >
           <div className="flex items-start gap-3">
-            <span
-              className={cn(
-                'mt-1 flex h-2.5 w-2.5 shrink-0 rounded-full',
-                notification.tone === 'urgent' ? 'bg-red-600' : 'bg-slate-950'
-              )}
+            <ProfileAvatar
+              name={notification.title}
+              photoUrl={notification.photoUrl}
+              size="sm"
+              rounded="full"
+              className={notification.tone === 'urgent' ? 'ring-2 ring-red-200' : undefined}
             />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-950">

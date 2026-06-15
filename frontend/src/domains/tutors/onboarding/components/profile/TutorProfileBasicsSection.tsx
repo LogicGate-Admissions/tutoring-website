@@ -7,6 +7,7 @@
  */
 
 import { Card } from '@/shared/components/Card';
+import { ProfilePhotoUploader } from '@/shared/components/ProfilePhotoUploader';
 import { SearchableMultiSelect } from '@/shared/components/SearchableMultiSelect';
 import { UNIVERSITY_OPTIONS } from '@/domains/students/learning-profile/constants/learningProfileOptions';
 import { DEGREE_OPTIONS } from '@/domains/tutors/onboarding/constants/tutorOnboardingOptions';
@@ -16,9 +17,12 @@ type TutorProfileBasicsSectionProps = {
   /** The tutor profile draft currently being edited. */
   profile: TutorProfileDraft;
 
+  /** Firebase Auth uid used for uploading the tutor face photo. */
+  userId?: string;
+
   /** Updates text fields owned by this section. */
   onChangeTextField: (
-    field: 'displayName' | 'headline' | 'university' | 'degree' | 'bio',
+    field: 'displayName' | 'headline' | 'university' | 'degree' | 'bio' | 'photoUrl',
     value: string
   ) => void;
 
@@ -33,6 +37,7 @@ type TutorProfileBasicsSectionProps = {
  */
 export function TutorProfileBasicsSection({
   profile,
+  userId,
   onChangeTextField,
 }: TutorProfileBasicsSectionProps) {
   return (
@@ -44,6 +49,14 @@ export function TutorProfileBasicsSection({
       </p>
 
       <div className="mt-5 grid gap-5">
+        <ProfilePhotoUploader
+          userId={userId}
+          name={profile.displayName || 'Tutor'}
+          photoUrl={profile.photoUrl}
+          helperText="This face photo appears on your tutor card, profile, messages, and student dashboard."
+          onUploaded={(photoUrl) => onChangeTextField('photoUrl', photoUrl)}
+        />
+
         <TextField
           id="displayName"
           label="Display name"

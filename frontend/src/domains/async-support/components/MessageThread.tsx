@@ -52,6 +52,7 @@ import type {
   SupportMessage,
 } from "@/domains/async-support/types/asyncSupport";
 import { Button } from "@/shared/components/Button";
+import { ProfileAvatar } from "@/shared/components/ProfileAvatar";
 import { Card } from "@/shared/components/Card";
 import { PdfFirstPagePreview } from "@/domains/async-support/components/PdfFirstPagePreview";
 import { cn } from "@/shared/utils/cn";
@@ -794,6 +795,7 @@ export function MessageThread({
                         ? () => void handleTutorNameClick()
                         : () => void handleStudentNameClick()
                     }
+                    senderPhotoUrl={getMessageSenderPhotoUrl(message, relationship)}
                     isMine={isMine}
                     isEditing={editingMessageId === message.id}
                     isHighlighted={highlightedMessageId === message.id}
@@ -1220,6 +1222,17 @@ async function sendUrgentEmailOrShowFallback({
   }
 }
 
+
+function getMessageSenderPhotoUrl(
+  message: SupportMessage,
+  relationship: StudentTutorRelationship | null,
+) {
+  if (!relationship) return undefined;
+  return message.senderRole === 'student'
+    ? relationship.studentPhotoUrl
+    : relationship.tutorPhotoUrl;
+}
+
 function MessageBubble({
   relationshipId,
   message,
@@ -1240,9 +1253,11 @@ function MessageBubble({
   onRegisterElement,
   onJumpToMessage,
   onSenderNameClick,
+  senderPhotoUrl,
 }: {
   relationshipId: string;
   message: SupportMessage;
+  senderPhotoUrl?: string;
   onSenderNameClick?: () => void;
   isMine: boolean;
   isEditing: boolean;
@@ -1268,8 +1283,20 @@ function MessageBubble({
 
   return (
     <div
-      className={cn("flex min-w-0", isMine ? "justify-end" : "justify-start")}
+      className={cn(
+        "flex min-w-0 items-end gap-2",
+        isMine ? "justify-end" : "justify-start",
+      )}
     >
+      {!isMine ? (
+        <ProfileAvatar
+          name={message.senderName || 'User'}
+          photoUrl={senderPhotoUrl}
+          size="sm"
+          rounded="full"
+        />
+      ) : null}
+
       <div
         ref={(element) => onRegisterElement(message.id, element)}
         className={cn(
@@ -1367,6 +1394,15 @@ function MessageBubble({
           </>
         )}
       </div>
+
+      {isMine ? (
+        <ProfileAvatar
+          name={message.senderName || 'You'}
+          photoUrl={senderPhotoUrl}
+          size="sm"
+          rounded="full"
+        />
+      ) : null}
     </div>
   );
 }

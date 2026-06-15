@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react';
 import { Container } from '@/shared/components/Container';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { ProfilePhotoUploader } from '@/shared/components/ProfilePhotoUploader';
 import {
   StudentOnboardingFlowControls,
   StudentOnboardingSectionBar,
@@ -30,11 +31,22 @@ import {
   getStoredLearningProfile,
   updateStoredLearningProfile,
 } from '@/domains/students/learning-profile/services/learningProfileStorage';
+import { subscribeToCurrentUser } from '@/domains/auth/services/authService';
 
 export function StudentPreferencesStep() {
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [preferredUniversities, setPreferredUniversities] = useState<string[]>([]);
   const [bio, setBio] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [currentStudentId, setCurrentStudentId] = useState<string | undefined>();
+
+  useEffect(() => {
+    const unsubscribe = subscribeToCurrentUser((user) => {
+      setCurrentStudentId(user?.role === 'student' ? user.id : undefined);
+    });
+
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     /**
@@ -51,6 +63,7 @@ export function StudentPreferencesStep() {
       setSelectedStyles(profile.learningStyles);
       setPreferredUniversities(profile.preferredUniversities);
       setBio(profile.bio);
+      setPhotoUrl(profile.photoUrl ?? '');
     }
 
     void loadProfile();
@@ -87,6 +100,7 @@ export function StudentPreferencesStep() {
       learningStyles: selectedStyles,
       preferredUniversities,
       bio,
+      photoUrl,
     });
   }
 
@@ -105,6 +119,24 @@ export function StudentPreferencesStep() {
 
       <Container className="grid gap-6 py-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="grid gap-6">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Face photo
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              Help your tutor recognise you
+            </h2>
+            <div className="mt-5">
+              <ProfilePhotoUploader
+                userId={currentStudentId}
+                name="Student"
+                photoUrl={photoUrl}
+                helperText="This face photo appears for tutors in requests, messages, and student profile previews."
+                onUploaded={setPhotoUrl}
+              />
+            </div>
+          </section>
+
           <LearningStyleSection
             selectedStyles={selectedStyles}
             onToggleStyle={toggleStyle}

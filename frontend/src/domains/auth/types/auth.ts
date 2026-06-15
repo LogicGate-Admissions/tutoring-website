@@ -19,6 +19,7 @@ export type AuthUser = {
   name: string;
   role: AuthRole;
   hasCompletedOnboarding: boolean;
+  photoUrl?: string;
 };
 
 /** Email/password form values collected by the shared auth page. */

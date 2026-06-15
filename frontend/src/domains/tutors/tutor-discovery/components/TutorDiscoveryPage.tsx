@@ -295,8 +295,10 @@ export function TutorDiscoveryPage() {
       await createTrialSessionRequest({
         tutorId: tutor.id,
         tutorName: tutor.name,
+        tutorPhotoUrl: tutor.photoUrl,
         studentId: currentStudent.id,
         studentName: currentStudent.name,
+        studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
         studentEmail: currentStudent.email,
         subject:
           filters.subjects[0]?.subject ||
@@ -405,8 +407,10 @@ export function TutorDiscoveryPage() {
     await createTrialSessionRequest({
       tutorId: tutor.id,
       tutorName: tutor.name,
+      tutorPhotoUrl: tutor.photoUrl,
       studentId: currentStudent.id,
       studentName: currentStudent.name,
+      studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
       studentEmail: currentStudent.email,
       subject: subjectLabel || 'Not specified',
       level: '',

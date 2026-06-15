@@ -38,8 +38,10 @@ export type TrialSessionRequest = {
   id: string;
   tutorId: string;
   tutorName: string;
+  tutorPhotoUrl?: string;
   studentId: string;
   studentName: string;
+  studentPhotoUrl?: string;
   studentEmail?: string;
   subject: string;
   level: string;
