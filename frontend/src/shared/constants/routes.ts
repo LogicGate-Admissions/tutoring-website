@@ -18,6 +18,7 @@ export const ROUTES = {
   studentOnboardingSubjects: '/student/onboarding/subjects',
   studentOnboardingPreferences: '/student/onboarding/preferences',
   studentOnboardingAvailability: '/student/onboarding/availability',
+  studentOnboardingProfile: '/student/onboarding/profile',
   studentTutors: '/student/tutors',
 
   /** Tutor authentication and product area. */

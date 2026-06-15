@@ -74,9 +74,12 @@ export async function saveLearningProfile(profile: StudentLearningProfile) {
     { merge: true }
   );
 
+  const displayName = profile.displayName?.trim();
+
   await setDoc(
     userDocumentRef(studentId),
     {
+      ...(displayName ? { name: displayName } : {}),
       ...(profile.photoUrl !== undefined ? { photoUrl: profile.photoUrl } : {}),
       updatedAt: serverTimestamp(),
     },

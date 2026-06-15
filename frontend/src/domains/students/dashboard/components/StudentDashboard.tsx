@@ -481,6 +481,7 @@ function PendingTutorsPanel({
 
     try {
       const profile = await getStoredLearningProfile();
+      const studentDisplayName = profile.displayName.trim() || currentStudent.name;
       const now = new Date().toISOString();
 
       await createTrialSessionRequest({
@@ -488,7 +489,7 @@ function PendingTutorsPanel({
         tutorName: tutor.name,
         tutorPhotoUrl: tutor.photoUrl,
         studentId: currentStudent.id,
-        studentName: currentStudent.name,
+        studentName: studentDisplayName,
         studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
         studentEmail: currentStudent.email,
         subject:
@@ -574,13 +575,14 @@ function PendingTutorsPanel({
     }
 
     const profile = await getStoredLearningProfile();
+    const studentDisplayName = profile.displayName.trim() || currentStudent.name;
 
     await createTrialSessionRequest({
       tutorId: tutor.id,
       tutorName: tutor.name,
       tutorPhotoUrl: tutor.photoUrl,
       studentId: currentStudent.id,
-      studentName: currentStudent.name,
+      studentName: studentDisplayName,
       studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
       studentEmail: currentStudent.email,
       subject:

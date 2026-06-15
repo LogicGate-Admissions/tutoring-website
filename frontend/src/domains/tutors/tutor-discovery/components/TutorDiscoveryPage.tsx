@@ -290,6 +290,7 @@ export function TutorDiscoveryPage() {
 
     try {
       const profile = studentProfile ?? (await getStoredLearningProfile());
+      const studentDisplayName = profile.displayName.trim() || currentStudent.name;
       const now = new Date().toISOString();
 
       await createTrialSessionRequest({
@@ -297,7 +298,7 @@ export function TutorDiscoveryPage() {
         tutorName: tutor.name,
         tutorPhotoUrl: tutor.photoUrl,
         studentId: currentStudent.id,
-        studentName: currentStudent.name,
+        studentName: studentDisplayName,
         studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
         studentEmail: currentStudent.email,
         subject:
@@ -398,6 +399,7 @@ export function TutorDiscoveryPage() {
     }
 
     const profile = studentProfile ?? (await getStoredLearningProfile());
+    const studentDisplayName = profile.displayName.trim() || currentStudent.name;
     const selectedSubjects = normaliseRequestedSubjects(
       subjectChoices.length > 0
         ? subjectChoices
@@ -409,7 +411,7 @@ export function TutorDiscoveryPage() {
       tutorName: tutor.name,
       tutorPhotoUrl: tutor.photoUrl,
       studentId: currentStudent.id,
-      studentName: currentStudent.name,
+      studentName: studentDisplayName,
       studentPhotoUrl: profile.photoUrl ?? currentStudent.photoUrl,
       studentEmail: currentStudent.email,
       subject: subjectLabel || 'Not specified',

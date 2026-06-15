@@ -126,6 +126,7 @@ export const DEFAULT_LEARNING_PROFILE = {
   subjectSelections: [],
   learningStyles: [],
   preferredUniversities: [],
+  displayName: '',
   photoUrl: '',
   bio: '',
   availability: [],

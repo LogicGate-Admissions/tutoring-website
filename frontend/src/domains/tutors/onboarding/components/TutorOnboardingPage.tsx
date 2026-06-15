@@ -320,11 +320,9 @@ export function TutorOnboardingPage() {
   function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const nextTab = getNextTab(activeTab);
-
-    if (nextTab) {
+    if (activeTab !== 'profile') {
       setError(null);
-      setActiveTab(nextTab);
+      setActiveTab(getNextTab(activeTab) ?? 'profile');
       return;
     }
 
@@ -341,11 +339,9 @@ export function TutorOnboardingPage() {
   }
 
   function goForward() {
-    const nextTab = getNextTab(activeTab);
-
-    if (nextTab) {
+    if (activeTab !== 'profile') {
       setError(null);
-      setActiveTab(nextTab);
+      setActiveTab(getNextTab(activeTab) ?? 'profile');
       return;
     }
 

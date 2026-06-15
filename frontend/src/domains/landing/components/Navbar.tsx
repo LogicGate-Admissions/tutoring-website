@@ -22,6 +22,7 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden items-center gap-6 md:flex">
+            <ThemeToggle />
             <Link
               href={ROUTES.studentLogin}
               className="text-sm font-medium text-slate-600 transition hover:text-slate-950"
@@ -34,7 +35,6 @@ export default function Navbar() {
             >
               For Tutors
             </Link>
-            <ThemeToggle />
           </div>
 
           {/* Mobile hamburger */}
