@@ -42,10 +42,11 @@ export function ProfileAvatar({
 
   if (photoUrl) {
     return (
-      <img
-        src={photoUrl}
-        alt={name ? `${name} profile photo` : 'Profile photo'}
-        className={cn(baseClassName, 'object-cover')}
+      <div
+        role="img"
+        aria-label={name ? `${name} profile photo` : 'Profile photo'}
+        className={cn(baseClassName, 'bg-cover bg-center bg-no-repeat')}
+        style={{ backgroundImage: `url(${photoUrl})` }}
       />
     );
   }

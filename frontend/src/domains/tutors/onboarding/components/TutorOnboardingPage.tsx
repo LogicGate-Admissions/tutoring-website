@@ -7,7 +7,7 @@
  * navigation, while Back / Next / Finish buttons provide a guided flow.
  */
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
 import { Container } from '@/shared/components/Container';
@@ -317,17 +317,12 @@ export function TutorOnboardingPage() {
   }
 
 
-  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (activeTab !== 'profile') {
-      setError(null);
-      setActiveTab(getNextTab(activeTab) ?? 'profile');
-      return;
-    }
-
-    void finishTutorOnboarding();
-  }
+  /**
+   * Tutor onboarding intentionally does not use a form-level submit handler.
+   * The Availability step contains several nested controls, so keeping Back,
+   * Next and Finish as explicit button actions prevents the browser from
+   * treating a Next click as a premature final submit.
+   */
 
   function goBack() {
     const previousTab = getPreviousTab(activeTab);
@@ -403,7 +398,7 @@ export function TutorOnboardingPage() {
       />
 
       <Container className="py-10 pb-28">
-        <form onSubmit={handleFormSubmit} className="grid gap-8">
+        <div className="grid gap-8">
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
             <div className="grid gap-2 md:grid-cols-4">
               {TUTOR_ONBOARDING_TABS.map((tab) => {
@@ -463,7 +458,11 @@ export function TutorOnboardingPage() {
             )}
 
             {isFinalTab ? (
-              <Button type="submit" disabled={isSaving || isLoadingProfile}>
+              <Button
+                type="button"
+                disabled={isSaving || isLoadingProfile}
+                onClick={() => void finishTutorOnboarding()}
+              >
                 {isSaving ? 'Saving...' : 'Finish'}
               </Button>
             ) : (
@@ -472,7 +471,7 @@ export function TutorOnboardingPage() {
               </Button>
             )}
           </div>
-        </form>
+        </div>
       </Container>
     </main>
   );
