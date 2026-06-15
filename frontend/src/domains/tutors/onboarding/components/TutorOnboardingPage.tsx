@@ -184,6 +184,8 @@ export function TutorOnboardingPage() {
     field: 'displayName' | 'headline' | 'university' | 'degree' | 'bio',
     value: string
   ) {
+    if (error) setError(null);
+
     setProfile((currentProfile) => ({
       ...currentProfile,
       [field]: value,
@@ -326,13 +328,18 @@ export function TutorOnboardingPage() {
 
   function goBack() {
     const previousTab = getPreviousTab(activeTab);
-    if (previousTab) setActiveTab(previousTab);
+
+    if (previousTab) {
+      setError(null);
+      setActiveTab(previousTab);
+    }
   }
 
   function goForward() {
     const nextTab = getNextTab(activeTab);
 
     if (nextTab) {
+      setError(null);
       setActiveTab(nextTab);
       return;
     }
@@ -404,7 +411,10 @@ export function TutorOnboardingPage() {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => {
+                      setError(null);
+                      setActiveTab(tab.id);
+                    }}
                     className={cn(
                       'rounded-2xl px-4 py-3 text-left transition',
                       isActive

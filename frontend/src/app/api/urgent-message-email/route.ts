@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     const email = buildUrgentEmail({ relationship, message });
+    const recipient = getUrgentEmailRecipient(relationship.tutorEmail);
     const response = await fetch(RESEND_API_URL, {
       method: 'POST',
       headers: {
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
           process.env.RESEND_FROM_EMAIL ||
           process.env.EMAIL_FROM ||
           DEFAULT_FROM_ADDRESS,
-        to: relationship.tutorEmail,
+        to: recipient,
         subject: email.subject,
         html: email.html,
         text: email.text,
@@ -127,12 +128,12 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const responseBody = await response.text();
       return NextResponse.json(
-        { error: `Email provider error ${response.status}: ${responseBody}` },
+        { error: formatEmailProviderError(response.status, responseBody) },
         { status: 502 }
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, recipient });
   } catch (error) {
     return NextResponse.json(
       {
@@ -150,6 +151,31 @@ function getBearerToken(request: NextRequest) {
   const header = request.headers.get('authorization') ?? '';
   const [scheme, token] = header.split(' ');
   return scheme?.toLowerCase() === 'bearer' ? token : '';
+}
+
+function getUrgentEmailRecipient(tutorEmail: string) {
+  /**
+   * Resend's default onboarding@resend.dev sender can only send to the
+   * Resend account owner's email address. This optional override lets us test
+   * the automatic urgent-email flow locally without changing demo tutor data.
+   *
+   * For the real demo, leave this unset and use a verified Resend domain in
+   * URGENT_EMAIL_FROM so the email goes directly to the tutor.
+   */
+  return process.env.URGENT_EMAIL_TO_OVERRIDE || tutorEmail;
+}
+
+function formatEmailProviderError(status: number, responseBody: string) {
+  if (status === 403 && responseBody.includes('You can only send testing emails')) {
+    return [
+      'Resend is still in testing mode for onboarding@resend.dev.',
+      'With that default sender, it can only send to the email address used for your Resend account.',
+      'For local testing, set URGENT_EMAIL_TO_OVERRIDE to your own Resend account email.',
+      'For the real tutor email, verify a domain in Resend and set URGENT_EMAIL_FROM to an address on that verified domain.',
+    ].join(' ');
+  }
+
+  return `Email provider error ${status}: ${responseBody}`;
 }
 
 function buildUrgentEmail({
