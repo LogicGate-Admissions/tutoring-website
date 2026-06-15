@@ -23,6 +23,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/shared/constants/firestoreCollections';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 import type {
   AsyncSupportRole,
   RelationshipSupportSummary,
@@ -393,7 +394,7 @@ function normaliseRequestedSubjects(value: unknown): RelationshipTutoringSubject
     const data = item as Record<string, unknown>;
     const subject = String(data.subject ?? '').trim();
     const level = String(data.level ?? '').trim();
-    const label = String(data.label ?? [level, subject].filter(Boolean).join(' ')).trim();
+    const label = formatStoredSubjectLabel({ level, subject, label: String(data.label ?? '') });
 
     if (!subject && !label) {
       return [];

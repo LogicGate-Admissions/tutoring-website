@@ -92,7 +92,7 @@ export type StudentTutorRelationship = {
   /** Stored for future student-side email/notification flows. */
   studentEmail?: string;
 
-  /** Used by the urgent message flow to open an email draft for tutors. */
+  /** Used by the urgent message flow to email tutors automatically. */
   tutorEmail?: string;
 
   subject: string;

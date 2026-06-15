@@ -30,7 +30,7 @@ import {
 import { uploadAttachments } from "@/domains/attachments/services/attachmentUploadService";
 import {
   canEmailTutorForUrgentMessage,
-  openUrgentMessageEmailDraft,
+  sendUrgentMessageEmail,
 } from "@/domains/async-support/services/urgentMessageEmailService";
 import { subscribeToCurrentUser } from "@/domains/auth/services/authService";
 import {
@@ -55,6 +55,7 @@ import { Button } from "@/shared/components/Button";
 import { Card } from "@/shared/components/Card";
 import { PdfFirstPagePreview } from "@/domains/async-support/components/PdfFirstPagePreview";
 import { cn } from "@/shared/utils/cn";
+import { formatStoredSubjectLabel } from "@/shared/utils/subjectLabels";
 import { getFilesFromClipboard } from "@/shared/utils/clipboardFiles";
 import { DragToBookCalendar, type BookingSubjectOption } from "@/domains/booking/components/DragToBookCalendar";
 import { useRelationshipBookings } from "@/domains/booking/hooks/useRelationshipBookings";
@@ -414,7 +415,7 @@ export function MessageThread({
             })
           : [];
 
-      await createSupportMessage({
+      const sentMessage = await createSupportMessage({
         relationshipId,
         senderId: currentUser.id,
         senderRole: currentUser.role,
@@ -426,11 +427,9 @@ export function MessageThread({
       });
 
       if (isUrgent && currentUser.role === "student") {
-        openUrgentEmailDraftOrShowFallback({
+        await sendUrgentEmailOrShowFallback({
           relationship,
-          studentName: currentUser.name,
-          messageBody: trimmedMessage,
-          attachmentCount: attachments.length,
+          messageId: sentMessage.id,
         });
       }
 
@@ -553,11 +552,9 @@ export function MessageThread({
       });
 
       if (urgency === "urgent" && currentUser?.role === "student") {
-        openUrgentEmailDraftOrShowFallback({
+        await sendUrgentEmailOrShowFallback({
           relationship,
-          studentName: currentUser.name,
-          messageBody: message.body,
-          attachmentCount: message.attachments.length,
+          messageId: message.id,
         });
       }
     } catch (caughtError) {
@@ -1127,10 +1124,10 @@ function getRelationshipSubjectLabel(relationship: StudentTutorRelationship) {
   const requestedSubjects = relationship.requestedSubjects ?? [];
 
   if (requestedSubjects.length > 0) {
-    return requestedSubjects.map((subject) => subject.label).join(', ');
+    return requestedSubjects.map((subject) => formatStoredSubjectLabel(subject)).join(', ');
   }
 
-  return [relationship.level, relationship.subject].filter(Boolean).join(' ') || 'Subject not specified';
+  return formatStoredSubjectLabel(relationship) || 'Subject not specified';
 }
 
 function getRelationshipBookingSubjectOptions(
@@ -1146,11 +1143,11 @@ function getRelationshipBookingSubjectOptions(
     return requestedSubjects.map((subject) => ({
       level: subject.level,
       subject: subject.subject,
-      label: subject.label || [subject.level, subject.subject].filter(Boolean).join(' ') || subject.subject,
+      label: formatStoredSubjectLabel(subject) || subject.subject,
     }));
   }
 
-  const label = [relationship.level, relationship.subject].filter(Boolean).join(' ') || relationship.subject;
+  const label = formatStoredSubjectLabel(relationship) || relationship.subject;
 
   return label
     ? [{
@@ -1181,13 +1178,13 @@ function UrgentToggle({
       <span>
         <span className="block font-semibold">Mark as urgent</span>
         <span className="mt-1 block leading-5 text-red-800">
-          This flags the message for your tutor and opens a pre-filled email
-          draft addressed to them after sending.
+          This flags the message for your tutor and sends them an automatic
+          email after you send it.
         </span>
         {!canEmailTutor ? (
           <span className="mt-1 block text-xs font-medium text-red-700">
             Tutor email is missing for this relationship, so the in-app urgent
-            flag will still save but the email draft may not open.
+            flag will still save but the email cannot be sent automatically.
           </span>
         ) : null}
       </span>
@@ -1195,34 +1192,30 @@ function UrgentToggle({
   );
 }
 
-function openUrgentEmailDraftOrShowFallback({
+async function sendUrgentEmailOrShowFallback({
   relationship,
-  studentName,
-  messageBody,
-  attachmentCount,
+  messageId,
 }: {
   relationship: StudentTutorRelationship | null;
-  studentName: string;
-  messageBody: string;
-  attachmentCount: number;
+  messageId: string;
 }) {
   if (!relationship) {
     window.alert(
-      "Urgent flag saved, but relationship details could not be loaded for the email draft.",
+      "Urgent flag saved, but relationship details could not be loaded for the email.",
     );
     return;
   }
 
   try {
-    openUrgentMessageEmailDraft({
-      relationship,
-      studentName,
-      messageBody,
-      attachmentCount,
+    await sendUrgentMessageEmail({
+      relationshipId: relationship.id,
+      messageId,
     });
-  } catch {
+  } catch (error) {
     window.alert(
-      "Urgent flag saved, but the tutor email is missing for this relationship.",
+      error instanceof Error
+        ? `Urgent flag saved, but the email could not be sent automatically: ${error.message}`
+        : "Urgent flag saved, but the email could not be sent automatically.",
     );
   }
 }

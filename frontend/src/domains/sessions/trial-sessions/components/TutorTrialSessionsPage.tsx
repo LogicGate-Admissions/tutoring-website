@@ -26,6 +26,7 @@ import {
   updateTrialSessionStatus,
 } from '@/domains/sessions/trial-sessions/services/trialSessionService';
 import type { TrialSessionRequest } from '@/domains/sessions/trial-sessions/types/trialSession';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 export function TutorTrialSessionsPage() {
   const [currentTutor, setCurrentTutor] = useState<AuthUser | null>(null);
@@ -196,8 +197,8 @@ export function TutorTrialSessionsPage() {
 
 function formatRequestedSubjects(request: TrialSessionRequest) {
   if (request.requestedSubjects && request.requestedSubjects.length > 0) {
-    return request.requestedSubjects.map((subject) => subject.label).join(', ');
+    return request.requestedSubjects.map((subject) => formatStoredSubjectLabel(subject)).join(', ');
   }
 
-  return [request.level, request.subject].filter(Boolean).join(' ') || 'Subject not set';
+  return formatStoredSubjectLabel(request) || 'Subject not set';
 }

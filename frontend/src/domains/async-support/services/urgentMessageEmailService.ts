@@ -1,82 +1,59 @@
 /**
  * File purpose:
- * Browser-only email handoff for urgent student messages.
+ * Client boundary for automatic urgent-message emails.
  *
- * The project is currently frontend-only, so it cannot securely send real
- * transactional emails by itself. This service opens a pre-filled mailto draft
- * addressed to the tutor. If a backend/email provider is added later, this file
- * is the only boundary that needs replacing.
+ * Students still send the message through Firestore first. When the message is
+ * urgent, this service calls a server route that verifies the student is part of
+ * the relationship, reads the saved message/attachments, and sends the tutor an
+ * email through Resend.
  */
 
 import type { StudentTutorRelationship } from '@/domains/async-support/types/asyncSupport';
+import { getCurrentFirebaseUser } from '@/domains/auth/services/authService';
 
 type UrgentMessageEmailInput = {
-  relationship: StudentTutorRelationship;
-  studentName: string;
-  messageBody: string;
-  attachmentCount: number;
+  relationshipId: string;
+  messageId: string;
 };
 
-/** True when this relationship has enough contact data to open an email draft. */
+/** True when this relationship has enough contact data for automatic urgent email. */
 export function canEmailTutorForUrgentMessage(
   relationship: StudentTutorRelationship | null
 ) {
   return Boolean(relationship?.tutorEmail);
 }
 
-/** Opens the user's email client with a pre-filled urgent tutor email. */
-export function openUrgentMessageEmailDraft({
-  relationship,
-  studentName,
-  messageBody,
-  attachmentCount,
+/** Sends an automatic urgent email to the tutor using the server API route. */
+export async function sendUrgentMessageEmail({
+  relationshipId,
+  messageId,
 }: UrgentMessageEmailInput) {
-  if (!relationship.tutorEmail) {
-    throw new Error('Tutor email is not available for this relationship.');
+  const firebaseUser = getCurrentFirebaseUser();
+
+  if (!firebaseUser) {
+    throw new Error('Please log in again before sending urgent email.');
   }
 
-  window.location.href = buildUrgentMessageMailtoUrl({
-    relationship,
-    studentName,
-    messageBody,
-    attachmentCount,
+  const idToken = await firebaseUser.getIdToken();
+
+  const response = await fetch('/api/urgent-message-email', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ relationshipId, messageId }),
   });
-}
 
-function buildUrgentMessageMailtoUrl({
-  relationship,
-  studentName,
-  messageBody,
-  attachmentCount,
-}: UrgentMessageEmailInput) {
-  const tutorEmail = relationship.tutorEmail;
+  if (!response.ok) {
+    let detail = 'Urgent email failed.';
+    try {
+      const data = (await response.json()) as { error?: string };
+      detail = data.error || detail;
+    } catch {
+      detail = await response.text();
+    }
 
-  if (!tutorEmail) {
-    throw new Error('Tutor email is not available for this relationship.');
+    throw new Error(detail);
   }
-
-  const subject = `Urgent message from ${studentName}`;
-  const bodyLines = [
-    `Hi ${relationship.tutorName || 'Tutor'},`,
-    '',
-    `${studentName} marked a message as urgent in LogicGate.`,
-    '',
-    `Subject: ${relationship.level} ${relationship.subject}`.trim(),
-    '',
-    'Message:',
-    messageBody.trim() || '(No text message - check the support thread for attachments/context.)',
-    '',
-    attachmentCount > 0
-      ? `Attachment note: ${attachmentCount} demo attachment${attachmentCount === 1 ? '' : 's'} were added in the support thread.`
-      : '',
-    '',
-    'Please open the support thread in the dashboard to reply with context.',
-  ].filter((line) => line !== '');
-
-  const params = new URLSearchParams({
-    subject,
-    body: bodyLines.join('\n'),
-  });
-
-  return `mailto:${encodeURIComponent(tutorEmail)}?${params.toString()}`;
 }

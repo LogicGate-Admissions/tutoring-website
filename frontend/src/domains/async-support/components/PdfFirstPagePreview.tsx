@@ -131,7 +131,7 @@ export function PdfFirstPagePreview({
         if (isCancelled) return;
 
         const baseViewport = page.getViewport({ scale: 1 });
-        const containerWidth = Math.max(container.clientWidth, 180);
+        const containerWidth = Math.max(container.clientWidth - 4, 180);
         const deviceScale = window.devicePixelRatio || 1;
         const displayScale = containerWidth / baseViewport.width;
         const renderScale = displayScale * deviceScale;
@@ -144,8 +144,8 @@ export function PdfFirstPagePreview({
 
         canvas.width = viewport.width;
         canvas.height = viewport.height;
-        canvas.style.width = `${viewport.width / deviceScale}px`;
-        canvas.style.height = `${viewport.height / deviceScale}px`;
+        canvas.style.width = `${Math.floor(viewport.width / deviceScale)}px`;
+        canvas.style.height = `${Math.floor(viewport.height / deviceScale)}px`;
 
         renderTask = page.render({ canvasContext: context, viewport });
         await renderTask.promise;
@@ -174,7 +174,7 @@ export function PdfFirstPagePreview({
     <div
       ref={containerRef}
       className={cn(
-        'relative overflow-hidden rounded-lg bg-white shadow-sm',
+        'relative flex justify-center overflow-hidden rounded-lg bg-white shadow-sm',
         className,
       )}
       aria-label={title}
@@ -194,7 +194,7 @@ export function PdfFirstPagePreview({
       <canvas
         ref={canvasRef}
         className={cn(
-          'block w-full bg-white',
+          'mx-auto block max-w-full bg-white',
           status !== 'ready' && 'opacity-0',
         )}
       />

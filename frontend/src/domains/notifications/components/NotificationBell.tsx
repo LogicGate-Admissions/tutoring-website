@@ -15,6 +15,7 @@ import { useNotifications } from '@/domains/notifications/hooks/useNotifications
 import type { AsyncSupportRole } from '@/domains/async-support/types/asyncSupport';
 import type { AppNotification } from '@/domains/notifications/types/notification';
 import { cn } from '@/shared/utils/cn';
+import { MathRenderer } from '@/domains/async-support/components/MathRenderer';
 
 type NotificationBellProps = {
   userType: AsyncSupportRole;
@@ -157,7 +158,7 @@ function NotificationBellContent({
                 {notification.title}
               </p>
               <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-600">
-                {notification.description}
+                <MathRenderer value={notification.description} />
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 {notification.meta} · {formatNotificationTime(notification.createdAt)}

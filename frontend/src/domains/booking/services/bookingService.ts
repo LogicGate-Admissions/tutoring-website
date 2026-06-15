@@ -94,7 +94,7 @@ async function assertTutorOffersSubject(
 }
 
 function normaliseSubjectLabel(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+  return value.trim().toLowerCase().replace(/\s*·\s*/g, ' ').replace(/\s+/g, ' ');
 }
 
 function getAllowedTutorSubjectLabels(data: Record<string, unknown>) {
@@ -116,6 +116,7 @@ function getAllowedTutorSubjectLabels(data: Record<string, unknown>) {
 
     add(subject);
     add([level, subject].filter(Boolean).join(' '));
+    add([level, subject].filter(Boolean).join(' · '));
   });
 
   const subjectSelections = Array.isArray(data.subjectSelections)
@@ -133,6 +134,8 @@ function getAllowedTutorSubjectLabels(data: Record<string, unknown>) {
       const subject = String(selectionSubject ?? '').trim();
       add(subject);
       add([level, subject].filter(Boolean).join(' '));
+      add([level, subject].filter(Boolean).join(' · '));
+    add([level, subject].filter(Boolean).join(' · '));
     });
   });
 

@@ -55,6 +55,7 @@ import type {
   TutorFilters,
 } from '@/domains/tutors/tutor-discovery/types/tutor';
 import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 const SHORTLIST_STORAGE_PREFIX = 'logicgate-shortlisted-tutors';
 
@@ -632,7 +633,7 @@ function getSubjectPickerChoices(tutor: Tutor): SubjectPickerChoice[] {
         key: `${rate.qualification}:${rate.subject}`,
         level: rate.qualification,
         subject: rate.subject,
-        label: `${rate.qualification} ${rate.subject}`,
+        label: formatStoredSubjectLabel({ level: rate.qualification, subject: rate.subject }),
         pricePerHour: rate.pricePerHour,
       }))
     );
@@ -647,7 +648,7 @@ function getSubjectPickerChoices(tutor: Tutor): SubjectPickerChoice[] {
         key: `${level || 'level'}:${subject}`,
         level,
         subject,
-        label: [level, subject].filter(Boolean).join(' ') || subject,
+        label: formatStoredSubjectLabel({ level, subject }) || subject,
       }))
     )
   );
@@ -697,7 +698,11 @@ function dedupeSubjectChoices(choices: SubjectPickerChoice[]) {
 function normaliseRequestedSubjects(
   choices: SubjectPickerChoice[]
 ): RequestedTutoringSubject[] {
-  return choices.map(({ level, subject, label }) => ({ level, subject, label }));
+  return choices.map(({ level, subject, label }) => ({
+    level,
+    subject,
+    label: formatStoredSubjectLabel({ level, subject, label }),
+  }));
 }
 
 

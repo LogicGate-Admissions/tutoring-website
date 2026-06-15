@@ -478,3 +478,23 @@ html[data-theme='dark'] .logicgate-status-neutral {
     color: #e2e8f0 !important;
   }
 }
+
+/* Keep Jitsi video-call frame neutral in dark mode; global button blue overrides should not affect it. */
+.logicgate-jitsi-frame {
+  background-color: #020617 !important;
+}
+
+html[data-theme='dark'] .logicgate-jitsi-frame {
+  background-color: #020617 !important;
+}
+
+/* Urgent message surfaces need stronger contrast in dark mode. */
+html[data-theme='dark'] .bg-red-50,
+html[data-theme='dark'] .hover\:bg-red-100:hover {
+  background-color: rgba(127, 29, 29, 0.46) !important;
+}
+
+html[data-theme='dark'] .text-red-950,
+html[data-theme='dark'] .text-red-800 {
+  color: #fee2e2 !important;
+}

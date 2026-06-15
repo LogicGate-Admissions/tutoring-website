@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { MathRenderer } from '@/domains/async-support/components/MathRenderer';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
 import { RelationshipSupportModal } from '@/domains/async-support/components/RelationshipSupportModal';
@@ -37,6 +38,7 @@ import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 type Section = 'my-students' | 'pending-students' | 'my-sessions' | 'tutor-profile';
 type ActiveSupportModal = {
@@ -630,7 +632,7 @@ function PendingLatestMessageSummary({
         <span className="font-semibold text-slate-900">
           {latestMessage.senderName || 'Unknown user'}:
         </span>{' '}
-        {latestMessage.body}
+        <MathRenderer value={latestMessage.body} />
       </p>
       <p className="mt-1 text-xs text-slate-500">
         {formatPendingCardTime(latestMessage.createdAt)}
@@ -855,8 +857,8 @@ function getTutorRelationshipActions(
 
 function formatTrialRequestSubject(request: TrialSessionRequest) {
   if (request.requestedSubjects && request.requestedSubjects.length > 0) {
-    return request.requestedSubjects.map((subject) => subject.label).join(', ');
+    return request.requestedSubjects.map((subject) => formatStoredSubjectLabel(subject)).join(', ');
   }
 
-  return [request.level, request.subject].filter(Boolean).join(' ') || 'Subject not set';
+  return formatStoredSubjectLabel(request) || 'Subject not set';
 }

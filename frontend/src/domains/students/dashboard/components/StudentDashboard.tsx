@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { MathRenderer } from '@/domains/async-support/components/MathRenderer';
 import { RelationshipListState } from '@/domains/async-support/components/RelationshipListState';
 import { SupportRelationshipCard } from '@/domains/async-support/components/SupportRelationshipCard';
 import { RelationshipSupportModal } from '@/domains/async-support/components/RelationshipSupportModal';
@@ -44,6 +45,7 @@ import { Card } from '@/shared/components/Card';
 import { Container } from '@/shared/components/Container';
 import { ROUTES } from '@/shared/constants/routes';
 import { cn } from '@/shared/utils/cn';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 type Section =
   | 'my-tutors'
@@ -712,7 +714,7 @@ function PendingTutorCard({
           <ProfileNameButton label={item.tutor.name || 'Unnamed'} onClick={onViewProfile} />
 
           <p className="mt-1 text-sm text-slate-600">
-            {item.tutor.levels[0] ?? 'Level not set'} {item.tutor.subjects[0] ?? 'Subject not set'}
+            {formatStoredSubjectLabel({ level: item.tutor.levels[0], subject: item.tutor.subjects[0] }) || 'Subject not set'}
           </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
@@ -840,7 +842,7 @@ function PendingLatestMessageSummary({
         <span className="font-semibold text-slate-900">
           {latestMessage.senderName || 'Unknown user'}:
         </span>{' '}
-        {latestMessage.body}
+        <MathRenderer value={latestMessage.body} />
       </p>
       <p className="mt-1 text-xs text-slate-500">
         {formatPendingCardTime(latestMessage.createdAt)}

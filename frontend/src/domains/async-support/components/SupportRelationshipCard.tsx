@@ -27,6 +27,8 @@ import type { BookingSubjectOption } from '@/domains/booking/components/DragToBo
 import { StudentProfileModal } from '@/domains/students/learning-profile/components/StudentProfileModal';
 import { getStudentLearningProfileById } from '@/domains/students/learning-profile/services/learningProfileStorage';
 import type { StudentLearningProfile } from '@/domains/students/learning-profile/types/learningProfile';
+import { MathRenderer } from '@/domains/async-support/components/MathRenderer';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 type SupportRelationshipAction = {
   label: string;
@@ -210,10 +212,10 @@ function getRelationshipSubjectLabel(relationship: RelationshipSupportSummary) {
   const requestedSubjects = relationship.requestedSubjects ?? [];
 
   if (requestedSubjects.length > 0) {
-    return requestedSubjects.map((subject) => subject.label).join(', ');
+    return requestedSubjects.map((subject) => formatStoredSubjectLabel(subject)).join(', ');
   }
 
-  return [relationship.level, relationship.subject].filter(Boolean).join(' ') || 'Subject not specified';
+  return formatStoredSubjectLabel(relationship) || 'Subject not specified';
 }
 
 function getRelationshipBookingSubjectOptions(
@@ -225,7 +227,7 @@ function getRelationshipBookingSubjectOptions(
     return requestedSubjects.map(subjectToBookingOption);
   }
 
-  const label = [relationship.level, relationship.subject].filter(Boolean).join(' ') || relationship.subject;
+  const label = formatStoredSubjectLabel(relationship) || relationship.subject;
 
   return label
     ? [{
@@ -240,7 +242,7 @@ function subjectToBookingOption(subject: RelationshipTutoringSubject): BookingSu
   return {
     level: subject.level,
     subject: subject.subject,
-    label: subject.label || [subject.level, subject.subject].filter(Boolean).join(' ') || subject.subject,
+    label: formatStoredSubjectLabel(subject) || subject.subject,
   };
 }
 
@@ -359,7 +361,7 @@ function LatestMessageSummary({
         <span className="font-semibold text-slate-900">
           {relationship.latestMessageSenderName || 'Unknown user'}:
         </span>{' '}
-        {relationship.latestMessagePreview}
+        <MathRenderer value={relationship.latestMessagePreview} />
       </p>
       <p className="mt-1 text-xs text-slate-500">
         {formatCardTime(relationship.latestMessageAt)}

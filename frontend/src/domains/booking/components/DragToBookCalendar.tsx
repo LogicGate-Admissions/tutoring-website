@@ -20,6 +20,7 @@ import {
 } from '@/domains/students/learning-profile/utils/availabilityGridMath';
 import { TimeLabels } from '@/domains/students/learning-profile/components/availability/AvailabilityGridLayout';
 import { cn } from '@/shared/utils/cn';
+import { formatStoredSubjectLabel } from '@/shared/utils/subjectLabels';
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ function normaliseSubjectOptions(options: BookingSubjectOption[]) {
 
   return options
     .map((option) => ({
-      label: normaliseText(option.label || [option.level, option.subject].filter(Boolean).join(' ')),
+      label: normaliseText(formatStoredSubjectLabel(option)),
       subject: normaliseText(option.subject || option.label),
       level: normaliseText(option.level ?? ''),
     }))
@@ -124,7 +125,7 @@ function subjectOptionsFromTutorProfile(data: Record<string, unknown>) {
     return [{
       level,
       subject,
-      label: [level, subject].filter(Boolean).join(' ') || subject,
+      label: formatStoredSubjectLabel({ level, subject }),
     }];
   });
 
@@ -273,32 +274,14 @@ export function DragToBookCalendar({
   const shouldShowSubjectPicker = !isReschedule && effectiveSubjectOptions.length !== 1;
   const shouldShowFixedSubject = !isReschedule && effectiveSubjectOptions.length === 1;
 
-  useEffect(() => {
-    if (isReschedule) return;
+  const autoSelectedSubject = !isReschedule && effectiveSubjectOptions.length === 1
+    ? effectiveSubjectOptions[0].label
+    : '';
 
-    if (relationshipOptions.length === 1) {
-      setSubject(relationshipOptions[0].label);
-      return;
-    }
-
-    if (relationshipOptions.length > 1) {
-      setSubject((currentSubject) =>
-        relationshipOptions.some((option) => option.label === currentSubject)
-          ? currentSubject
-          : ''
-      );
-      return;
-    }
-
-    if (prefilledSubject) {
-      setSubject(prefilledSubject);
-      return;
-    }
-
-    if (tutorSubjectOptions.length === 1) {
-      setSubject(tutorSubjectOptions[0].label);
-    }
-  }, [isReschedule, prefilledSubject, relationshipOptions, tutorSubjectOptions]);
+  function getResolvedSubject() {
+    if (isReschedule) return existingBooking?.subject || subject;
+    return subject || autoSelectedSubject || prefilledSubject || '';
+  }
 
   // Document-level mouse handlers - registered once, read state via ref
   useEffect(() => {
@@ -398,7 +381,7 @@ export function DragToBookCalendar({
   async function handleSubmit() {
     if (!bookingDraft) return;
     setFormError(null);
-    const effectiveSubject = subject || prefilledSubject || '';
+    const effectiveSubject = getResolvedSubject();
     if (!effectiveSubject) { setFormError('Please select a subject.'); return; }
     setSubmitting(true);
     setSubmitError(null);
@@ -658,11 +641,11 @@ export function DragToBookCalendar({
           <div className="mt-4 grid gap-4">
             <div>
               <label htmlFor="dtbc-subject" className="block text-sm font-medium text-slate-700">
-                Subject / Topic
+                Subject
               </label>
               {isReschedule || shouldShowFixedSubject ? (
                 <p className="mt-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900">
-                  {subject || existingBooking?.subject || 'Subject not selected'}
+                  {getResolvedSubject() || existingBooking?.subject || 'Subject not selected'}
                 </p>
               ) : shouldShowSubjectPicker ? (
                 <select
